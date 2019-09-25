@@ -60,8 +60,8 @@ class OVITOSPostProcess(object):
             j = j + 1
         return intIndex
     def PlotTripleLine(self):
-        lstPoints = list(zip(self.__TripleLine))
-        return lstPoints
+        arrPoints = self.__TripleLine
+        return arrPoints[:,0],arrPoints[:,1], arrPoints[:,2]
     def PlotGrain(self, strGrainNumber: str):
         return self.__PlotList(self.__LatticeAtoms[strGrainNumber])
     def PlotUnknownAtoms(self):
@@ -69,7 +69,8 @@ class OVITOSPostProcess(object):
     def PlotGBAtoms(self):
         return self.__PlotList(self.__GBAtoms)
     def PlotTriplePoints(self):
-        return self.__PlotList(self.__TriplePoints)
+        arrPoints = self.__TriplePoints
+        return arrPoints[:,:,0],arrPoints[:,:,1], arrPoints[:,:,2]
     def __PlotList(self, strList: list):
         arrPoints = np.array(strList)
         return arrPoints[:,self.__intPositionX], arrPoints[:,self.__intPositionY], arrPoints[:,self.__intPositionZ]
@@ -82,47 +83,38 @@ class OVITOSPostProcess(object):
         intMin = np.argmin(fltDistances)
         intDataIndex = intIndices[intMin]
         return self.__dctGrainPointsTree[strGrainKey].data[intDataIndex]
+    def NumberOfGBAtoms(self)->int:
+        return len(self.__GBAtoms)
     def FindTriplePoints(self):
-        lstTriplePoints = []
-        lstTripleLine = []
-        arrTriplePoints =np.zeros([self.__NumberOfGrains+1,self.__Dimensions ])
-        fltDistances = []
+        arrTriplePoints =np.zeros([self.NumberOfGBAtoms(),self.__NumberOfGrains,self.__Dimensions ])
+        arrTripleLine = np.zeros([self.NumberOfGBAtoms(), self.__Dimensions])
         lstGrainBoundaryLength = []
-        for lstNumber, GBAtom in enumerate(self.__GBAtoms):
+        for n,GBAtom in enumerate(self.__GBAtoms):
             fltLengths = []
             for j,strGrainKey  in enumerate(self.__LatticeAtoms.keys()):
                 arrGBAtom = self.__GetCoordinates(GBAtom)
                 arrGrainPoint = self.FindClosestGrainPoint(arrGBAtom, strGrainKey)
-                arrTriplePoints[j] = self.__LAMMPSTimeStep.PeriodicShiftCloser(arrGBAtom,arrGrainPoint)
-            arrTriplePoints[self.__NumberOfGrains+1] = np.mean(arrTriplePoints, axis=0)
-            lstTripleLine.append(arrTriplePoints)
-            for j in range(len(arrTriplePoints)):
-                fltDistances.append(gf.RealDistance(arrTriplePoints[j], arrCentre))
-                for k in range(j+1,len(arrTriplePoints)):
-                    fltLengths.append(gf.RealDistance(arrTriplePoints[j],arrTriplePoints[k]))   
-            lstGrainBoundaryLength.append(min(fltDistances))
+                arrTriplePoints[n,j] = self.__LAMMPSTimeStep.PeriodicShiftCloser(arrGBAtom,arrGrainPoint)
+            arrCentre = gf.EquidistantPoint(*arrTriplePoints[n])
+            arrTripleLine[n] = arrCentre
+            for m in range(len(arrTriplePoints[n])):
+                for k in range(m+1,len(arrTriplePoints[n])):
+                    fltLengths.append(gf.RealDistance(arrTriplePoints[n,m],arrTriplePoints[n,k]))   
+            lstGrainBoundaryLength.append(min(fltLengths))
         fltMeanGrainBoundaryLength = np.mean(lstGrainBoundaryLength)
-            if fltRadius < np.median(fltDistances):
-                lstTriplePoints.append(GBAtom)
-                del self.__GBAtoms[lstNumber]
-                for j in arrTriplePoints:
-                    lstTripleLine.append(j)
-        self.__TriplePoints = lstTriplePoints
-        self.__TripleLine = lstTripleLine
-    def FindJunctionEdge(self):
-        lstBoundaryPoints = []
-        lstGrainKeys = list(self.__LatticeAtoms.keys())
-        for GBAtom in self.__GBAtoms[559:560]:
-            arrBoundaryPoint, strCurrentGrainKey = self.__FindInitialPoint(self.__GetCoordinates(GBAtom))            
-            counter = (lstGrainKeys.index(strCurrentGrainKey)+1) % self.__NumberOfGrains
-            while (counter < 500):
-                strCurrentGrainKey = lstGrainKeys[counter % self.__NumberOfGrains]
-                arrBoundaryPoint = self.FindClosestGrainPoint(arrBoundaryPoint+np.array([10,10,10]), strCurrentGrainKey) 
-                lstBoundaryPoints.append(arrBoundaryPoint)
-                counter = counter + 1
-        self.__BoundaryPoints = np.array(lstBoundaryPoints)
-    def GetBoundaryPoints(self):
-        return self.__BoundaryPoints
+        lstIndicesToDelete = []
+        for j in range(len(arrTripleLine)):
+            lstSpacing = []
+            for k in range(len(arrTriplePoints[j])):
+                lstSpacing.append(gf.RealDistance(arrTriplePoints[j,k],arrTripleLine[j]))
+            fltSpacing = max(lstSpacing)
+            fltDistance = gf.RealDistance(arrTripleLine[j], self.__GetCoordinates(self.__GBAtoms[j]))
+            if fltSpacing > fltMeanGrainBoundaryLength or fltDistance > fltMeanGrainBoundaryLength:
+                lstIndicesToDelete.append(j)
+        arrTripleLine = np.delete(arrTripleLine,lstIndicesToDelete, axis = 0 )
+        arrTriplePoints = np.delete(arrTriplePoints,lstIndicesToDelete, axis = 0 )
+        self.__TriplePoints = arrTriplePoints
+        self.__TripleLine = arrTripleLine
     def __FindInitialPoint(self, inAtomCoordinates: np.array)->np.array:
         arrTriplePoints = np.zeros([self.__NumberOfGrains, self.__Dimensions])
         arrDistances = np.zeros([self.__Dimensions])
@@ -150,26 +142,14 @@ arrQuart3 = gf.GetQuaternion(np.array([0,0,1]),40)
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-
 objPostProcess = OVITOSPostProcess(np.array([arrQuart1,arrQuart2,arrQuart3]), objTimeStep, 1)
-# print(len(objPostProcess.ReturnUnknownAtoms()))
-# print(objPostProcess.FindClosestGrainPoint(np.array([220,0,0]),'0'))
-# print(objPostProcess.FindClosestGrainPoint(np.array([220,0,0]),'1'))
-# print(objPostProcess.FindClosestGrainPoint(np.array([220,0,0]),'2'))
 objPostProcess.FindTriplePoints()
-#objPostProcess.FindJunctionEdge()
-#pts = objPostProcess.GetBoundaryPoints()
-#ax.scatter(pts[:,0], pts[:,1],pts[:,2])
-#print(objTimeStep.GetCellCentre())
-#print(objTimeStep.PeriodicEquivalents(np.array([200,1,6])))
-#print(len(objTimeStep.PeriodicEquivalents(np.array([200,1,6]))))
-#ax.scatter(*objPostProcess.PlotTripleLine())
+ax.scatter(*objPostProcess.PlotTripleLine(),c='red')
 #ax.scatter(*objPostProcess.PlotGBAtoms(),c='red')
-ax.scatter(*objPostProcess.PlotTriplePoints(),c='black')
+#ax.scatter(*objPostProcess.PlotTriplePoints(),c='black')
 #ax.scatter(*objPostProcess.PlotUnknownAtoms(), c='blue')
 #ax.scatter(*objPostProcess.PlotGBAtoms(),c='red')
 #ax.scatter(*objPostProcess.PlotGrain('0'))
 #ax.scatter(*objPostProcess.PlotGrain('1'))
 #ax.scatter(*objPostProcess.PlotGrain('2'))
-#ax.scatter(*zip(*objTimeStep.PeriodicEquivalents(np.array([100,300,5]))))
 plt.show()

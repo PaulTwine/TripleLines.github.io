@@ -129,3 +129,15 @@ def QuaternionProduct(inVectorOne: np.array, inVectorTwo:np.array )->np.array:
                 return np.array([r, v[0],v[1],v[2]])
 def QuaternionConjugate(inVector: np.array)->np.array:
         return np.array([inVector[0],-inVector[1],-inVector[2],-inVector[3]])
+def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.array)->np.array: #3 dimensions only
+        arrMatrix = np.zeros([3,3])
+        arrMatrix[0] = inVector3-inVector2
+        arrMatrix[1] = np.cross(inVector2-inVector1,inVector3-inVector1)
+        arrMatrix[2] = inVector2-inVector1
+        if np.linalg.det(arrMatrix) != 0:
+                invMatrix = np.linalg.inv(arrMatrix)
+                vctDirection = np.matmul(invMatrix, np.array([np.dot(arrMatrix[0],0.5*(inVector2+inVector3) - inVector1),0,0.5*np.dot(arrMatrix[2],arrMatrix[2])]))+inVector1
+        else:
+                vctDirection= np.mean(np.array([inVector1, inVector2, inVector3]), axis=0)
+        return vctDirection
+        
