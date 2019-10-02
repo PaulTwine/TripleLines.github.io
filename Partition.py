@@ -4,6 +4,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import GeometryFunctions as gf
 from scipy import spatial
+#the /ovitos PMStructure.py strFilename script must be run first as this runs the Ovitos Polyhedral matching 
+#function which populates the data file with the quarterninon data
 class OVITOSPostProcess(object):
     def __init__(self,arrGrainQuaternions: np.array, objTimeStep: Ld.LAMMPSTimeStep, intLatticeType: int):
         self.__GrainOrientations = arrGrainQuaternions
@@ -43,7 +45,7 @@ class OVITOSPostProcess(object):
             dctGrainPointsTree[strGrainKey] = spatial.KDTree(list(zip(*self.PlotGrain(strGrainKey))))
         self.__dctGrainPointsTree = dctGrainPointsTree
     def ReturnUnknownAtoms(self):
-        return self.__UnknownAtoms
+        return np.array(self.__UnknownAtoms)
     def ReturnGrainIndex(self, lstAtomRow: list)->int: #returns -1 if the atoms orientation doesn't match any lattice
         fltTest = 0
         arrAtom = np.array([lstAtomRow[self.__intQuarternionW],lstAtomRow[self.__intQuarternionX],lstAtomRow[self.__intQuarternionY],lstAtomRow[self.__intQuarternionZ]])
@@ -68,6 +70,10 @@ class OVITOSPostProcess(object):
         return self.__PlotList(self.__UnknownAtoms)
     def PlotGBAtoms(self):
         return self.__PlotList(self.__GBAtoms)
+    def PlotGBOnlyAtoms(self):
+        return self.__PlotList(self.__GBOnlyAtoms)
+    def PlotTripleLineAtoms(self):
+        return self.__PlotList(self.__TripleLineAtoms)
     def PlotTriplePoints(self):
         arrPoints = self.__TriplePoints
         return arrPoints[:,:,0],arrPoints[:,:,1], arrPoints[:,:,2]
@@ -103,18 +109,30 @@ class OVITOSPostProcess(object):
             lstGrainBoundaryLength.append(min(fltLengths))
         fltMeanGrainBoundaryLength = np.mean(lstGrainBoundaryLength)
         lstIndicesToDelete = []
+        lstTripleLineAtoms = []
+        lstGBOnlyAtoms = []
         for j in range(len(arrTripleLine)):
-            lstSpacing = []
-            for k in range(len(arrTriplePoints[j])):
-                lstSpacing.append(gf.RealDistance(arrTriplePoints[j,k],arrTripleLine[j]))
-            fltSpacing = max(lstSpacing)
+            fltSpacing = gf.RealDistance(arrTriplePoints[j,0], arrTripleLine[j])
             fltDistance = gf.RealDistance(arrTripleLine[j], self.__GetCoordinates(self.__GBAtoms[j]))
             if fltSpacing > fltMeanGrainBoundaryLength or fltDistance > fltMeanGrainBoundaryLength:
                 lstIndicesToDelete.append(j)
-        arrTripleLine = np.delete(arrTripleLine,lstIndicesToDelete, axis = 0 )
-        arrTriplePoints = np.delete(arrTriplePoints,lstIndicesToDelete, axis = 0 )
+                lstGBOnlyAtoms.append(self.__GBAtoms[j])
+            else:
+                lstTripleLineAtoms.append(self.__GBAtoms[j])
+           # else:
+           #     arrTripleLine[j] = self.__LAMMPSTimeStep.MoveToSimulationCell(arrTripleLine[j])
+        arrTripleLine = np.delete(arrTripleLine,lstIndicesToDelete, axis = 0)
+        arrTriplePoints = np.delete(arrTriplePoints,lstIndicesToDelete, axis = 0)
         self.__TriplePoints = arrTriplePoints
         self.__TripleLine = arrTripleLine
+        self.__TripleLineAtoms = lstTripleLineAtoms
+        self.__GBOnlyAtoms = lstGBOnlyAtoms
+    def GetTripleLineAtoms(self):
+        return np.array(self.__TripleLineAtoms)
+    def GetGBAtoms(self):
+        return np.array(self.__GBAtoms)
+    def GetGBOnlyAtoms(self):
+        return np.array(self.__GBOnlyAtoms)
     def __FindInitialPoint(self, inAtomCoordinates: np.array)->np.array:
         arrTriplePoints = np.zeros([self.__NumberOfGrains, self.__Dimensions])
         arrDistances = np.zeros([self.__Dimensions])
@@ -144,12 +162,16 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 objPostProcess = OVITOSPostProcess(np.array([arrQuart1,arrQuart2,arrQuart3]), objTimeStep, 1)
 objPostProcess.FindTriplePoints()
+#ax.scatter(*objPostProcess.PlotGBOnlyAtoms(),c='red')
 ax.scatter(*objPostProcess.PlotTripleLine(),c='red')
-#ax.scatter(*objPostProcess.PlotGBAtoms(),c='red')
+#ax.scatter(*objPostProcess.PlotTripleLineAtoms(), c='green')
+#ax.scatter(*objPostProcess.PlotGBAtoms(),c='blue')
 #ax.scatter(*objPostProcess.PlotTriplePoints(),c='black')
 #ax.scatter(*objPostProcess.PlotUnknownAtoms(), c='blue')
-#ax.scatter(*objPostProcess.PlotGBAtoms(),c='red')
 #ax.scatter(*objPostProcess.PlotGrain('0'))
 #ax.scatter(*objPostProcess.PlotGrain('1'))
 #ax.scatter(*objPostProcess.PlotGrain('2'))
 plt.show()
+intColumn = objTimeStep.GetColumnNames().index('c_pe1')
+print("Mean triple line PE in eV is",np.mean(objPostProcess.GetTripleLineAtoms()[:,intColumn]))
+print("Mean GB atom PE in eV is", np.mean(objPostProcess.GetGBOnlyAtoms()[:,intColumn]))

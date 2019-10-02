@@ -141,3 +141,7 @@ def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.arr
                 vctDirection= np.mean(np.array([inVector1, inVector2, inVector3]), axis=0)
         return vctDirection
         
+def WrapVectorInToSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
+        arrCoefficients = np.matmul(invMatrix, inVector)
+        arrCoefficients = np.mod(arrCoefficients, np.ones(len(arrCoefficients)))
+        return np.matmul(arrCoefficients, inMatrix)

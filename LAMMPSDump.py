@@ -78,8 +78,8 @@ class LAMMPSTimeStep(object):
         return self.__AtomData[intRowNumber]
     def GetAtomData(self):
         return self.__AtomData
-    def SetColumnNames(self, lstColumnNamnes):
-        self.__ColumnNames = lstColumnNamnes
+    def SetColumnNames(self, lstColumnNames):
+        self.__ColumnNames = lstColumnNames
     def GetColumnNames(self): 
         return self.__ColumnNames
     def GetColumnByIndex(self, intStructureIndex: int):
@@ -117,7 +117,7 @@ class LAMMPSTimeStep(object):
         self.__CellCentre = np.mean(arrCellVectors,axis=0)*self.__Dimensions/2+self.__Origin
         self.__CellBasis = np.zeros([self.__Dimensions,self.__Dimensions])
         for j, vctCell in enumerate(self.__CellVectors):
-            self.__CellBasis[j] = gf.NormaliseVector(vctCell) 
+            self.__CellBasis[j] = vctCell 
         self.__BasisConversion = np.linalg.inv(self.__CellBasis)
     def GetNumberOfAtoms(self):
         return self.__NumberOfAtoms
@@ -134,14 +134,23 @@ class LAMMPSTimeStep(object):
     def PeriodicEquivalents(self, inPositionVector: np.array)->np.array: #For POSITION vectors only for points within   
         arrVector = np.array([inPositionVector])                         #the simulation cell
         arrCellCoordinates = np.matmul(inPositionVector, self.__BasisConversion)
-        arrCellCentre = np.matmul(self.__CellCentre,self.__BasisConversion, )
         for i,strBoundary in enumerate(self.__BoundaryTypes):
             if strBoundary == 'pp':
-                 if abs(arrCellCoordinates[i]) >= abs(arrCellCentre[i]):
+                 if  arrCellCoordinates[i] > 0.5:
                      arrVector = np.append(arrVector, np.subtract(arrVector,self.__CellVectors[i]),axis=0)
-                 else:
+                 elif arrCellCoordinates[i] <= 0.5:
                      arrVector = np.append(arrVector, np.add(arrVector,self.__CellVectors[i]),axis=0)                  
         return arrVector
+    def MoveToSimulationCell(self, inPositionVector: np.array)->np.array:
+        #arrCellCoordinates = np.matmul(inPositionVector, self.__BasisConversion)
+        # if np.min(arrCellCoordinates) < 0 or np.max(arrCellCoordinates) >= 1:
+        #     rtnVector = np.zeros(self.__Dimensions)
+        #     for j in range(self.__Dimensions):
+        #         rtnVector = rtnVector + (arrCellCoordinates[j] % 1)*self.__CellVectors[j]
+        #     return rtnVector
+        # else:
+        #     return inPositionVector
+        return gf.WrapVectorInToSimulationCell(self.__CellBasis, self.__BasisConversion, inPositionVector)
     def PeriodicShiftCloser(self, inFixedPoint: np.array, inPointToShift: np.array)->np.array:
         arrPeriodicVectors = self.PeriodicEquivalents(inPointToShift)
         fltDistances = list(map(np.linalg.norm, np.subtract(arrPeriodicVectors, inFixedPoint)))
