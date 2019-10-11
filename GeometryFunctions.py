@@ -7,10 +7,7 @@ Created on Fri May 31 10:38:14 2019
 import numpy as np
 import itertools as it
 def RealDistance(inPointOne, inPointTwo)->float:
-        fltDistance = 0
-        for i in range(len(inPointOne)):
-                       fltDistance += (inPointOne[i]-inPointTwo[i])**2
-        return np.sqrt(fltDistance)
+        return np.linalg.norm(inPointOne-inPointTwo)
 def RotateVector(vctInVector: np.array, vctAxis: np.array, inAngle: float)->np.array:
         vctAxis = NormaliseVector(vctAxis)
         return np.add(np.add(np.multiply(np.cos(inAngle), vctInVector),
@@ -139,9 +136,8 @@ def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.arr
                 vctDirection = np.matmul(invMatrix, np.array([np.dot(arrMatrix[0],0.5*(inVector2+inVector3) - inVector1),0,0.5*np.dot(arrMatrix[2],arrMatrix[2])]))+inVector1
         else:
                 vctDirection= np.mean(np.array([inVector1, inVector2, inVector3]), axis=0)
-        return vctDirection
-        
+        return vctDirection        
 def WrapVectorInToSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
-        arrCoefficients = np.matmul(invMatrix, inVector)
+        arrCoefficients = np.matmul(inVector, invMatrix)
         arrCoefficients = np.mod(arrCoefficients, np.ones(len(arrCoefficients)))
         return np.matmul(arrCoefficients, inMatrix)
