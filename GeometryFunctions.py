@@ -57,16 +57,17 @@ def FindBoundingBox(inVectors: np.array)->np.array:
                 vctDimensions[j] = [min(lstCoordinate), max(lstCoordinate)]
         return vctDimensions
 def CheckLinearConstraint(inPoints: np.array, inConstraint: np.array)-> np.array:
-        lstDeletedPoints = []
+        lstIndicesToDelete = []
         intDimensions = len(inConstraint)-1
         for j in range(len(inPoints)):
                if ((np.dot(inPoints[j],inConstraint[:-1]) > inConstraint[intDimensions])):
-                   lstDeletedPoints.append(j)
-        if len(lstDeletedPoints) != 0:                
-                arrInsidePoints = np.delete(inPoints, lstDeletedPoints, axis=0)
-        else:
-                arrInsidePoints = inPoints
-        return arrInsidePoints
+                   lstIndicesToDelete.append(j)
+        return lstIndicesToDelete
+        # if len(lstDeletedPoints) != 0:                
+        #         arrInsidePoints = np.delete(inPoints, lstDeletedPoints, axis=0)
+        # else:
+        #         arrInsidePoints = inPoints
+        # return arrInsidePoints
 def CheckLinearEquality(inPoints: np.array, inConstraint: np.array)->np.array:
         lstDeletedPoints = []
         intDimensions = len(inConstraint)-1

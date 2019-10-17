@@ -8,6 +8,7 @@ import GeometryFunctions as gf
 import numpy as np
 import itertools as it
 import LatticeDefinitions as ld
+from scipy import spatial
 import re
            
 class PureCell(object):
@@ -66,111 +67,119 @@ class PureLattice(PureCell):
             for j, cell in enumerate(self._CellNodes):
                 arrLatticePoints[j+i*self._NumberOfCellNodes] = np.add(position,cell)
         self._LatticePoints = np.unique(arrLatticePoints, axis=0)
+        self.__LatticeTree = spatial.KDTree(self._LatticePoints)
+        self.__NodeTree = spatial.KDTree(self._CellNodes)
     def LinearConstrainCellPositions(self,inConstraint: np.array):
-        arrPoints = gf.CheckLinearConstraint(self._CellPositions, inConstraint)
-        self._CellPositions = arrPoints
+        lstDeletedIndices = gf.CheckLinearConstraint(self._CellPositions, inConstraint)
+        self._CellPositions = np.delete(self._CellPositions,lstDeletedIndices, axis=0)
         self.__MakeLatticePoints()
     def LinearConstrainLatticePoints(self,inConstraint: np.array):
-        arrPoints = gf.CheckLinearConstraint(self._LatticePoints, inConstraint)
-        self._LatticePoints = arrPoints
+        lstDeletedIndices = gf.CheckLinearConstraint(self._LatticePoints, inConstraint)
+        self._LatticePoints = np.delete(self._LatticePoints, lstDeletedIndices, axis=0)
     def AllAdjacentLatticePoints(self, inLatticePoint: np.array)->np.array:
         return np.add(inLatticePoint, self._CellNodes)
     def FindNearestCellNode(self, inLatticeCoordinate: np.array)->np.array:
-        arrDistances = np.zeros(self.NumberOfCellNodes)
-        arrLatticeCoordinate = list(map(np.round,inLatticeCoordinate))
-        arrLatticePoints = self.AllAdjacentLatticePoints(arrLatticeCoordinate)
-        for j,arrNode in enumerate(arrLatticePoints):
-            arrDistances[j] = gf.RealDistance(arrNode, inLatticeCoordinate)
-        intMinIndex = np.argmin(arrDistances)
-        return self.CellNodes[intMinIndex]
+        intIndex =  self.__NodeTree.query(inLatticeCoordinate)[1]
+        return np.array(self.__NodeTree.data[intIndex])
+    def FindNearestLatticePoint(self, inLatticeCoordinate: np.array)-> np.array:
+        intIndex =  self.__LatticeTree.query(inLatticeCoordinate)[1]
+        return np.array(self.__LatticeTree.data[intIndex])
+#The RealLattice class takes integer cell positions and an a CellNode pattern to create a real lattice. The lattice points
+#mapped to real points using a set of basis vectors (which should ideally be unit vectors) and then Lattice parameters which scale the vector in each direction.
 class RealLattice(PureLattice):
-    def __init__(self,inCellPositions: np.array, inCellNodes: np.array, inBasisVectors: np.array):
+    def __init__(self,inCellPositions: np.array, inCellNodes: np.array, inBasisVectors: np.array, inLatticeParameters = None, inOrigin = None):
         PureLattice.__init__(self,inCellPositions,inCellNodes)
-        self._BasisVectors = inBasisVectors
-        self._Origin = np.zeros(len(inBasisVectors[0]))
-        self._LatticeParameters =np.ones(len(inBasisVectors))
+        self.__UnitBasis = inBasisVectors
+        if inOrigin is None:
+            inOrigin = np.zeros(len(inBasisVectors[0]))
+        self.__Origin = inOrigin
+        if inLatticeParameters is None:
+            inLatticeParameters =np.ones(len(inBasisVectors))  
+        self.__LatticeBasis = np.matmul(np.diag(inLatticeParameters), inBasisVectors)
+        self._LatticeParameters = inLatticeParameters
         self.MakeRealPoints()
         self.RealToLatticeMatrix()
     def GetRealCoordinate(self, inLatticeCoordinate: np.array)->np.array:
-        arrRealCoordinate = self._Origin
-        for j in range(len(inLatticeCoordinate)):
-            arrRealCoordinate = np.add(arrRealCoordinate, np.multiply(inLatticeCoordinate[j]*self._LatticeParameters[j],self._BasisVectors[j]))
-        return arrRealCoordinate         
+        # for j in range(len(inLatticeCoordinate)):
+        #     arrRealCoordinate = np.add(arrRealCoordinate, np.multiply(inLatticeCoordinate[j]*self._LatticeParameters[j],self.__LatticeBasis[j]))
+        #return arrRealCoordinate
+        return np.add(np.matmul(inLatticeCoordinate, self.__LatticeBasis),self.__Origin)         
     def RealToLatticeMatrix(self):
-        arrMatrix = np.zeros([self._Dimensions, self._Dimensions])
-        for count,j in enumerate(self._BasisVectors):
-            arrMatrix[count] = j*self._LatticeParameters[count]
-        self._RealToLatticeMatrix =np.linalg.inv(arrMatrix) 
+        # arrMatrix = np.zeros([self._Dimensions, self._Dimensions])
+        # for count,j in enumerate(self.__LatticeBasis):
+        #     arrMatrix[count] = j*self._LatticeParameters[count]
+        self._RealToLatticeMatrix =np.linalg.inv(self.__LatticeBasis) 
     def GetLatticeCoordinate(self, inRealCoordinate:np.array)-> np.array:
-        #return self.GetCellCoordinate(inRealCoordinate)
         self.RealToLatticeMatrix()
-        arrRealCoordinate = np.add(inRealCoordinate, np.multiply(-1,self._Origin))
+        arrRealCoordinate = np.add(inRealCoordinate, np.multiply(-1,self.__Origin))
         arrLatticeCoordinate = np.matmul(arrRealCoordinate,self._RealToLatticeMatrix)
-        arrNodeCoordinate = self.FindNearestCellNode(arrLatticeCoordinate)
-        arrLatticeCoordinate = np.array(list(map(np.round,arrLatticeCoordinate)))
-        return np.add(arrLatticeCoordinate,arrNodeCoordinate)
+        arrLatticeCoordinate = self.FindNearestLatticePoint(arrLatticeCoordinate)
+        return arrLatticeCoordinate
     def GetCellCoordinate(self, inRealCoordinate:np.array)-> np.array: 
         self.RealToLatticeMatrix()
-        arrRealCoordinate = np.add(inRealCoordinate, np.multiply(-1,self._Origin))
-        arrLatticeCoordinate = np.matmul(arrRealCoordinate,self._RealToLatticeMatrix)
-        return arrLatticeCoordinate
-        #return np.array(list(map(np.rint,arrLatticeCoordinate)))  
+        arrRealCoordinate = np.add(inRealCoordinate, np.multiply(-1,self.__Origin))
+        arrCellCoordinate = np.matmul(arrRealCoordinate,self._RealToLatticeMatrix)
+        arrCellCoordinate = self.FindNearestCellNode(arrCellCoordinate)
+        return arrCellCoordinate
     @property
     def NumberOfBasisVectors(self)->int:
-        return len(self._BasisVectors)
+        return len(self.__LatticeBasis)
     @property
     def BasisVectors(self)->np.array:
-        return self._BasisVectors
+        return self.__LatticeBasis
     def GetBasisVector(self, inVectorNumber: int)->np.array:
-        return self._BasisVectors[inVectorNumber]
+        return self.__LatticeBasis[inVectorNumber]
     def SetBasisVector(self, inVector: np.array, inVectorNumber: int):
-        self._BasisVectors[inVectorNumber] = inVector
+        self.__LatticeBasis[inVectorNumber] = inVector
     @property
     def LatticeParameters(self)->np.array:
         return self._LatticeParameters
     @LatticeParameters.setter
     def LatticeParameters(self, inParameters: np.array):
         self._LatticeParameters = inParameters 
+        self.__LatticeBasis = np.matmul(np.diag(inParameters), self.__UnitBasis)
         self.MakeRealPoints()       
     @property
     def GetRealPoints(self)->list:
-        return self._RealPoints
+        return self.__RealPoints
     def MakeRealPoints(self):
-        self._RealPoints = np.array(list(map(self.GetRealCoordinate, self._LatticePoints)))
+        #self.__RealPoints = np.array(list(map(self.GetRealCoordinate, self.GetLatticePoints)))
+        self.__RealPoints = np.add(self.__Origin,np.matmul(self.GetLatticePoints, self.__LatticeBasis))
     def RotateAxes(self,inAngle: float, vctAxis: np.array):
         vctAxis = gf.NormaliseVector(vctAxis)
-        vctBasis = np.zeros([self.NumberOfBasisVectors,self.Dimensions])
-        for j in range(self.NumberOfBasisVectors):
-            vctBasis[j]= gf.RotateVector(self.GetBasisVector(j),vctAxis,inAngle) 
-        self._BasisVectors = vctBasis
+        self.__UnitBasis =  gf.RotateVectors(inAngle, vctAxis, self.__UnitBasis)
+        self.__LatticeBasis = np.matmul(np.diag(self._LatticeParameters), self.__UnitBasis)
         self.MakeRealPoints()
     def GetOrigin(self)->np.array:
-        return self._Origin
+        return self.__Origin
     def SetOrigin(self, inOrigin: np.array):
-        self._Origin = inOrigin
+        self.__Origin = inOrigin
     def LinearConstrainRealPoints(self, inConstraint: np.array):
-        arrPoints = gf.CheckLinearConstraint(self._RealPoints, inConstraint)
-        self._RealPoints = arrPoints
-        self._LatticePoints  = list(map(self.GetLatticeCoordinate, arrPoints))   
+        lstDeletedIndices = gf.CheckLinearConstraint(self.__RealPoints, inConstraint)
+        self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
+        self._LatticePoints  = np.delete(self._LatticePoints, lstDeletedIndices, axis=0)   
     def GetBoundingBox(self)->np.array:
         arrBoundingBox = np.zeros([self._Dimensions,2])
         for j in range(self._Dimensions):
-            arrBoundingBox[j] = np.array([min(self._RealPoints[:,j]), max(self._RealPoints[:,j])])
+            arrBoundingBox[j] = np.array([min(self.__RealPoints[:,j]), max(self.__RealPoints[:,j])])
         return arrBoundingBox
     def NearestCellPoint(self, inRealPoint: np.array)->np.array:    
-        arrLatticeCoordinate = self.GetLatticeCoordinate(inRealPoint)
-        arrLatticeCoordinate = list(map(np.floor, arrLatticeCoordinate))
+        arrLatticeCoordinate = self.GetCellCoordinate(inRealPoint)
         arrRealCellPoint = self.GetRealCoordinate(arrLatticeCoordinate)
         return list(np.array(arrRealCellPoint,dtype= float))
     def SnapToLattice(self, inRealPoint: np.array)->np.array:    
         arrLatticeCoordinate = self.GetLatticeCoordinate(inRealPoint)
-        arrLatticeCoordinate = list(map(np.floor, arrLatticeCoordinate))
         arrRealLatticePoint = self.GetRealCoordinate(arrLatticeCoordinate)
         return list(np.array(arrRealLatticePoint,dtype= float))
 class RealGrain(RealLattice):
-    def __init__(self, inCellPositions: np.array, inCellNodes: np.array, inBasisVectors: np.array):
-        RealLattice.__init__(self,inCellPositions, inCellNodes, inBasisVectors)
-        self._AtomType = 1
+    def __init__(self, inCellPositions: np.array, inCellNodes: np.array, inLatticeBasis: np.array, inBoundaryBasis = None, inAtomType = None):
+        RealLattice.__init__(self,inCellPositions, inCellNodes, inLatticeBasis)
+        if inAtomType is None:
+            inAtomType = 1
+        self._AtomType = inAtomType
+        if inBoundaryBasis is None:
+            inBoundaryBasis = gf.StandardBasisVectors(len(inLatticeBasis))
+        self.__BoundaryBasis = inBoundaryBasis
         self.RealCellNodes()
     def RealTranslation(self, inVector: np.array):
         self.SetOrigin(inVector+self.GetOrigin())
@@ -180,10 +189,10 @@ class RealGrain(RealLattice):
         self.SetOrigin(arrRealCoordinate+self.GetOrigin())
         self.MakeRealPoints()
     def MatLabPlot(self):
-        return zip(*self._RealPoints)
+        return zip(*self.GetRealPoints)
     @property 
     def GetNumberOfAtoms(self)->int:
-        return len(self._RealPoints)
+        return len(self.GetRealPoints)
     @property 
     def GetAtomType(self)->int:
         return self._AtomType
@@ -191,14 +200,14 @@ class RealGrain(RealLattice):
         self._AtomType = intAtomType
     def RealCentre(self)->np.array:
         arrCentre = np.zeros(self.Dimensions)
-        for j in self._RealPoints:
+        for j in self.__RealPoints:
             arrCentre = np.add(arrCentre, j)
         return arrCentre/(self.GetNumberOfAtoms)
     def RotateAboutCentre(self,inAngle: float, inAxis: np.array):
         self.RotateGrain(inAngle, self.RealCentre(), inAxis)
     def RotateGrain(self, inAngle: float, inPoint: np.array, inAxis: np.array):
         self.RotateAxes(inAngle,inAxis)
-        arrPointToOrigin = np.add(self._Origin, np.multiply(-1, inPoint))
+        arrPointToOrigin = np.add(self.GetOrigin(), np.multiply(-1, inPoint))
         arrRotatedPoint = gf.RotateVector(arrPointToOrigin,inAxis,inAngle)
         arrOriginTranslation = np.add(np.multiply(-1,arrPointToOrigin),arrRotatedPoint) 
         self.RealTranslation(arrOriginTranslation)
@@ -219,8 +228,8 @@ class RealGrain(RealLattice):
         self._NearestNeighboutDistance = fltShortestDistance
         return fltShortestDistance
     def RemovePlaneOfAtoms(self, inPlane: np.array):
-        arrPointsOnPlane = gf.CheckLinearEquality(self._RealPoints, inPlane)
-        self._RealPoints = arrPointsOnPlane
+        arrPointsOnPlane = gf.CheckLinearEquality(self.__RealPoints, inPlane)
+        self.__RealPoints = arrPointsOnPlane
         return arrPointsOnPlane    
 
     
@@ -234,13 +243,19 @@ class CuboidGrain(RealGrain):
 
 # Pass a list of boundary vectors the last vector should be the vertical vector 
 class ExtrudedPolygon(RealGrain):
-    def __init__(self, inBoundaryVectors: np.array, inCellNodes: np.array, arrBasisVectors = None):
+    def __init__(self, inBoundaryVectors: np.array, inCellNodes: np.array, arrLatticeBasis = None, arrBoundaryBasis = None):
         self._Dimensions = len(inBoundaryVectors[0])
-        if arrBasisVectors is None:
-            arrBasisVectors = gf.StandardBasisVectors(self.Dimensions)
+        if arrLatticeBasis is None:
+            arrLatticeBasis = gf.StandardBasisVectors(self.Dimensions)
+        if arrBoundaryBasis is None:
+            arrBoundaryBasis = gf.StandardBasisVectors(self.Dimensions)
+        else:
+            inBoundaryVectors = np.matmul(arrBoundaryBasis, inBoundaryVectors)
         self._BoundaryVectors = inBoundaryVectors
-        arrPoints = gf.CreateCuboidPoints(gf.FindBoundingBox(inBoundaryVectors))
-        RealGrain.__init__(self,arrPoints, inCellNodes, arrBasisVectors)
+        self.__BoundaryBasis = arrBoundaryBasis
+        arrLatticeBoundary = np.matmul(inBoundaryVectors,np.linalg.inv(arrLatticeBasis))
+        arrLatticePoints = gf.CreateCuboidPoints(gf.FindBoundingBox(arrLatticeBoundary))
+        RealGrain.__init__(self,arrLatticePoints, inCellNodes, arrLatticeBasis)
         arrFinalVector = inBoundaryVectors[len(inBoundaryVectors)-1]
         arrPointOnPlane =np.zeros([self._Dimensions])
         for j in range(len(self._BoundaryVectors)-1):
@@ -248,24 +263,23 @@ class ExtrudedPolygon(RealGrain):
             arrConstraint = gf.FindPlane(self._BoundaryVectors[j],arrFinalVector,arrPointOnPlane)
             self.LinearConstrainRealPoints(arrConstraint)
 class OrientedExtrudedPolygon(ExtrudedPolygon):
-    def __init__(self,inBoundaryVectors: np.array, inCellNodes: np.array,inAngle: float, inAxis: np.array, arrBasisVectors = None):
+    def __init__(self,inBoundaryVectors: np.array, inCellNodes: np.array,inAngle: float, inAxis: np.array, arrLatticeBasis = None, arrLatticeParameters = None):
         self.__OrientationAngle = inAngle
-        self.__RotationAxis = inAxis
+        self.__RotationAxis = gf.NormaliseVector(inAxis)
         inBoundaryVectors = gf.RotateVectors(inAngle, inAxis, inBoundaryVectors)
-        ExtrudedPolygon.__init__(self, inBoundaryVectors, inCellNodes, arrBasisVectors)
-        self.RotateGrain(-inAngle,self.GetOrigin(), inAxis)
+        ExtrudedPolygon.__init__(self, inBoundaryVectors, inCellNodes, arrLatticeBasis)
+        self.RotateGrain(-inAngle,self.GetOrigin(), self.__RotationAxis)
     def GetQuaternionOrientation(self)->np.array:
         return gf.GetQuaternion(self.__RotationAxis,self.__OrientationAngle)
 
-
 class OrientedExtrudedHexagon(OrientedExtrudedPolygon):
-    def __init__(self, intCellsLong: int, intCellsHigh: int,inCellNodes: np.array, inAngle: float, inAxis: np.array, arrBasisVectors=None):
+    def __init__(self, intCellsLong: int, intCellsHigh: int,inCellNodes: np.array, inAngle: float, inAxis: np.array, arrLatticeBasis=None, arrLatticeParameters = None ):
         z = np.array([0,0,intCellsHigh])
         T0 = intCellsLong*np.array([-1/2, -1*np.sqrt(3)/2,0]) #down and left
         T1 = intCellsLong*np.array([1,0,0])
         T2 = intCellsLong*np.array([-1/2, 1*np.sqrt(3)/2, 0]) #up and left
-        OrientedExtrudedPolygon.__init__(self,np.array([T1, -T0,T2,-T1, T0,-T2, z]),inCellNodes, inAngle, z)
-
+        OrientedExtrudedPolygon.__init__(self,np.array([T1, -T0,T2,-T1, T0,-T2, z]),inCellNodes, inAngle, inAxis,arrLatticeBasis)
+        
 class SimulationCell(object):
     def __init__(self, inBoxVectors: np.array):
         self.Dimensions = len(inBoxVectors[0])
@@ -371,9 +385,9 @@ class SimulationCell(object):
             lstPlanes.append(gf.FindPlane(-self.__BoxVectors[0], self.__BoxVectors[2], self.__BoxVectors[1]))
             lstPlanes.append(gf.FindPlane(-self.__BoxVectors[1], self.__BoxVectors[2], self.__Origin))
             lstPlanes.append(gf.FindPlane(self.__BoxVectors[1], self.__BoxVectors[2], self.__BoxVectors[0]))
+            lstPlanes.append(gf.FindPlane(self.__BoxVectors[0], self.__BoxVectors[1], self.__BoxVectors[2]))
+            lstPlanes.append(gf.FindPlane(-self.__BoxVectors[0], self.__BoxVectors[1], self.__BoxVectors[0]))
             for j in lstPlanes:
                 for k in self.GrainList:
                     k.LinearConstrainRealPoints(j)
 
-objPureCell = PureLattice(gf.CreateCuboidPoints(np.array([[0,5],[0,4],[0,3]])),ld.FCCCell)
-print(objPureCell.DirectionalMotif(0))
