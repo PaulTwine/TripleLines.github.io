@@ -6,6 +6,9 @@ Created on Fri May 31 10:38:14 2019
 """
 import numpy as np
 import itertools as it
+#All angles are assumed to be in radians
+def DegreesToRadians(inDegrees: float)->float:
+        return inDegrees/180*np.pi
 def RealDistance(inPointOne, inPointTwo)->float:
         return np.linalg.norm(inPointOne-inPointTwo)
 def RotateVector(vctInVector: np.array, vctAxis: np.array, inAngle: float)->np.array:
@@ -102,8 +105,17 @@ def OverlappedPoints(in2dArray1: np.array,in2dArray2: np.array)->list:
                 if any((in2dArray2[:]==j).all(1)):
                         lstOverlappedPoints.append(count)
         return lstOverlappedPoints
-def GetQuaternion(inVector: np.array, inAngle)->np.array:
-        inAngle = inAngle/180*np.pi
+def GetQuaternionFromBasisMatrix(inBasis: np.array)-> np.array:
+        arrQuaternion = np.zeros(4)
+        eValues, eVectors = np.linalg.eig(inBasis)
+        intIndex = np.argwhere(np.imag(eValues) == 0)[0][0]
+        vctAxis = NormaliseVector(np.real(eVectors[intIndex]))
+        fltAngle = np.arccos((np.trace(inBasis)-1)/2)
+        arrQuaternion[0] = np.cos(fltAngle/2)
+        for j in range(3):
+                arrQuaternion[j+1] = np.sin(fltAngle/2)*vctAxis[j]
+        return NormaliseVector(arrQuaternion)
+def GetQuaternionFromVector(inVector: np.array, inAngle)->np.array:
         vctAxis = NormaliseVector(inVector)
         lstQuarternion  = []
         C = np.cos(inAngle/2)
@@ -138,7 +150,7 @@ def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.arr
         else:
                 vctDirection= np.mean(np.array([inVector1, inVector2, inVector3]), axis=0)
         return vctDirection        
-def WrapVectorInToSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
-        arrCoefficients = np.matmul(inVector, invMatrix)
-        arrCoefficients = np.mod(arrCoefficients, np.ones(len(arrCoefficients)))
-        return np.matmul(arrCoefficients, inMatrix)
+def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
+        arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
+        arrCoefficients = np.mod(arrCoefficients, np.ones(len(arrCoefficients))) #move so that they lie inside cell 
+        return np.matmul(arrCoefficients, inMatrix) #return the wrapped vector in a the standard basis

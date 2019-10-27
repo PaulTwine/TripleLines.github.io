@@ -77,6 +77,8 @@ class LAMMPSTimeStep(object):
         self.__AtomData[intRowNumber] = lstRow
     def GetRow(self,intRowNumber: int):
         return self.__AtomData[intRowNumber]
+    def GetRows(self, lstOfRows: list):
+        return self.__AtomData[lstOfRows]
     def GetAtomData(self):
         return self.__AtomData
     def SetColumnNames(self, lstColumnNames):
@@ -207,7 +209,7 @@ class OVITOSPostProcess(object):
         while  (j < self.__NumberOfGrains and not blnFound): 
             objQuarternion = self.__GrainOrientations[j]
             fltTest = np.dot(objQuarternion,gf.QuaternionConjugate(arrAtom)) 
-            if 0.999 < abs(fltTest) < 1.001:
+            if 0.998 < abs(fltTest) < 1.002:
                 intIndex = j
                 blnFound = True
             j = j + 1
@@ -269,8 +271,6 @@ class OVITOSPostProcess(object):
                 lstGBOnlyAtoms.append(self.__GBAtoms[j])
             else:
                 lstTripleLineAtoms.append(self.__GBAtoms[j])
-           # else:
-           #     arrTripleLine[j] = self.__LAMMPSTimeStep.MoveToSimulationCell(arrTripleLine[j])
             arrTripleLine[j] = self.__LAMMPSTimeStep.MoveToSimulationCell(arrTripleLine[j])
         arrTripleLine = np.delete(arrTripleLine,lstIndicesToDelete, axis = 0)
         arrTriplePoints = np.delete(arrTriplePoints,lstIndicesToDelete, axis = 0)

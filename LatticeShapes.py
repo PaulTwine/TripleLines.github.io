@@ -171,6 +171,8 @@ class RealLattice(PureLattice):
         arrLatticeCoordinate = self.GetLatticeCoordinate(inRealPoint)
         arrRealLatticePoint = self.GetRealCoordinate(arrLatticeCoordinate)
         return list(np.array(arrRealLatticePoint,dtype= float))
+    def GetQuaternionOrientation(self)->np.array:
+        return gf.GetQuaternionFromBasisMatrix(self.__UnitBasis)
 class RealGrain(RealLattice):
     def __init__(self, inCellPositions: np.array, inCellNodes: np.array, inLatticeBasis: np.array, inBoundaryBasis = None, inAtomType = None):
         RealLattice.__init__(self,inCellPositions, inCellNodes, inLatticeBasis)
@@ -254,24 +256,21 @@ class ExtrudedPolygon(RealGrain):
         self._BoundaryVectors = inBoundaryVectors
         self.__BoundaryBasis = arrBoundaryBasis
         arrLatticeBoundary = np.matmul(inBoundaryVectors,np.linalg.inv(arrLatticeBasis))
-        arrLatticePoints = gf.CreateCuboidPoints(gf.FindBoundingBox(arrLatticeBoundary))
-        RealGrain.__init__(self,arrLatticePoints, inCellNodes, arrLatticeBasis)
-        arrFinalVector = inBoundaryVectors[len(inBoundaryVectors)-1]
+        arrLatticePoints = gf.CreateCuboidPoints(gf.FindBoundingBox(arrLatticeBoundary)) 
+        RealGrain.__init__(self,arrLatticePoints, inCellNodes,gf.StandardBasisVectors(3))
+        arrFinalVector = inBoundaryVectors[-1]
         arrPointOnPlane =np.zeros([self._Dimensions])
         for j in range(len(self._BoundaryVectors)-1):
-            arrPointOnPlane = np.add(arrPointOnPlane,self._BoundaryVectors[j])
-            arrConstraint = gf.FindPlane(self._BoundaryVectors[j],arrFinalVector,arrPointOnPlane)
+            arrPointOnPlane = np.add(arrPointOnPlane, inBoundaryVectors[j])
+            arrConstraint = gf.FindPlane(inBoundaryVectors[j],arrFinalVector,arrPointOnPlane)
             self.LinearConstrainRealPoints(arrConstraint)
 class OrientedExtrudedPolygon(ExtrudedPolygon):
     def __init__(self,inBoundaryVectors: np.array, inCellNodes: np.array,inAngle: float, inAxis: np.array, arrLatticeBasis = None, arrLatticeParameters = None):
         self.__OrientationAngle = inAngle
         self.__RotationAxis = gf.NormaliseVector(inAxis)
-        inBoundaryVectors = gf.RotateVectors(inAngle, inAxis, inBoundaryVectors)
         ExtrudedPolygon.__init__(self, inBoundaryVectors, inCellNodes, arrLatticeBasis)
-        self.RotateGrain(-inAngle,self.GetOrigin(), self.__RotationAxis)
-    def GetQuaternionOrientation(self)->np.array:
-        return gf.GetQuaternion(self.__RotationAxis,self.__OrientationAngle)
 
+           
 class OrientedExtrudedHexagon(OrientedExtrudedPolygon):
     def __init__(self, intCellsLong: int, intCellsHigh: int,inCellNodes: np.array, inAngle: float, inAxis: np.array, arrLatticeBasis=None, arrLatticeParameters = None ):
         z = np.array([0,0,intCellsHigh])
