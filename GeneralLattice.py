@@ -70,28 +70,58 @@ class GeneralLattice(RealCell):
         self.__CellPoints = []
         self.__AtomType = 1
         self.__Origin = np.zeros(self.Dimensions())
+        self.__LatticeParameters = inLatticeParameters
     def GetRealPoints(self)->np.array:
         return self.__RealPoints
-    def GeneratePoints(self, inConstraints: np.array):
+    def MakeRealPoints(self, inConstraints):
         self.__LinearConstraints = inConstraints
-        lstCellPoints = [np.zeros([self.Dimensions()])] #this is always an initial lattice point
-        lstUsedCellPoints = []
-        counter = 0
-        while (len(lstCellPoints) > 0 and counter < max(1,len(self.__CellPoints))):
-            arrInitialPoint = lstCellPoints[0]
-            lstUsedCellPoints.extend(self.ExtendPoints(arrInitialPoint,0,1))
-            lstUsedCellPoints.extend(self.ExtendPoints(arrInitialPoint,0,-1))
-            for arrPoint in lstUsedCellPoints:
-                    for intDirection in range(1,self.Dimensions()):
-                        self.ExtendPoints(arrPoint,intDirection,1)
-                        self.ExtendPoints(arrPoint,intDirection,-1)
-            lstUsedCellPoints = np.unique(lstUsedCellPoints,axis=0)
-            if counter == 0:
-                lstCellPoints = self.__CellPoints
-            lstCellPoints = self.__RemoveUsedCellPoints(lstCellPoints, lstUsedCellPoints)
-            lstUsedCellPoints = []
-            counter += 1
-        self.__RealPoints = np.add([self.__Origin], self.__RealPoints)
+        self.GenerateLatticeConstraints(inConstraints)
+        arrBounds = self.FindBoundingBox(self.__LatticeConstraints)
+        arrLatticePoints = np.array(gf.CreateCuboidPoints(arrBounds))
+        for j in self.GetCellNodes():
+            arrLatticePoints =np.add(j,arrLatticePoints)
+        arrRealPoints = np.matmul(arrLatticePoints, self.GetUnitBasisVectors())
+        arrRealPoints = np.delete(arrRealPoints,self.CheckLinearConstraints(arrRealPoints),axis=0)
+        self.__RealPoints = np.add(self.__Origin,arrRealPoints)
+        #arrLatticePoints = np.delete(arrLatticePoints,self.CheckLatticeConstraints(arrLatticePoints),axis=0)
+       # self.__LatticePoints = np.unique(arrLatticePoints, axis=0)
+        #self.GenerateRealPoints(self.__LatticePoints)
+    # def GeneratePoints(self, inConstraints: np.array):
+    #     self.__LinearConstraints = inConstraints
+    #     self.GenerateLatticeConstraints(inConstraints)
+    #     setUsedCellPoints = set()
+    #     setNewCellPoints = {(0,0,0)}
+    #     counter = 0
+    #     blnFirstTime = True
+    #    # while (len(lstCellPoints) > 0 and counter < max(1,len(self.__CellPoints))):
+    #     while (len(setNewCellPoints) > 0):
+           
+    #         arrPoint = setNewCellPoints.pop()
+    #             #arrCellsRemaining = self.__RemoveUsedCellPoints(lstNewCellPoints, lstUsedCellPoints)
+    #         # for arrPoint in lstNewCellPoints:
+    #         #     lstUsedCellPoints.extend(self.ExtendPoints(arrPoint,0,1))
+    #         #     lstUsedCellPoints.extend(self.ExtendPoints(arrPoint,0,-1))
+    #         # if len(lstUsedCellPoints) > 0:
+    #         #     lstUsedCellPoints = np.unique(lstUsedCellPoints,axis=0)
+    #         #for arrPoint in lstUsedCellPoints:
+    #         # for arrPoint in lstUsedCellPoints:
+    #         #     lstUsedCellPoints.extend(self.ExtendPoints(arrPoint,0,1))
+    #         #     lstUsedCellPoints.extend(self.ExtendPoints(arrPoint,0,-1))
+    #         # # if l
+    #         self.ExtendPoints(arrPoint,setUsedCellPoints,0,1)
+    #         self.ExtendPoints(arrPoint,setUsedCellPoints,0,-1)
+    #         for j in (setUsedCellPoints-setNewCellPoints):
+    #             for intDirection in range(1,self.Dimensions()):
+    #                 self.ExtendPoints(j,setNewCellPoints, intDirection,1)
+    #                 self.ExtendPoints(j,setNewCellPoints,intDirection,-1)
+    #         setNewCellPoints = setNewCellPoints - setUsedCellPoints
+    #         #if blnFirstTime:
+    #         #    lstCellPoints = self.__CellPoints
+    #         #    blnFirstTime = False
+    #         # lstNewCellPoints = list(self.__RemoveUsedCellPoints(lstNewCellPoints, lstUsedCellPoints))
+    #         # lstUsedCellPoints = []
+    #         counter += 1
+    #     self.GenerateRealPoints(self.__LatticePoints)
     def __RemoveUsedCellPoints(self,lstCellPoints: list, lstUsedCellPoints: list):
         lstDeletedIndices = []
         for j in lstUsedCellPoints:
@@ -99,43 +129,64 @@ class GeneralLattice(RealCell):
             if len(arrIndex) > 0:
                 lstDeletedIndices.extend(arrIndex[0])
         return np.delete(lstCellPoints, lstDeletedIndices, axis=0)
-    def ExtendPoints(self,inCellPoint:np.array, intCoordinateDirection: int, intSign: int)->list:
+    def GenerateRealPoints(self, inLatticePoints):
+        self.__RealPoints = np.matmul(inLatticePoints, self.GetRealBasisVectors())
+        self.__RealPoints = np.add([self.__Origin], self.__RealPoints)
+    def ExtendPoints(self,inCellPoint:np.array,setCellPoints: set(), intCoordinateDirection: int, intSign: int)->list:
             lstRealPoints = []
-            lstCellPoints = []
             lstLatticePoints = []
             arrIndicesToDelete = []
             counter = 0
             arrMotif = self.CellDirectionalMotif(intCoordinateDirection,intSign)
             blnEnd = False
             while (not blnEnd):
-                lstCellPoints.extend([np.add(inCellPoint,intSign*counter*self.UnitVector(intCoordinateDirection))])
-                arrPointsToAdd = np.add(lstCellPoints[-1], arrMotif)
+                #lstCellPoints.extend([np.add(inCellPoint,intSign*counter*self.UnitVector(intCoordinateDirection))])
+                arrPoint = np.add(inCellPoint,intSign*counter*self.UnitVector(intCoordinateDirection))
+                setCellPoints.add(tuple(arrPoint))
+                arrPointsToAdd = np.add(arrPoint, arrMotif)
                 arrIndicesToDelete = self.CheckLinearConstraints(np.matmul(arrPointsToAdd,self.GetRealBasisVectors())) 
+                #arrIndicesToDelete = self.CheckLatticeConstraints(arrPointsToAdd)
                 arrReturnPoints = np.delete(arrPointsToAdd,arrIndicesToDelete, axis=0)
                 if len(arrReturnPoints) > 0:
-                    lstRealPoints.extend(np.matmul(arrReturnPoints, self.GetRealBasisVectors()))
-                    lstLatticePoints.extend(arrPointsToAdd)
+                   # lstRealPoints.extend(np.matmul(arrReturnPoints, self.GetRealBasisVectors()))
+                    lstLatticePoints.extend(arrReturnPoints)
                     counter += 1
                 else:
                     blnEnd = True
-                    lstCellPoints = lstCellPoints[:-1]
-            if len(self.__RealPoints) == 0:
-                self.__RealPoints = np.array(lstRealPoints)
-            elif len(lstRealPoints) > 0:
-                self.__RealPoints = np.unique(np.append(self.__RealPoints,np.array(lstRealPoints), axis=0),axis=0)
+                    #lstCellPoints = lstCellPoints[:-1]
+            #self.__RealPoints = self.__AppendNewItems(list(self.__RealPoints), lstRealPoints)[0]
+            #self.__LatticePoints = self.__AppendNewItems(list(self.__LatticePoints), lstLatticePoints)[0]
+            #self.__CellPoints, intNumberOfCellPointsAdded = self.__AppendNewItems(list(self.__CellPoints), lstCellPoints)          
+            # if len(self.__RealPoints) == 0:
+            #     self.__RealPoints = np.array(lstRealPoints)
+            # elif len(lstRealPoints) > 0:
+            #     self.__RealPoints = np.unique(np.append(self.__RealPoints,np.array(lstRealPoints), axis=0),axis=0)
             if len(self.__LatticePoints) == 0:
-                self.__LatticePoints = np.array(lstLatticePoints)
+                 self.__LatticePoints = np.array(lstLatticePoints)
             elif len(lstLatticePoints) > 0:
-                self.__LatticePoints = np.unique(np.append(self.__LatticePoints, np.array(lstLatticePoints), axis=0),axis=0)
-            if len(self.__CellPoints) ==0:
-                self.__CellPoints = np.array(lstCellPoints)
-            elif len(lstCellPoints)> 0:
-                self.__CellPoints = np.unique(np.append(self.__CellPoints, np.array(lstCellPoints), axis=0),axis=0)
-            return lstCellPoints
-    def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
+                 self.__LatticePoints = np.unique(np.append(self.__LatticePoints, np.array(lstLatticePoints), axis=0),axis=0)
+            # if len(self.__CellPoints) ==0:
+            #     self.__CellPoints = np.array(lstCellPoints)
+            # elif len(lstCellPoints)> 0:
+            #     self.__CellPoints = np.unique(np.append(self.__CellPoints, np.array(lstCellPoints), axis=0),axis=0)
+            #return setCellPoints
+    def GenerateLatticeConstraints(self, inConstraints: np.array):
+        rtnArray = np.zeros([len(inConstraints),len(inConstraints[0])])
+        for k in range(len(inConstraints)):
+            arrVector = np.matmul(inConstraints[k,:-1], np.linalg.inv(self.GetUnitBasisVectors()))
+            for j in range(len(arrVector)):
+                rtnArray[k,j] = arrVector[j]
+            #rtnArray[k, 3] = inConstraints[k,3]
+            rtnArray[k,3] = np.linalg.norm(np.matmul(inConstraints[k,:-1]*inConstraints[k,3],np.linalg.inv(np.diag(self.__LatticeParameters))),axis=0)
+        self.__LatticeConstraints = rtnArray
+    def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1]))
         arrPositions = np.argwhere(arrPositions > 0)[:,0]        
         return arrPositions
+    def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
+        arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
+        arrPositions = np.argwhere(arrPositions > 0)[:,0]        
+        return np.unique(arrPositions)
     def GetNumberOfAtoms(self)->int:
         return len(self.__RealPoints)
     def GetAtomType(self)->int:
@@ -153,7 +204,58 @@ class GeneralLattice(RealCell):
     def RemovePlaneOfAtoms(self, inPlane: np.array):
         arrPointsOnPlane = gf.CheckLinearEquality(self.__RealPoints, inPlane)
         self.__RealPoints = arrPointsOnPlane
-        return arrPointsOnPlane   
+        return arrPointsOnPlane  
+    #FindBoundingBox only works for linear constraints. Searches for all the vertices where three constraints #simultaneously apply and then finds the points furthers from the origin.
+    def FindBoundingBox(self,inConstraints: np.array)->np.array:
+        intLength = len(inConstraints)
+        intCombinations = int(np.math.factorial(intLength)/(np.math.factorial(3)*np.math.factorial(intLength-3)))
+        arrMatrix = np.zeros([3,4])
+        arrPoints = np.zeros([intCombinations, 3])
+        arrRanges = np.zeros([3,2])
+        counter = 0
+        for i in range(intLength):
+            for j in range(i+1,intLength):
+                for k in range(j+1,intLength):
+                    arrMatrix[0] = inConstraints[i]
+                    arrMatrix[1] = inConstraints[j]
+                    arrMatrix[2] = inConstraints[k]
+                    if abs(np.linalg.det(arrMatrix[:,:-1])) > 0.0001:
+                        arrPoints[counter] = np.matmul(np.linalg.inv(arrMatrix[:,:-1]),arrMatrix[:,-1])
+                        counter += 1
+        for j in range(len(arrRanges)):
+            arrRanges[j,0] = np.min(arrPoints[:,j])
+            arrRanges[j,1] = np.max(arrPoints[:,j])
+        return(arrRanges)
+                    
+class ExtrudedRegularPolygon(GeneralLattice):
+    def __init__(self, fltSideLength: float, fltHeight: float, intNumberOfSides: int, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin = None):
+        intDimensions = len(inBasisVectors[0])
+        arrConstraints = np.zeros([intNumberOfSides + 2,intDimensions+1])
+        arrNormalVector = np.zeros(intDimensions)
+        arrSideVector = np.zeros(intDimensions)
+        arrVerticalVector = np.zeros(intDimensions)
+        arrNormalVector[1] = -1
+        arrSideVector[0] = fltSideLength
+        arrVerticalVector[-1] = 1
+        fltAngle = 2*np.pi/intNumberOfSides
+        arrNextPoint = np.zeros([intDimensions])
+        for j in range(intNumberOfSides):
+            arrNextPoint += arrSideVector
+            for k in range(len(arrConstraints[0])-1):
+                arrConstraints[j,k] = arrNormalVector[k]
+            arrConstraints[j, -1] = np.dot(arrNormalVector, arrNextPoint)
+            arrNormalVector = gf.RotateVector(arrNormalVector,arrVerticalVector, fltAngle)
+            arrSideVector = gf.RotateVector(arrSideVector,arrVerticalVector, fltAngle)
+        arrConstraints[-2,-2] = -1
+        arrConstraints[-2,-1] = 0
+        arrConstraints[-1,-2] = 1
+        arrConstraints[-1,-1] = fltHeight
+        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters)
+        if not(inOrigin is None):
+            self.SetOrigin(inOrigin)
+        self.MakeRealPoints(arrConstraints)
+
+
 
 class SimulationCell(object):
     def __init__(self, inBoxVectors: np.array):
@@ -162,7 +264,7 @@ class SimulationCell(object):
         self.SetOrigin(np.zeros(self.Dimensions))
         self.GrainList = [] #list of RealGrain objects which form the simulation cell
         self.SetParallelpipedVectors(inBoxVectors)
-        self.NoDuplicates = False
+        self.blnPointsAreWrapped = False
     def AddGrain(self,inGrain):
         self.GrainList.append(inGrain)
     def GetGrain(self, intGrainIndex: int):
@@ -170,7 +272,7 @@ class SimulationCell(object):
     def GetNumberOfGrains(self)->int:
         return len(self.GrainList)
     def GetTotalNumberOfAtoms(self):
-        if self.NoDuplicates:
+        if self.blnPointsAreWrapped:
             intNumberOfAtoms = len(self.__UniqueRealPoints)
         else: 
             intNumberOfAtoms = 0
@@ -219,14 +321,14 @@ class SimulationCell(object):
                 fdata.write('{}  {} {} xy xz yz \n'.format(self.__xy,self.__xz,self.__yz))
             fdata.write('\n')
             fdata.write('Atoms\n\n')
-            if self.NoDuplicates:
+            if self.blnPointsAreWrapped:
                 for j in range(len(self.__UniqueRealPoints)):
-                    fdata.write('{} {} {} {} {}\n'.format(j+1,self.__AtomTypes[j], *self.WrapVectorIntoSimulationBox(self.__UniqueRealPoints[j])))
+                    fdata.write('{} {} {} {} {}\n'.format(j+1,self.__AtomTypes[j], *self.__UniqueRealPoints[j]))
             else:
                 count = 1
                 for j in self.GrainList:
                     for position in j.GetRealPoints():
-                        fdata.write('{} {} {} {} {}\n'.format(count,j.GetAtomType(), *self.WrapVectorIntoSimulationBox(position)))
+                        fdata.write('{} {} {} {} {}\n'.format(count,j.GetAtomType(), *position))
                         count = count + 1
     def SetOrigin(self,inOrigin: np.array):
         self.__Origin = inOrigin
@@ -246,7 +348,7 @@ class SimulationCell(object):
             self.__zhi = inArray[2][2] - self.__Origin[2]
             self.__BasisVectors = np.array([[self.__xhi,0,0],[self.__xy, self.__yhi,0],[self.__xz, self.__yz,self.__zhi]])
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
-    def RemoveDuplicateAtoms(self)->np.array:
+    def WrapAllPointsIntoSimulationCell(self)->np.array:
         lstUniqueRowindices = []
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
@@ -256,9 +358,9 @@ class SimulationCell(object):
                 arrAllAtomTypes[i] = objGrain.GetAtomType()
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
-        self.__UniqueRealPoints,lstUniqueRowindices = np.unique(arrAllAtoms,axis=0,return_index=True)
+        self.__UniqueRealPoints,lstUniqueRowindices = np.unique(self.WrapVectorIntoSimulationBox(arrAllAtoms),axis=0,return_index=True)
         self.__AtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
-        self.NoDuplicates = True
+        self.blnPointsAreWrapped = True
     def ApplySimulationCellConstraint(self):
         lstPlanes = []
         if self.Dimensions == 3:
@@ -271,29 +373,35 @@ class SimulationCell(object):
             for j in lstPlanes:
                 for k in self.GrainList:
                     k.LinearConstrainRealPoints(j)
+    def PlotSimulationCellAtoms(self):
+        if self.blnPointsAreWrapped:
+            return zip(*self.__UniqueRealPoints)
 
 #a = 4.05 ##lattice parameter
 a = 4.05*np.sqrt(3) #periodic cell repeat multiple
-h= 4
-l=5
-MyLattice = GeneralLattice(gf.RotatedBasisVectors(np.arccos(1/np.sqrt(3)), np.array([1,-1,0])/np.sqrt(2)),ld.FCCCell,np.array([a,a,a]))
-MyLattice.SetOrigin(np.array([0,0,0]))
-MyLattice.GeneratePoints(np.array([[1,0,0,5*a],[-1,0,0,0],[0,1,0,5*a],[0,-1,0,0],[0,0,1,(h-1)*a],[0,0,-1,0]]))
-MyLattice.RemovePlaneOfAtoms([0,0,1,h*a])
+l = 8
+h= 2
+z = a*np.array([0,0,h])
+#MyLattice = GeneralLattice(gf.RotateVectors(2,z,gf.RotatedBasisVectors(np.arccos(1/np.sqrt(3)),z)),ld.FCCCell,np.array([a,a,a]))
+#MyLattice.SetOrigin(np.array([70,15,0]))
+#MyLattice.GeneratePoints(np.array([[1,0,0,2*l*a],[-1,0,0,0],[0,1,0,l*a],[0,-1,0,0],[0,0,1,h*a],[0,0,-1,0]]))
+#MyLattice.MakeRealPoints(np.array([[1,0,0,2*l*a],[-1,0,0,0],[0,1,0,l*a],[0,-1,0,0],[0,0,1,h*a],[0,0,-1,0]]))
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
-z = a*np.array([0,0,h])
-T0 = np.array([-l/2, -l*np.sqrt(3)/2,0]) #down and left
-T1 = np.array([l,0,0])
-T2 = np.array([-l/2, l*np.sqrt(3)/2, 0]) #up and left
-arrDiagonalVector =  -a*T0
-MySimulationCell = SimulationCell(np.array([2*a*T1,3*arrDiagonalVector, z-0.5*np.array([0,0,a])])) 
-MySimulationCell.AddGrain(MyLattice)
-#MySimulationCell.ApplySimulationCellConstraint()
-#MySimulationCell.RemoveDuplicateAtoms()
-print(MySimulationCell.GetRealBasisVectors())
-ax.scatter(*MyLattice.MatLabPlot())
-#ax.quiver(*np.zeros([3,3]),*gf.RotatedBasisVectors(-np.pi/4, np.array([1,-1,0])),length=0.1)
-plt.show()
+arr111BasisVectors = gf.RotatedBasisVectors(np.arccos(1/np.sqrt(3)), np.array([1,-1,0])/np.sqrt(2))
+arrHorizontalVector = np.array([l*a,0,0])
+arrDiagonalVector =  np.array([a*l/2, a*l*np.sqrt(3)/2,0])
+MySimulationCell = SimulationCell(np.array([3*arrHorizontalVector,3*arrDiagonalVector, z])) 
+MyTri1 = ExtrudedRegularPolygon(l*a, h*a, 6, arr111BasisVectors, ld.FCCCell, np.array([a,a,a]),np.array([0,0,0]))
+MyTri2 = ExtrudedRegularPolygon(l*a, h*a, 6, gf.RotateVectors(1.5,z, arr111BasisVectors), ld.FCCCell, np.array([a,a,a]),arrDiagonalVector+arrHorizontalVector)
+MyTri3 = ExtrudedRegularPolygon(l*a, h*a, 6, arr111BasisVectors, ld.FCCCell, np.array([a,a,a]), arrHorizontalVector)
+MySimulationCell.AddGrain(MyTri1)
+MySimulationCell.AddGrain(MyTri2)
+MySimulationCell.AddGrain(MyTri3)
+#MySimulationCell.AddGrain(MyLattice)
+MySimulationCell.WrapAllPointsIntoSimulationCell()
 MySimulationCell.WriteLAMMPSDataFile('new.data')
+ax.scatter(*MySimulationCell.PlotSimulationCellAtoms())
+plt.show()
+#print(MyLattice.GetNumberOfAtoms())
