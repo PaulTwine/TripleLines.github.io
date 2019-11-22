@@ -71,17 +71,17 @@ def CheckLinearConstraint(inPoints: np.array, inConstraint: np.array)-> np.array
         # else:
         #         arrInsidePoints = inPoints
         # return arrInsidePoints
-def CheckLinearEquality(inPoints: np.array, inConstraint: np.array)->np.array:
-        lstDeletedPoints = []
-        intDimensions = len(inConstraint)-1
-        for j in range(len(inPoints)):
-               if ((np.dot(inPoints[j],inConstraint[:-1]) == inConstraint[intDimensions])):
-                   lstDeletedPoints.append(j)
-        if len(lstDeletedPoints) != 0:                
-                arrOnPoints = np.delete(inPoints, lstDeletedPoints, axis=0)
-        else:
-                arrOnPoints = inPoints
-        return arrOnPoints
+# def CheckLinearEquality(inPoints: np.array, inConstraint: np.array, fltTolerance: float)->np.array:
+#         lstDeletedPoints = []
+#         intDimensions = len(inConstraint)-1
+#         for j in range(len(inPoints)):
+#                if ((np.dot(inPoints[j],inConstraint[:-1]) == inConstraint[intDimensions])):
+#                    lstDeletedPoints.append(j)
+#         # if len(lstDeletedPoints) != 0:                
+#         #         arrOnPoints = np.delete(inPoints, lstDeletedPoints, axis=0)
+#         # else:
+#         #         arrOnPoints = inPoints
+#         return lstDeletedPoints
 
 def StandardBasisVectors(inDimensions: int): #generates standard basis vectors [1 0 0],[0 1 0] etc for any dimension
         arrBasisVectors = np.zeros([inDimensions, inDimensions])
@@ -106,25 +106,26 @@ def OverlappedPoints(in2dArray1: np.array,in2dArray2: np.array)->list:
                         lstOverlappedPoints.append(count)
         return lstOverlappedPoints
 def GetQuaternionFromBasisMatrix(inBasis: np.array)-> np.array:
-        arrQuaternion = np.zeros(4)
-        eValues, eVectors = np.linalg.eig(inBasis)
-        intIndex = np.argwhere(np.imag(eValues) == 0)[0][0]
-        vctAxis = NormaliseVector(np.real(eVectors[intIndex]))
-        fltAngle = np.arccos((np.trace(inBasis)-1)/2)
-        arrQuaternion[0] = np.cos(fltAngle/2)
-        for j in range(3):
-                arrQuaternion[j+1] = np.sin(fltAngle/2)*vctAxis[j]
-        return NormaliseVector(arrQuaternion)
+#         arrQuaternion = np.zeros(4)
+#         eValues, eVectors = np.linalg.eig(np.transpose(inBasis))
+#         intIndex = np.argwhere(np.isreal(eValues))[0,0]
+#         vctAxis = NormaliseVector(np.real(eVectors[:,intIndex]))
+#         fltAngle = np.arccos((np.trace(inBasis)-1)/2)
+#         arrQuaternion[-1] = np.cos(fltAngle/2)
+#         for j in range(3):
+#                 arrQuaternion[j] = np.sin(fltAngle/2)*vctAxis[j]
+#         return NormaliseVector(arrQuaternion) 
+       r = 1/2*np.sqrt(1+np.trace(inBasis))
+       return np.array([1/(4*r)*(inBasis[2,1]-inBasis[1,2]),1/(4*r)*(inBasis[0,2]-inBasis[2,0]),1/(4*r)*(inBasis[1,0]-inBasis[0,1]),r])      
 def GetQuaternionFromVector(inVector: np.array, inAngle)->np.array:
         vctAxis = NormaliseVector(inVector)
         lstQuarternion  = []
         C = np.cos(inAngle/2)
         S = np.sin(inAngle/2)
-        lstQuarternion.append(C)
         lstQuarternion.append(vctAxis[0]*S)
         lstQuarternion.append(vctAxis[1]*S)
-        if len(inVector) == 3:
-                lstQuarternion.append(vctAxis[2]*S)
+        lstQuarternion.append(vctAxis[2]*S)
+        lstQuarternion.append(C)
         return np.array(lstQuarternion)
 def QuaternionProduct(inVectorOne: np.array, inVectorTwo:np.array )->np.array:
         if len(inVectorOne) != 4 or len(inVectorTwo) != 4:
@@ -136,9 +137,19 @@ def QuaternionProduct(inVectorOne: np.array, inVectorTwo:np.array )->np.array:
                 v2 = np.delete(inVectorTwo, 0)
                 r = r1*r2 - np.dot(v1,v2)
                 v  =  r1*v2 + r2*v1 + np.cross(v1,v2)
-                return np.array([r, v[0],v[1],v[2]])
-def QuaternionConjugate(inVector: np.array)->np.array:
-        return np.array([inVector[0],-inVector[1],-inVector[2],-inVector[3]])
+                return np.array([v[0],v[1],v[2],r])
+def QuaternionConjugate(inVector: np.array)->np.array: #takes a vector of quarternions
+        return np.matmul(inVector, np.array([[-1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
+def FCCQuaternionEquivalence(inVector: np.array)->np.array:
+        arrVector = np.zeros([3,4])
+        arrVector[0] = np.sort(np.abs(inVector))
+        arrVector[1] = np.array([arrVector[0,0] - arrVector[0,1],arrVector[0,1]+ arrVector[0,0], arrVector[0,2]
+        -arrVector[0,3],arrVector[0,3]+ arrVector[0,2]])*1/np.sqrt(2)
+        arrVector[2] = np.array([arrVector[0,0]-arrVector[0,3]-arrVector[0,1] +arrVector[0,2],arrVector[0,1]
+        -arrVector[0,3] - arrVector[0,2] + arrVector[0,0],arrVector[0,2]- arrVector[0,3] - arrVector[0,0] 
+        + arrVector[0,1],arrVector[0,0]+arrVector[0,1]+arrVector[0,2]+arrVector[0,3]])*1/2
+        intMax = np.argmax(arrVector[:,-1])
+        return arrVector[intMax]       
 def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.array)->np.array: #3 dimensions only
         arrMatrix = np.zeros([3,3])
         arrMatrix[0] = inVector3-inVector2
@@ -149,8 +160,13 @@ def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.arr
                 vctDirection = np.matmul(invMatrix, np.array([np.dot(arrMatrix[0],0.5*(inVector2+inVector3) - inVector1),0,0.5*np.dot(arrMatrix[2],arrMatrix[2])]))+inVector1
         else:
                 vctDirection= np.mean(np.array([inVector1, inVector2, inVector3]), axis=0)
-        return vctDirection        
+        return vctDirection    
+def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: float)-> np.array: #returns indices to delete for real coordinates  
+        arrPositions = np.subtract(np.matmul(inPoints, np.transpose(inPlane[:,:-1])), np.transpose(inPlane[:,-1]))
+        arrPositions = np.argwhere(np.abs(arrPositions) < fltTolerance)[:,0]        
+        return arrPositions    
 def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
-        arrCoefficients = np.mod(arrCoefficients, np.ones(len(arrCoefficients))) #move so that they lie inside cell 
-        return np.matmul(arrCoefficients, inMatrix) #return the wrapped vector in a the standard basis
+        arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
+        arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
+        return np.matmul(arrCoefficients, inMatrix) #return the wrapped vector in the standard basis

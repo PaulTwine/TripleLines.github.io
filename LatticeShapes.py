@@ -172,7 +172,7 @@ class RealLattice(PureLattice):
         arrRealLatticePoint = self.GetRealCoordinate(arrLatticeCoordinate)
         return list(np.array(arrRealLatticePoint,dtype= float))
     def GetQuaternionOrientation(self)->np.array:
-        return gf.GetQuaternionFromBasisMatrix(self.__UnitBasis)
+        return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(self.__UnitBasis))
 class RealGrain(RealLattice):
     def __init__(self, inCellPositions: np.array, inCellNodes: np.array, inLatticeBasis: np.array, inBoundaryBasis = None, inAtomType = None):
         RealLattice.__init__(self,inCellPositions, inCellNodes, inLatticeBasis)
@@ -230,7 +230,7 @@ class RealGrain(RealLattice):
         self._NearestNeighboutDistance = fltShortestDistance
         return fltShortestDistance
     def RemovePlaneOfAtoms(self, inPlane: np.array):
-        arrPointsOnPlane = gf.CheckLinearEquality(self.__RealPoints, inPlane)
+        arrPointsOnPlane = gf.CheckLinearEquality(self.__RealPoints, inPlane,0.01)
         self.__RealPoints = arrPointsOnPlane
         return arrPointsOnPlane    
 

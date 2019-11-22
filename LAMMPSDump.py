@@ -90,7 +90,7 @@ class LAMMPSTimeStep(object):
     def GetColumnByName(self, strColumnName: str):
         if self.__ColumnNames != []:
             intStructureIndex = self.__ColumnNames.index(strColumnName)
-            self.GetColumnByIndex(intStructureIndex)
+            return self.GetColumnByIndex(intStructureIndex)
     def SetBoundBoxLabels(self, lstBoundBox: list):
         self.__BoundBoxLabels = lstBoundBox
         if lstBoundBox[0] == 'xy':
@@ -145,19 +145,17 @@ class LAMMPSTimeStep(object):
                      arrVector = np.append(arrVector, np.add(arrVector,self.__CellVectors[i]),axis=0)                  
         return arrVector
     def MoveToSimulationCell(self, inPositionVector: np.array)->np.array:
-        #arrCellCoordinates = np.matmul(inPositionVector, self.__BasisConversion)
-        # if np.min(arrCellCoordinates) < 0 or np.max(arrCellCoordinates) >= 1:
-        #     rtnVector = np.zeros(self.__Dimensions)
-        #     for j in range(self.__Dimensions):
-        #         rtnVector = rtnVector + (arrCellCoordinates[j] % 1)*self.__CellVectors[j]
-        #     return rtnVector
-        # else:
-        #     return inPositionVector
-        return gf.WrapVectorInToSimulationCell(self.__CellBasis, self.__BasisConversion, inPositionVector)
+        return gf.WrapVectorIntoSimulationCell(self.__CellBasis, self.__BasisConversion, inPositionVector)
     def PeriodicShiftCloser(self, inFixedPoint: np.array, inPointToShift: np.array)->np.array:
         arrPeriodicVectors = self.PeriodicEquivalents(inPointToShift)
         fltDistances = list(map(np.linalg.norm, np.subtract(arrPeriodicVectors, inFixedPoint)))
         return arrPeriodicVectors[np.argmin(fltDistances)]
+    def StandardiseOrientationData(self):
+        self.__AtomData[:, [self.GetColumnNames().index('OrientationX'),self.GetColumnNames().index('OrientationY'),self.GetColumnNames().index('OrientationZ'), self.GetColumnNames().index('OrientationW')]]=np.apply_along_axis(gf.FCCQuaternionEquivalence,1,self.GetOrientationData()) 
+    def GetOrientationData(self)->np.array:
+        return (self.__AtomData[:, [self.GetColumnNames().index('OrientationX'),self.GetColumnNames().index('OrientationY'),self.GetColumnNames().index('OrientationZ'), self.GetColumnNames().index('OrientationW')]])  
+    def GetData(self, inDimensions: np.array, lstOfColumns):
+        return np.where(self.__AtomData[:,lstOfColumns])
 
 class OVITOSPostProcess(object):
     def __init__(self,arrGrainQuaternions: np.array, objTimeStep: LAMMPSTimeStep, intLatticeType: int):
@@ -166,59 +164,79 @@ class OVITOSPostProcess(object):
         self.__LAMMPSTimeStep = objTimeStep
         self.__Dimensions = objTimeStep.GetNumberOfDimensions()
         self.__LatticeStructure = intLatticeType #lattice structure type as defined by OVITOS
-        self.__intStructureType = objTimeStep.GetColumnNames().index('StructureType')
-        self.__intPositionX = objTimeStep.GetColumnNames().index('x')
-        self.__intPositionY = objTimeStep.GetColumnNames().index('y')
-        self.__intPositionZ = objTimeStep.GetColumnNames().index('z')
+        self.__intStructureType = int(objTimeStep.GetColumnNames().index('StructureType'))
+        self.__intPositionX = int(objTimeStep.GetColumnNames().index('x'))
+        self.__intPositionY = int(objTimeStep.GetColumnNames().index('y'))
+        self.__intPositionZ = int(objTimeStep.GetColumnNames().index('z'))
         self.__intQuarternionW = objTimeStep.GetColumnNames().index('OrientationW')
         self.__intQuarternionX = objTimeStep.GetColumnNames().index('OrientationX')
         self.__intQuarternionY = objTimeStep.GetColumnNames().index('OrientationY')
         self.__intQuarternionZ = objTimeStep.GetColumnNames().index('OrientationZ')
        # self.__PeriodicTranslations = objTimeStep.GetPeriodicTranslations()
         lstUnknownAtoms = []
-        dctLatticeAtoms = dict()
+        lstLatticeAtoms = []
         dctGrainPointsTree = dict()
-        for j in range(self.__NumberOfGrains):
-            dctLatticeAtoms[str(j)] = []    
+        # for j in range(self.__NumberOfGrains):
+        #     dctLatticeAtoms[str(j)] = []    
         lstGBAtoms = []
-        for j in range(objTimeStep.GetNumberOfAtoms()):
-            arrCurrentRow = objTimeStep.GetRow(j)
-            intGrainNumber = self.ReturnGrainIndex(arrCurrentRow)
-            if (int(arrCurrentRow[self.__intStructureType]) == self.__LatticeStructure):    
-                if  int(intGrainNumber) == -1:
-                    lstUnknownAtoms.append(arrCurrentRow)
-                else:
-                    dctLatticeAtoms[str(intGrainNumber)].append(arrCurrentRow)
-            else:
-                lstGBAtoms.append(arrCurrentRow)
+        # for j in range(objTimeStep.GetNumberOfAtoms()):
+        #     arrCurrentRow = objTimeStep.GetRow(j)
+        #     #intGrainNumber = self.ReturnGrainIndex(arrCurrentRow)
+            #if (int(arrCurrentRow[self.__intStructureType]) == self.__LatticeStructure):    
+        #intAtomStructure = int(arrCurrentRow[self.__intStructureType])
+        lstGBAtoms = np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) == 0)
+        lstLatticeAtoms =  np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) == intLatticeType)
+        lstUnknownAtoms = np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) != intLatticeType) and np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) != 0)
+            # if (intAtomStructure == 0):     
+            #     # intGrainNumber = self.ReturnGrainIndex(arrCurrentRow)
+            #     # if  int(intGrainNumber) == -1:
+            #     #     #lstUnknownAtoms.append(arrCurrentRow)
+            #     #     lstUnknownAtoms.append(j)
+            #     # else:
+            #     #     #dctLatticeAtoms[str(intGrainNumber)].append(arrCurrentRow)
+            #     #     dctLatticeAtoms[str(intGrainNumber)].append(j)
+            #     lstGBAtoms.append(j)
+            # else:
+            #     #lstGBAtoms.append(arrCurrentRow)
+            #     dctLatticeAtoms[str(intAtomStructure)].append(j)
         self.__UnknownAtoms = lstUnknownAtoms
-        self.__LatticeAtoms = dctLatticeAtoms
+        self.__LatticeAtoms = lstLatticeAtoms
         self.__GBAtoms = lstGBAtoms
-        for strGrainKey in dctLatticeAtoms.keys():
-            dctGrainPointsTree[strGrainKey] = spatial.KDTree(list(zip(*self.PlotGrain(strGrainKey))))
+        self.__GBTree =  spatial.KDTree(list(zip(*self.__PlotList(lstGBAtoms))))
+        self.__LatticeTree = spatial.KDTree(list(zip(*self.__PlotList(lstLatticeAtoms))))
         self.__dctGrainPointsTree = dctGrainPointsTree
-    def ReturnUnknownAtoms(self):
-        return np.array(self.__UnknownAtoms)
+        # for strGrainKey in dctLatticeAtoms.keys():
+        #     if len(dctLatticeAtoms[strGrainKesy]) > 0:
+        #         dctGrainPointsTree[strGrainKey] = spatial.KDTree(list(zip(*self.PlotGrain(strGrainKey))))
+        # self.__dctGrainPointsTree = dctGrainPointsTree
+    def GetUnknownAtoms(self):
+        #return np.array(self.__UnknownAtoms)
+        return self.__LAMMPSTimeStep.GetRows(self.__UnknownAtoms)   
     def ReturnGrainIndex(self, lstAtomRow: list)->int: #returns -1 if the atoms orientation doesn't match any lattice
         fltTest = 0
-        arrAtom = np.array([lstAtomRow[self.__intQuarternionW],lstAtomRow[self.__intQuarternionX],lstAtomRow[self.__intQuarternionY],lstAtomRow[self.__intQuarternionZ]])
-        arrAtom = gf.NormaliseVector(arrAtom)
-        blnFound = False
+        arrAtom = np.array([lstAtomRow[self.__intQuarternionX],lstAtomRow[self.__intQuarternionY],lstAtomRow[self.__intQuarternionZ],lstAtomRow[self.__intQuarternionW]])
+        arrAtom = gf.FCCQuaternionEquivalence(arrAtom)
+        #blnFound = False
         j = 0
         intIndex = -1 #will return an error if lstatom doesn't belong to any grain
-        while  (j < self.__NumberOfGrains and not blnFound): 
-            objQuarternion = self.__GrainOrientations[j]
-            fltTest = np.dot(objQuarternion,gf.QuaternionConjugate(arrAtom)) 
-            if 0.998 < abs(fltTest) < 1.002:
+        fltValue = 0.999
+        while  (j < self.__NumberOfGrains): 
+            #objQuaternion = np.sort(np.abs(gf.FCCQuaternionEquivalence(self.__GrainOrientations[j])))
+            objQuaternion = self.__GrainOrientations[j]
+            #fltTest = np.max(np.abs(np.matmul(gf.QuaternionConjugate(gf.FCCQuaternionEquivalence(arrAtom)),np.transpose(objQuarternion))))
+            fltTest = np.abs(np.dot(arrAtom,objQuaternion))
+           # fltTest2 = np.abs(np.dot(arrAtom,objQuaternion))
+            if fltTest > fltValue:
                 intIndex = j
-                blnFound = True
+                fltValue = fltTest
             j = j + 1
         return intIndex
     def PlotTriplePoints(self):
         arrPoints = self.__TripleLine
         return arrPoints[:,:,0],arrPoints[:,:,1], arrPoints[:,:,2]
     def PlotGrain(self, strGrainNumber: str):
-        return self.__PlotList(self.__LatticeAtoms[strGrainNumber])
+        #return self.__PlotList(self.__LatticeAtoms[strGrainNumber])
+        return self.__PlotList(self.__LatticeAtoms)
     def PlotUnknownAtoms(self):
         return self.__PlotList(self.__UnknownAtoms)
     def PlotGBAtoms(self):
@@ -232,10 +250,11 @@ class OVITOSPostProcess(object):
     def PlotTripleLine(self):
         return self.PlotPoints(self.__TripleLine)
     def __PlotList(self, strList: list):
-        arrPoints = np.array(strList)
+        arrPoints = self.__LAMMPSTimeStep.GetRows(strList)
         return arrPoints[:,self.__intPositionX], arrPoints[:,self.__intPositionY], arrPoints[:,self.__intPositionZ]
+        #return arrPoints[:,[1,2,3]]
     def __GetCoordinates(self, strList: list):
-        arrPoint = np.array(strList)
+        arrPoint = self.__LAMMPSTimeStep.GetRows(strList)
         return arrPoint[self.__intPositionX], arrPoint[self.__intPositionY], arrPoint[self.__intPositionZ]
     def FindClosestGrainPoint(self, arrPoint: np.array,strGrainKey: str)->np.array:
         arrPeriodicPoints = self.__LAMMPSTimeStep.PeriodicEquivalents(arrPoint)
@@ -288,9 +307,9 @@ class OVITOSPostProcess(object):
     def GetTripleLineAtoms(self):
         return np.array(self.__TripleLineAtoms)
     def GetGBAtoms(self):
-        return np.array(self.__GBAtoms)
+        return self.__LAMMPSTimeStep.GetRows(self.__GBAtoms)
     def GetGBOnlyAtoms(self):
-        return np.array(self.__GBOnlyAtoms)
+        return self.__LAMMPSTimeStep.GetRows(self.__GBOnlyAtoms)
     def MakePeriodicDistanceMatrix(self, inVector1: np.array, inVector2: np.array)->np.array:
         arrPeriodicDistance = np.zeros([len(inVector1), len(inVector2)])
         for j in range(len(inVector1)):
@@ -355,6 +374,19 @@ class OVITOSPostProcess(object):
         return blnFound
     def GetTriplePoints(self):
         return self.__TriplePoints
+    def SortByAngles(self,inPoints: np.array, inStructure):#rotates around a point and counts the number of transitions from GB to grain
+        intCount = 0 # pass an array of the form [xcoord, ycoord, Structure]
+        fltOldValue = inStructure[0]
+        arrValues = np.zeros([len(inStructure),2])
+        arrValues[:,0] = np.arctan2(inPoints[:,1],inPoints[:,0])
+        arrValues[:,1] = np.round(inStructure,0)
+        arrValues = arrValues[arrValues[:,0].argsort()]
+        for j in arrValues:
+            fltNewValue = j[-1]
+            if int(fltNewValue) != int(fltOldValue):
+                intCount += 1
+                fltOldValue = fltNewValue
+        return intCount
     def PeriodicMinimumDistance(self, inVector1: np.array, inVector2: np.array)->float:
         # arrVector1Periodic = self.__LAMMPSTimeStep.PeriodicEquivalents(inVector1)
         # arrDistances = np.zeros(len(arrVector1Periodic))
@@ -363,3 +395,27 @@ class OVITOSPostProcess(object):
         # return np.min(arrDistances)
         arrVectorPeriodic = self.__LAMMPSTimeStep.PeriodicEquivalents(np.abs(inVector1-inVector2))
         return np.min(np.linalg.norm(arrVectorPeriodic, axis=1))
+    def ClassifyNonGrainAtoms(self):
+        lstUnknownAtoms = []
+        lstTripleLines = []
+        lstGBAtoms = []
+        intSwaps = 0 #the number of times this has swapped from grain boundary to grain 
+        CurrentList = np.where(self.__LAMMPSTimeStep.GetColumnByIndex(self.__intStructureType) == 0)  and np.where(self.__LAMMPSTimeStep.GetColumnByIndex(self.__intPositionZ) < 4)[0]
+        for j in CurrentList:
+            arrGBPoint = self.__LAMMPSTimeStep.GetRow(j)
+            arrPoints = self.__LAMMPSTimeStep.GetAtomData() - arrGBPoint
+            arrPoints = arrPoints[:,self.__intPositionX:self.__intPositionY+1] #centre the points with j at the origin
+            lstOfIndices = np.where(np.linalg.norm(arrPoints, axis=1) > 7) and np.where(np.linalg.norm(arrPoints, axis=1) < 7.5)
+            arrPoints = arrPoints[lstOfIndices]
+            arrStructure = self.__LAMMPSTimeStep.GetColumnByIndex(self.__intStructureType)[lstOfIndices]
+            intSwaps = self.SortByAngles(arrPoints, arrStructure)
+            if intSwaps == 4:
+                lstGBAtoms.append(j)
+            elif intSwaps == 6:
+                lstTripleLines.append(j)
+            else:
+                lstUnknownAtoms.append(j)
+        self.__GBAtoms = lstGBAtoms
+        self.__TripleLineAtoms = lstTripleLines
+        self.__UnknownAtoms = lstUnknownAtoms
+   
