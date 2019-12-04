@@ -3,7 +3,7 @@ import numpy as np
 import GeometryFunctions as gf
 from scipy import spatial
 from sklearn.cluster import AffinityPropagation
-import hdbscan
+
 class LAMMPSData(object):
     def __init__(self,strFilename: str):
         self.__dctTimeSteps = dict()
@@ -124,6 +124,10 @@ class LAMMPSTimeStep(object):
         for j, vctCell in enumerate(self.__CellVectors):
             self.__CellBasis[j] = vctCell 
         self.__BasisConversion = np.linalg.inv(self.__CellBasis)
+    def GetBasisConversions(self):
+        return self.__BasisConversion
+    def GetCellBasis(self):
+        return self.__CellBasis
     def GetNumberOfAtoms(self):
         return self.__NumberOfAtoms
     def GetNumberOfColumns(self):
@@ -174,17 +178,6 @@ class OVITOSPostProcess(object):
         self.__intQuarternionX = objTimeStep.GetColumnNames().index('OrientationX')
         self.__intQuarternionY = objTimeStep.GetColumnNames().index('OrientationY')
         self.__intQuarternionZ = objTimeStep.GetColumnNames().index('OrientationZ')
-       # self.__PeriodicTranslations = objTimeStep.GetPeriodicTranslations()
-        lstUnknownAtoms = []
-        lstLatticeAtoms = []
-        # for j in range(self.__NumberOfGrains):
-        #     dctLatticeAtoms[str(j)] = []    
-        lstGBAtoms = []
-        # for j in range(objTimeStep.GetNumberOfAtoms()):
-        #     arrCurrentRow = objTimeStep.GetRow(j)
-        #     #intGrainNumber = self.ReturnGrainIndex(arrCurrentRow)
-            #if (int(arrCurrentRow[self.__intStructureType]) == self.__LatticeStructure):    
-        #intAtomStructure = int(arrCurrentRow[self.__intStructureType])
         lstGBAtoms = list(np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) == 0)[0])
         lstLatticeAtoms =  list(np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) == intLatticeType)[0])
         lstUnknownAtoms = list((np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) != intLatticeType) and np.where(objTimeStep.GetColumnByIndex(self.__intStructureType).astype(int) != 0))[0])
@@ -192,6 +185,8 @@ class OVITOSPostProcess(object):
         self.__GBAtoms = lstGBAtoms
         self.__GBTree =  spatial.KDTree(list(zip(*self.__PlotList(lstGBAtoms))))
         self.__LatticeTree = spatial.KDTree(list(zip(*self.__PlotList(lstLatticeAtoms))))
+        self.__UnknownAtoms = lstUnknownAtoms
+        self.__TripleLineAtoms = []
     def GetUnknownAtoms(self):
         return self.__LAMMPSTimeStep.GetRows(self.__UnknownAtoms)   
     def ReturnGrainIndex(self, lstAtomRow: list)->int: #returns -1 if the atoms orientation doesn't match any lattice
@@ -217,7 +212,6 @@ class OVITOSPostProcess(object):
         arrPoints = self.__TripleLine
         return arrPoints[:,:,0],arrPoints[:,:,1], arrPoints[:,:,2]
     def PlotGrain(self, strGrainNumber: str):
-        #return self.__PlotList(self.__LatticeAtoms[strGrainNumber])
         return self.__PlotList(self.__LatticeAtoms)
     def PlotUnknownAtoms(self):
         return self.__PlotList(self.__UnknownAtoms)
@@ -236,10 +230,12 @@ class OVITOSPostProcess(object):
     def __PlotList(self, strList: list):
         arrPoints = self.__LAMMPSTimeStep.GetRows(strList)
         return arrPoints[:,self.__intPositionX], arrPoints[:,self.__intPositionY], arrPoints[:,self.__intPositionZ]
-        #return arrPoints[:,[1,2,3]]
+    def __GetCoordinate(self, intIndex: int):
+        arrPoint = self.__LAMMPSTimeStep.GetRow(intIndex)
+        return arrPoint[self.__intPositionX:self.__intPositionZ+1]
     def __GetCoordinates(self, strList: list):
-        arrPoint = self.__LAMMPSTimeStep.GetRows(strList)
-        return np.array([arrPoint[self.__intPositionX], arrPoint[self.__intPositionY], arrPoint[self.__intPositionZ]])
+        arrPoints = self.__LAMMPSTimeStep.GetRows(strList)
+        return arrPoints[:,self.__intPositionX:self.__intPositionZ+1]
     def FindClosestGrainPoint(self, arrPoint: np.array,strGrainKey: str)->np.array:
         arrPeriodicPoints = self.__LAMMPSTimeStep.PeriodicEquivalents(arrPoint)
         fltDistances, intIndices =  self.__dctGrainPointsTree[strGrainKey].query(arrPeriodicPoints)
@@ -283,7 +279,7 @@ class OVITOSPostProcess(object):
         self.__TriplePoints = np.unique(arrTriplePoints, axis=0)
         self.__TripleLine = np.unique(arrTripleLine, axis=0)
         self.__TripleLineAtoms = lstTripleLineAtoms
-        self.__GBOnlyAtoms = lstGBOnlyAtoms
+        self.__GBOnlyAtoms = lstGBOnlyAtoms    
     def GetMeanGrainBoundaryWidth(self):
         return self.__MeanGrainBoundaryWidth
     def GetTripleLine(self):
@@ -301,48 +297,50 @@ class OVITOSPostProcess(object):
                 arrPeriodicDistance[j,k] = self.PeriodicMinimumDistance(inVector1[j],inVector2[k])
         return arrPeriodicDistance
     def PartitionTripleLines(self):
-        arrDistanceMatrix = spatial.distance_matrix(self.__TripleLine, self.__TripleLine)
-        setIndices = set(range(len(self.__TripleLine)))
+        arrTripleLineAtoms = self.__GetCoordinates(self.__TripleLineAtoms)
+        arrDistanceMatrix = spatial.distance_matrix(arrTripleLineAtoms, arrTripleLineAtoms)
+        setIndices = set(range(len(self.__TripleLineAtoms)))
         lstAllTripleLines = []
         while len(setIndices) > 0:            
-            lstAllTripleLines.append(self.TripleLineList(setIndices.pop(),arrDistanceMatrix))
-            setIndices = setIndices - set(lstAllTripleLines[-1])
+            setReturnedIndices = self.TripleLineList(setIndices.pop(),arrDistanceMatrix)
+            setIndices = setIndices.difference(setReturnedIndices)
+            lstAllTripleLines.append([self.__TripleLineAtoms[i] for i in setReturnedIndices])
         self.__TripleLineGroups = lstAllTripleLines
     def GetNumberOfTripleLines(self)->int:
         return len(self.__TripleLineGroups)
     def PlotNthTripleLine(self, intIndex: int):
-        return self.PlotPoints(self.__TripleLine[np.array(self.__TripleLineGroups[intIndex])])
+        return self.__PlotList(self.__TripleLineGroups[intIndex])
     def TripleLineList(self,inIndex: int, arrDistanceMatrix: np.array)->list:
         counter = 0
-        lstTripleLineIndices = []
-        lstIndices = [inIndex]
-        while (set(lstTripleLineIndices) != set(lstIndices) and  counter < len(self.__TripleLine)):
-            arrCurrentMatrix = arrDistanceMatrix[lstIndices]
-            fltCurrentMean = np.mean(self.__LocalGrainBoundaryWidth[lstIndices])
-            lstIndices = list(np.argwhere(arrCurrentMatrix < 2*fltCurrentMean)[:,1])
-            lstTripleLineIndices.extend(lstIndices)
-            lstTripleLineIndices = list(set(lstTripleLineIndices))
+        setTripleLineIndices = set()
+        setIndices = {inIndex}
+        fltCurrentMean = 4.05
+        while (setTripleLineIndices != setIndices) and  (counter < len(self.__TripleLineAtoms)):
+            setIndices = setIndices.union(setTripleLineIndices)
+            arrCurrentMatrix = arrDistanceMatrix[list(setIndices)]
+            setTripleLineIndices = set(np.argwhere(arrCurrentMatrix < fltCurrentMean)[:,1])
             counter += 1
-        return lstTripleLineIndices
+        return setIndices 
     def MergePeriodicTripleLines(self):
         lstMergedIndices = []
-        lstRemainingIndices = list(range(len(self.__TripleLineGroups)))
-        lstCurrentIndices = []
+        lstRemainingTripleLines = self.__TripleLineGroups
+        lstCurrentTripleLine = []
         counter = 0
-        while (len(lstRemainingIndices)> 1):
-            lstCurrentIndices = self.__TripleLineGroups[lstRemainingIndices[0]]
-            lstRemainingIndices.remove(lstRemainingIndices[0])
-            while (counter < len(lstRemainingIndices)):
-                lstTripleLine = self.__TripleLineGroups[lstRemainingIndices[counter]]
-                if self.CheckTripleLineEquivalence (lstCurrentIndices,lstTripleLine):
-                    lstRemainingIndices.remove(lstRemainingIndices[counter])
-                    lstCurrentIndices.extend(lstTripleLine)
+        while (len(lstRemainingTripleLines)> 0):
+            lstCurrentTripleLine = lstRemainingTripleLines[0]
+            lstRemainingTripleLines.remove(lstCurrentTripleLine)
+            while (counter < len(lstRemainingTripleLines)):
+                lstTripleLine = lstRemainingTripleLines[counter]
+                if self.CheckTripleLineEquivalence (lstCurrentTripleLine,lstTripleLine):
+                    lstCurrentTripleLine.extend(lstTripleLine)
+                    lstRemainingTripleLines.remove(lstTripleLine)
                 else:
                     counter += 1
-            lstMergedIndices.append(lstCurrentIndices)
+            if len(lstCurrentTripleLine) > 5:
+                lstMergedIndices.append(lstCurrentTripleLine)
+            else:
+                self.__UnknownAtoms.extend(lstCurrentTripleLine)
             counter = 0
-        if len(lstRemainingIndices) == 1:
-            lstMergedIndices.append(self.__TripleLineGroups[lstRemainingIndices[0]])
         self.__TripleLineGroups = lstMergedIndices
     def CheckTripleLineEquivalence(self,lstTripleLineOne, lstTripleLineTwo)->bool:
         blnFound = False
@@ -352,7 +350,8 @@ class OVITOSPostProcess(object):
         while not blnFound and counter < intLengthOne*intLengthTwo:
             i = lstTripleLineOne[np.mod(counter, intLengthOne)]
             j = lstTripleLineTwo[np.mod(counter - i, intLengthTwo)]
-            if (self.PeriodicMinimumDistance(self.__TripleLine[i], self.__TripleLine[j]) < max(self.__LocalGrainBoundaryWidth[i],self.__LocalGrainBoundaryWidth[j])):
+        #    if (self.PeriodicMinimumDistance(self.__TripleLine[i], self.__TripleLine[j]) < max(self.__LocalGrainBoundaryWidth[i],self.__LocalGrainBoundaryWidth[j])):
+            if (self.PeriodicMinimumDistance(self.__GetCoordinate(i), self.__GetCoordinate(j)) < 2*4.05):
                 blnFound = True
             counter += 1
         return blnFound
@@ -372,11 +371,6 @@ class OVITOSPostProcess(object):
                 fltOldValue = fltNewValue
         return intCount
     def PeriodicMinimumDistance(self, inVector1: np.array, inVector2: np.array)->float:
-        # arrVector1Periodic = self.__LAMMPSTimeStep.PeriodicEquivalents(inVector1)
-        # arrDistances = np.zeros(len(arrVector1Periodic))
-        # for j, vctCurrent in enumerate(arrVector1Periodic):
-        #     arrDistances[j] = gf.RealDistance(vctCurrent, inVector2)
-        # return np.min(arrDistances)
         arrVectorPeriodic = self.__LAMMPSTimeStep.PeriodicEquivalents(np.abs(inVector1-inVector2))
         return np.min(np.linalg.norm(arrVectorPeriodic, axis=1))
     def ClassifyNonGrainAtoms(self):
@@ -384,62 +378,41 @@ class OVITOSPostProcess(object):
         lstTripleLines = []
         lstDislocations = []
         lstGBAtoms = self.__GBAtoms
-        # intSwaps = 0 #the number of times this has swapped from grain boundary to grain 
-        # CurrentList = np.where(self.__LAMMPSTimeStep.GetColumnByIndex(self.__intStructureType) == 0)  and np.where(self.__LAMMPSTimeStep.GetColumnByIndex(self.__intPositionZ) < 10)[0]
-        # for j in CurrentList:
-        #     arrGBPoint = self.__LAMMPSTimeStep.GetRow(j)
-        #     arrPoints = self.__LAMMPSTimeStep.GetAtomData() - arrGBPoint
-        #     arrPoints = arrPoints[:,self.__intPositionX:self.__intPositionY+1] #centre the points with j at the origin
-        #     lstOfIndices = np.where(np.linalg.norm(arrPoints, axis=1) > 12) and np.where(np.linalg.norm(arrPoints, axis=1) < 14)
-        #     arrPoints = arrPoints[lstOfIndices]
-        #     arrStructure = self.__LAMMPSTimeStep.GetColumnByIndex(self.__intStructureType)[lstOfIndices]
-        #     intSwaps = self.SortByAngles(arrPoints, arrStructure)
-        #     if intSwaps == 4:
-        #         lstGBAtoms.append(j)
-        #     elif intSwaps == 6:
-        #         lstTripleLines.append(j)
-        #     else:
-        #         lstUnknownAtoms.append(j)
-        for j in self.__GBAtoms:
-            arrIndices = self.__LatticeTree.query_ball_point(self.__GetCoordinates(j), 2*4.05*np.sqrt(3))
-            arrPoints = self.__LatticeTree.data[arrIndices]
-            #af = AffinityPropagation(preference=-50).fit(arrPoints) 
-            #intClusters = len(af.cluster_centers_indices_)
-            #objCluster = hdbscan.HDBSCAN(metric='matching').fit(arrPoints) 
-            #intClusters = objCluster.labels_.max()
-            lstOfGrainIndices = []
+        for j in lstGBAtoms:
+            lstPointsIndices = []
+            lstPoints = []
+            arrGBAtom = self.__GetCoordinate(j)
+            arrPeriodicPositions = self.__LAMMPSTimeStep.PeriodicEquivalents(arrGBAtom)
+            arrPeriodicTranslations = arrPeriodicPositions - arrGBAtom
+            for intIndex,arrPoint in enumerate(arrPeriodicPositions): 
+                lstPointsIndices= self.__LatticeTree.query_ball_point(arrPoint, 2*4.05*np.sqrt(3))
+                lstPoints.extend(np.subtract(self.__LatticeTree.data[lstPointsIndices],arrPeriodicTranslations[intIndex]))
+            arrPoints = np.array(lstPoints)
             lstOfCurrentGrainIndices = []
             intGrains = 0
-            setRemaingIndices = set(range(len(arrPoints)))
+            setRemainingIndices = set(range(len(arrPoints)))
             arrDistanceMatrix = spatial.distance.cdist(arrPoints, arrPoints,'euclidean')
-            while len(setRemaingIndices) > 0:
-                lstOfCurrentGrainIndices =  self.FindGrainGroups(1.02*4.05/(np.sqrt(2)), arrPoints,arrDistanceMatrix, setRemaingIndices.pop())
-                lstOfGrainIndices.extend(lstOfCurrentGrainIndices)
-                setRemaingIndices = setRemaingIndices - set(lstOfGrainIndices)
+            while len(setRemainingIndices) > 0 and intGrains < 5:
+                lstOfCurrentGrainIndices =  self.FindGrainGroups(1.02*4.05/np.sqrt(2), arrPoints,arrDistanceMatrix, setRemainingIndices.pop())
+                setRemainingIndices = setRemainingIndices.difference(set(lstOfCurrentGrainIndices))
                 if len(lstOfCurrentGrainIndices) > 0:
                     intGrains += 1
             if (intGrains ==1):
                 lstDislocations.append(j)
-                lstGBAtoms.remove(j)
             elif intGrains == 3:
                 lstTripleLines.append(j)
-                lstGBAtoms.remove(j)
             elif intGrains > 3:
-                lstUnknownAtoms.append(j)
-                lstGBAtoms.remove(j)  
+                lstUnknownAtoms.append(j) 
         self.__Dislocations = lstDislocations          
         self.__GBAtoms = lstGBAtoms
         self.__TripleLineAtoms = lstTripleLines
         self.__UnknownAtoms = lstUnknownAtoms
     def FindGrainGroups(self,fltDistance: float, arrPoints: np.array, inDistanceMatrix: np.array, intStart: int)->list:
-         #setAllUsedRows = set(0)
-         #setCurrentRows = set()
         lstCurrentRows = [intStart]
         lstAllUsedRows = []
-       # arrDistanceMatrix = self.MakePeriodicDistanceMatrix(arrPoints,arrPoints)
         while (len(lstCurrentRows) > 0):
             lstCurrentRows = np.argwhere(np.any(inDistanceMatrix[lstCurrentRows] > 0, axis = 0) & np.any(inDistanceMatrix[lstCurrentRows]< fltDistance,axis=0))
-            lstCurrentRows = list(set(lstCurrentRows[:,0]).difference(set(lstAllUsedRows)))
+            lstCurrentRows = list(set(lstCurrentRows[:,0]) -set(lstAllUsedRows))
             lstAllUsedRows.extend(lstCurrentRows)
         return lstAllUsedRows
             
