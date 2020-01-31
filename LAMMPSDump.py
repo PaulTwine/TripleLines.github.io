@@ -2,7 +2,9 @@ import re
 import numpy as np
 import GeometryFunctions as gf
 from scipy import spatial
-from sklearn.cluster import AffinityPropagation
+#from sklearn.cluster import AffinityPropagation
+from skimage.morphology import skeletonize, thin, medial_axis, label
+
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str):
@@ -121,11 +123,15 @@ class LAMMPSTimeStep(object):
         self.__CellVectors  = arrCellVectors   
         self.__CellCentre = np.mean(arrCellVectors,axis=0)*self.__Dimensions/2+self.__Origin
         self.__CellBasis = np.zeros([self.__Dimensions,self.__Dimensions])
+        self.__UnitCellBasis = np.zeros([self.__Dimensions,self.__Dimensions])
         for j, vctCell in enumerate(self.__CellVectors):
             self.__CellBasis[j] = vctCell 
         self.__BasisConversion = np.linalg.inv(self.__CellBasis)
+        self.__UnitBasisConversion = np.linalg.norm(self.__UnitCellBasis, axis=1)
     def GetBasisConversions(self):
         return self.__BasisConversion
+    def GetUnitBasisConversions(self):
+        return self.__UnitBasisConversion
     def GetCellBasis(self):
         return self.__CellBasis
     def GetNumberOfAtoms(self):
@@ -253,7 +259,7 @@ class OVITOSPostProcess(object):
         counter = 0
         setTripleLineIndices = set()
         setIndices = {inIndex}
-        fltCurrentMean = 4.05
+        fltCurrentMean = 2*4.05
         while (setTripleLineIndices != setIndices) and  (counter < len(self.__TripleLineAtoms)):
             setIndices = setIndices.union(setTripleLineIndices)
             arrCurrentMatrix = arrDistanceMatrix[list(setIndices)]
@@ -351,7 +357,7 @@ class OVITOSPostProcess(object):
         self.__TripleLineAtoms = lstTripleLines
         self.__UnknownAtoms = lstUnknownAtoms
     def FindGrainBoundaryLength(self, arrPoint: np.array): #finds a grain boundary estimate at a grain boundary atom
-        lstPointsIndices = self.__NonLatticeTree.query_ball_point(arrPoint, 3*4.05)
+        lstPointsIndices = self.__NonLatticeTree.query_ball_point(arrPoint, 2*4.05)
         arrPoints = self.__NonLatticeTree.data[lstPointsIndices]
         arrMidPoint = np.mean(arrPoints,axis=0)
         fltBoundary = self.__LatticeTree.query(arrMidPoint, 1)[0]
@@ -362,7 +368,7 @@ class OVITOSPostProcess(object):
         # vctPer = np.array([vctMax[1], -vctMax[0],0])
         # arrDistances = np.matmul(arrPoints, vctPer)
         # fltBoundary = 2*np.max(np.abs(arrDistances))
-        return 2*fltBoundary
+        return max(2*fltBoundary, 2*4.05)
     def FindGrainGroups(self,fltDistance: float, arrPoints: np.array, inDistanceMatrix: np.array, intStart: int)->list:
         lstCurrentRows = [intStart]
         lstAllUsedRows = []
@@ -373,4 +379,120 @@ class OVITOSPostProcess(object):
         return lstAllUsedRows
     def GetMergedTripleLine(self, intIndex)->np.array:
         return self.__LAMMPSTimeStep.GetRows(self.__TripleLineGroups[intIndex])
-            
+    def GetTripleLineCentres(self):
+        #arrCentres = np.zeros([len(self.__TripleLineGroups),3])
+        arrCentres = []
+        for j,lstGroup in enumerate(self.__TripleLineGroups):
+            if len(lstGroup) > 10:
+                arrCentres.append(np.mean(self.__GetCoordinates(lstGroup), axis = 0))
+        return np.array(arrCentres)
+    def FindNonGrainMean(self, inPoint: np.array, fltRadius: float): 
+        lstPointsIndices = []
+        lstPoints =[]
+        arrPeriodicPositions = self.__LAMMPSTimeStep.PeriodicEquivalents(inPoint)
+        arrPeriodicTranslations = arrPeriodicPositions - inPoint
+        for intIndex,arrPoint in enumerate(arrPeriodicPositions): 
+                lstPointsIndices= self.__LatticeTree.query_ball_point(arrPoint, fltRadius)
+                if len(lstPointsIndices) > 0:
+                    lstPoints.extend(np.subtract(self.__LatticeTree.data[lstPointsIndices],arrPeriodicTranslations[intIndex]))
+        if len(lstPoints) ==0:
+            return inPoint
+        else:
+            return np.mean(np.array(lstPoints), axis=0)
+
+class QuantisedPoints(object):
+    def __init__(self, in2DPoints: np.array, infltSideLength: float, inBoundaryVectors: np.array, intWrapperWidth: int):
+        self.__GridLength = infltSideLength
+        self.__DataPoints = in2DPoints
+        self.__MaxX = np.max(in2DPoints[:,0])
+        self.__MaxY = np.max(in2DPoints[:,1])
+        self.__WrapperWidth = intWrapperWidth
+        self.QuantisedVectors(infltSideLength,inBoundaryVectors)
+        self.Skeletonised = False
+        self.MakeGrid()
+        self.ExtendGrid()
+        self.__TriplePoints = []
+    def MakeGrid(self): 
+        arrReturn = np.zeros([np.ceil(self.__MaxX/self.__GridLength+1).astype('int'),np.ceil(self.__MaxY/self.__GridLength+1).astype('int')])
+        for j in self.__DataPoints:
+            if j[4].astype('int') ==0:
+                arrReturn[(np.floor(j[0]/self.__GridLength)).astype('int'),(np.floor(j[1]/self.__GridLength)).astype('int')] +=1
+        self.__GridArray = arrReturn.astype('bool').astype('int')
+        self.__Height, self.__Width = np.shape(arrReturn)
+    def ExtendGrid(self): #2n excess rows and columns around the GB array
+        n = self.__WrapperWidth
+        self.__ExtendedGrid = np.zeros([np.ceil(self.__MaxX/self.__GridLength+2*n).astype('int'),
+                                        np.ceil(self.__MaxY/self.__GridLength +2*n).astype('int')])
+        self.__ExtendedGrid[n: -n+1, n: -n+1] = self.__GridArray.astype('int')                                
+    def CopyGBToWrapper(self,arrPoints: np.array, arrShift: np.array, intValue =1):
+         for j in arrPoints:
+            if self.__ExtendedGrid[j[0], j[1]] ==1 or self.__ExtendedGrid[j[0], j[1]] ==2:
+                self.__ExtendedGrid[j[0]+arrShift[0],j[1]+arrShift[1]] = intValue                                                   
+    def QuantisedVectors(self,infltSize: float, inBoundaryVectors: np.array):
+        self.__QVectors = np.array([gf.QuantisedVector(inBoundaryVectors[0]/infltSize),gf.QuantisedVector(inBoundaryVectors[1]/infltSize)]) 
+    def GetQVectors(self)->np.array:
+        return self.__QVectors
+    def GetExtendedGrid(self)->np.array:
+        return self.__ExtendedGrid
+    def GetGrid(self)->np.array:
+        return self.__GridArray
+    def CopyPointsToWrapper(self):
+        vctDown = self.__QVectors[0]#assumes vertically down
+        vctAcross = self.__QVectors[1]#assumes diagonal going right and possibly down or  up
+        vctExtDown = gf.ExtendQuantisedVector(self.__QVectors[0][-1],2*self.__WrapperWidth)
+        vctAcrossTranslation = np.array([0,self.__WrapperWidth])
+        vctExtDown = vctExtDown + vctAcrossTranslation
+        vctExtAcross = gf.ExtendQuantisedVector(self.__QVectors[1][-1],2*self.__WrapperWidth)
+        vctDownTranslation = np.array([self.__WrapperWidth - vctAcross[self.__WrapperWidth][0],0])
+        vctExtAcross = vctExtAcross + vctDownTranslation
+        for k in range(self.__WrapperWidth+1):
+            self.CopyGBToWrapper(vctExtAcross+vctDown[k], vctDown[-1])
+            self.CopyGBToWrapper(vctExtAcross+vctDown[-1]-vctDown[k], -vctDown[-1])
+            self.CopyGBToWrapper(vctExtDown+vctAcross[k], vctAcross[-1])
+            self.CopyGBToWrapper(vctExtDown+vctAcross[-1] -vctAcross[k], -vctAcross[-1])
+    def __ConvertToCoordinates(self, inArrayPosition: np.array): #takes array position and return real 2D coordinates
+        return (inArrayPosition-np.array([self.__WrapperWidth-0.5, self.__WrapperWidth -0.5]))*self.__GridLength 
+    def GetTriplePoints(self):
+        return self.__ConvertToCoordinates(self.__TriplePoints)
+    def GetSkeletonPoints(self):
+        if not self.Skeletonised:
+            self.SkeletonisePoints()
+        return self.__SkeletonGrid
+    def SetSkeletonValue(self, arrPosition:np.array, intValue):
+        self.__SkeletonGrid[arrPosition[0],arrPosition[1]] = intValue
+    def SkeletonisePoints(self):
+        if not self.Skeletonised:
+            arrOutSk = skeletonize(self.GetExtendedGrid())
+            arrOutSk = thin(arrOutSk)
+            self.__SkeletonGrid = arrOutSk.astype('int')
+            self.Skeletonised = True
+    def ClassifyGBPoints(self,m:int,blnFlagEndPoints = False)-> np.array:
+        self.SkeletonisePoints()
+        arrTotal =np.zeros(4*m)
+        intLow = int((m-1)/2)
+        intHigh = int((m+1)/2)
+        arrArgList = np.argwhere(self.__SkeletonGrid==1)
+        arrCurrent = np.zeros([m,m])
+        for x in arrArgList: #loop through the array positions which have GB atoms
+            arrCurrent = self.GetSkeletonPoints()[x[0]-intLow:x[0]+intHigh,x[1]-intLow:x[1]+intHigh] #sweep out a m x m square of array positions with
+            intSwaps = 0
+            if np.shape(arrCurrent) == (m,m): #centre j. This check avoids boundary points
+                intValue = arrCurrent[0,0]
+                arrTotal[:m ] = arrCurrent[0,:]
+                arrTotal[m:2*m] =  arrCurrent[:,-1]
+                arrTotal[2*m:3*m] = arrCurrent[-1,::-1]
+                arrTotal[3*m:4*m] = arrCurrent[-1::-1,0]
+                for k in arrTotal:
+                    if (k!= intValue): #the move has changed from grain (int 0) to grain boundary (int 1) or vice versa
+                        intSwaps += 1
+                        intValue = k
+                if intSwaps == 6:
+                    if not (arrCurrent[0].all() == 1 or arrCurrent[-1].all() == 1 or arrCurrent[:,0].all() == 1 or      arrCurrent[:,-1].all() ==1):
+                    #self.__SkeletonGrid[x[0],x[1]]=2 #this is a triple point
+                        self.SetSkeletonValue(x,3)
+                if intSwaps < 4:
+                    if blnFlagEndPoints:
+                   # self.__SkeletonGrid[x[0],x[1]]=3   #this is where a GB terminates without being a triple point
+                        self.SetSkeletonValue(x,2)
+        self.__TriplePoints = np.argwhere(self.__SkeletonGrid == 3)
+        
