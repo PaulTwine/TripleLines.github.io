@@ -6,6 +6,7 @@ Created on Fri May 31 10:38:14 2019
 """
 import numpy as np
 import itertools as it
+import scipy as sc
 #All angles are assumed to be in radians
 def DegreesToRadians(inDegrees: float)->float:
         return inDegrees/180*np.pi
@@ -170,3 +171,59 @@ def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVect
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
         arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
         return np.matmul(arrCoefficients, inMatrix) #return the wrapped vector in the standard basis
+def ExtendQuantisedVector(inVector: np.array, intAmount)->np.array: #extends 
+        rtnVector = np.zeros([2])
+        intMaxCol =np.argmax(np.abs(inVector))
+        intMinCol = 1- intMaxCol
+        fltRatio = inVector[intMinCol]/inVector[intMaxCol]
+        rtnVector[intMaxCol] = inVector[intMaxCol]+ intAmount
+        rtnVector[intMinCol] = rtnVector[intMaxCol]*fltRatio
+        return QuantisedVector(rtnVector)
+def QuantisedVector(inVector: np.array)->np.array: #2D only for now!
+        intCol = np.argmax(np.abs(inVector))
+        arrReturn = np.zeros([np.round(inVector[intCol]+1).astype('int'),2])
+        fltRatio = 1
+        if inVector[intCol] != 0:
+                fltRatio = inVector[intCol-1]/inVector[intCol]
+        for j in range(len(arrReturn)):
+                arrReturn[j,intCol] = j
+                arrReturn[j, 1-intCol] = np.round(j*fltRatio)   
+        return arrReturn.astype('int')
+def PowerRule(r, a,b):
+        return b*r**a
+def LinearRule(r,m,c):
+        return r*m+c 
+def AsymptoticLinear(r,a,b):
+        return a*r - b*np.log(r+b/a) + b*np.log(b/a)
+def SortInDistanceOrder(inArray: np.array)->np.array:
+        intLength = np.shape(inArray)[0]
+        setIndices =set()
+        if intLength > 1:
+                myMatrix = np.round(sc.spatial.distance.cdist(inArray,inArray),4)
+                arrSortedColumn = np.sort(myMatrix, axis =1)[:,2]
+                intStart = np.argwhere(arrSortedColumn==np.max(arrSortedColumn)) #assumes an endpoint is furthest from 2nd neighbour
+                intStart = intStart[0][0]
+                j = 1
+                lstIndices = [intStart]
+                while (len(lstIndices) < intLength and j < intLength):
+           # intStart = np.argwhere(myMatrix[intStart] == np.partition(myMatrix[intStart],j)[j])[0][0]
+                        intStarts = np.argwhere(myMatrix[intStart] == np.sort(myMatrix[intStart])[j])
+                        setIndices = set(set(intStarts[:,0])).difference(lstIndices)
+                        if len(setIndices)>0:
+                                intStart = setIndices.pop() 
+                                lstIndices.append(intStart) #a new point so add to the list
+                                j=1 #also now need to begin with the nearest neighbour
+                        else: 
+                                j +=1  
+                return inArray[lstIndices], myMatrix[lstIndices,1]
+        else:
+                return inArray, np.array([0])
+def ArcSegment(arrPoints: np.array, arrVector1: np.array, arrVector2: np.array, fltRadius: float)->list:
+        lstIndices = [] #sector of a cylinder bounded by the two vectors and part of a cylindrical curved surface
+        arrUnit1 = NormaliseVector(arrVector1[0:2])
+        arrUnit2 = NormaliseVector(arrVector2[0:2]) 
+        lstIndices.extend(np.where((np.dot(arrPoints,arrUnit1) > 0) & (np.dot(arrPoints,arrUnit1) < fltRadius)
+                             & (np.dot(arrPoints,arrUnit2) > 0) & (np.dot(arrPoints,arrUnit2) < fltRadius)
+                             & (np.linalg.norm(arrPoints[:,0:2],axis=1) 
+                         <fltRadius))[0])
+        return list(lstIndices)

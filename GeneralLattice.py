@@ -327,3 +327,45 @@ class SimulationCell(object):
             return self.__UniqueRealPoints
         else:
             raise("Error: Points need to be wrapped into simulation cell")
+
+class GrainBoundary(object):
+    def __init__(self, arrPoints: np.array):
+        self.__Points = gf.SortInDistanceOrder(arrPoints)[0]
+        self.FindGrainBoundaryLength()
+        self.__Centre = np.mean(self.__Points, axis = 0)
+    def FindGrainBoundaryLength(self):
+        lstfltLength = []
+        for j in range(0, self.GetNumberOfPoints()-1):
+            lstfltLength.append(np.linalg.norm(self.__Points[j+1]-self.__Points[j]))
+        self.__Lengths = lstfltLength
+    def GetGrainBoundaryLength(self)->float:
+        return self.__Lengths
+    def GetNumberOfPoints(self)->int:
+        return len(self.__Points)
+    def GetVector(self, intVector: int)->np.array:
+        if intVector < self.GetNumberOfPoints() -1:
+            return self.__Points[intVector+1]-self.__Points[intVector]
+    def GetAcrossVector(self,intVector)->np.array:
+        return gf.NormaliseVector(np.cross(self.GetVector(intVector), np.array([0,0,1])))
+    def GetSegmentLength(self, intValue:int)->float:
+        return self.__Lengths[intValue]
+    def GetAccumulativeLength(self, intValue: int)->float:
+        if intValue == 0:
+            return 0
+        else:
+            return np.sum(self.__Lengths[:intValue])
+    def GetAccumulativeVector(self, intValue: int)->np.array:
+        arrVector = np.zeros([3])
+        for j in range(intValue):
+            arrVector += self.GetVector(j)
+        return arrVector
+    def GetPoints(self, intValue = None)->np.array:
+        if intValue is None:
+            return self.__Points
+        else:
+            return self.__Points[intValue]
+    def GetCentre(self, intValue = None)->np.array:
+        if intValue is None:
+            return self.__Centre
+        elif intValue < self.GetNumberOfPoints():
+            return (self.GetPoints(intValue+1) + self.GetPoints(intValue))/2 
