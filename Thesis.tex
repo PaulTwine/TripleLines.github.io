@@ -1,0 +1,125 @@
+\documentclass[12pt,a4paper]{book}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\title{Uncovering the properties of triple junctions}
+\author{Paul Twine}
+\begin{document}
+\maketitle
+
+\chapter{Literature Review}
+
+Polycrystalline materials comprise of grains, grain boundaries and grain junction lines. The grain boundary is a two dimensional interface between two misorientated grains. A junction line occurs where three or more grain boundaries meet. The most common junction line is a triple line which has three adjacent grains. Whilst grains and grain boundaries have been studied extensively there has been relatively little work on triple lines.
+
+An increasing amount of research suggests that triple lines may affect how  grains deform and also serve as a diffusion pipe. The stability of polycrystalline structure depends upon the potential energy associated with each region within the grain. The creation of an interface between the two grains has an corresponding excess energy compared to the pristine lattice at zero kelvin. However the energy associated with a triple line remains an open question which is investigated in this paper.
+
+
+The paper is structured as follows:
+
+ 
+
+
+\chapter{Molecular Dynamics}
+The triple junction can be investigated using molecular dynamics simulation in the LAMMPS package. The periodic hexagonal configuration can be constructed for a variety of misorientation angles which affect the excess interfacial energy at each grain boundary. The potential energy of grain boundaries and triple lines can also be estimated using an emperical potential.
+\section{The Partition Algorithm}
+The results of a LAMMPS simulation produces a series of atomistic positions at a regular time intervals. In order to analyse the results the atoms need to be grouped into several disjoint categories. Firstly a large proportion of the atoms will be identified as belonging to one of the possible three grains. The polyhedral matching template will be used to identify if an atom belongs to one of the grains. This is based upon the assumption that the orientation of the grain relative to the simulation cell has not changed during the simulation time. 
+
+In order for an atom to be identified as belong to one of the grains it must first conform to the same lattice type. Once this has been established the orientation of each atom is tested by comparing the quaternion inner product with the orientations of each of the original grains. As this is numerical test there are some atoms that do share the same lattice structure but do not appear to agree with the lattice orientation of any of the existing grains. 
+
+The atoms whose orientation do not match any of the three grains and also do not share the same lattice type then form part of the grain boundaries which include the triple lines. A further searching algorithm is then used to separate define the triple lines. This uses a sampling approach based upon the grain boundary atoms. 
+
+The triple lines are defined by a region of space that lies within the grain bounary region. Each grain boundary atom is examined and the closest periodic displacement to each of the three grains in found. These three displacement vectors then point to three vertices of a triangle. The shortest side length of the triangle is then taken as a local measure of the grain boundary width in the neighbourhood of that particular grain boundary atom.  
+
+Of particular interest was the periodic configuration with misorientation angles of $\pi/5$ and $\pi/7$ with the each grain having the $[1 1 1]$ vector aligned with the vertical $z$ vector of the simulation cell.
+
+\subsection{Grain Boundary and Triple Line Descriptors}
+
+The constituent parts of a simulation cell comprise of the grains, grain boundaries and triple lines. The use of an emperical potential allows for different regions of space to be assigned a proportion of the supercell's potential energy. In order to do this an algorithm is required to identify atoms and that are not.
+
+\begin{itemize}
+
+	\item LAMMPS simulation data is categorised using the Ovito PTM algorithm. This classifies atoms based upon their lattice type.
+	\item Atoms that are not grain  atoms have their coordinates quantised so that the occur in a two dimensional square grid whose side length is the particular metal lattice parameter
+	\item The associated grid image is then reduced in such a way that the grain boundary images all have width of only one grid whilst preserving the connectivity of the structure.
+	\item A connectivity algorithm is then run to find grain boundary points that have three neighbouring grain boundary points.
+	\item In general these will be triple lines although there are a couple of pathological examples where this fails.
+	\item The triple points are then deleted leaving a series of disconneted line shapes that make up the grain boundaries.
+	\item Each geometric description of the grain boundary or triple line is scaled back into the simulation cell. 
+	\item Finally each positional point is refined by using a spherical volume centred at the point. The mean position of the nongrain atoms within the sphere is then defined to be a point that lines upon the triple line. 
+
+\end{itemize} 
+
+\section{Statistical Analysis of Potential Energy}
+
+A statistical analysis of the spatial variation of potential energy can show how the potential energy is partioned. Consider an axially symmetric region with the triple line as the axis of symmetry. For a small radius the potential energy inside the cylinder does not contain any bulk atoms. As the radius increases the potential energy will include contributions from the three neighbouring grain boundaries and also the lattice atoms. The potential energy of an atom in the perfect lattice is defined as part of the emperical potential. Furthermore the potential energy contribution from each grain boundary is expected to increase linearly with grain boundary length. 
+
+As the radius of the cylindrical region increases the curve describing the excess potential energy is likely to assymptotically approach a straight line. The gradient of this straight line represents the total rate of change of potential energy per unit length of all three grain boundaries. 
+
+This approach assumes that the region of interest has no defects other than the triple line and connected grain boundaries. There is also an implicit assumption that there is little spatial variation in the interfacial excess energy of each grain boundary. The grain boundaries are also assumed to be planes whose normal vector is perpendicular a fixed vector point radially from the triple line.
+
+These assumptions are restrictive and the results obtained should be interpreted only as a possible average of the system. Systems that are modelled using molecular dynamics tend to minimise their free energy and the calculations here only involve potential energy. However energy minimisation is likely to be achieved by minismising the interfacial surface area. If the potential energy surface for the system as completely isotropic this would be achieved by planar grain boundaries.    
+
+The algorithm produces a set of discrete points and in general these are not atom positions. The grain boundaries are constructed as a series of line segments connecting the closest points. Each line segment is then extruded vertically to give a plane section. The following algorithm is then used to identify atoms that lie sufficiently close to the grain boundary.
+
+The total excess energy of the system is attributed to the grain boundaries, triple lines and also the strain energy density. This final contribution is a consequence of the stress exerted by the grain boundary interfaces onto the adjacent grains. The strained lattice will have a higher potential energy per unit volume. In order to calculate the excess energy due to the grain boundaries and triple lines this excess must measured relative to the strain grain potential enery per unit volume. 
+
+The triple line is assumed to be aligned vertically in the frame of the simulation cell. However the grain boundaries also influence the surrounding grains which are now also have an excess energy due to being strained. In general the lattice will distribute the strain evenly over its volumne due to elastic deformation. The lattice there form has excess strain energy and so its minimum  potential energy is higher than the theoretical value predicted by the embedded atom method potential.
+
+\section{Fitting Function}
+
+The total excess potential energy consisting of $n$ atoms can be easily calculated by subtracting the strained potential energy of an equivalent FCC grain of exactly $n$ atoms from the total potential energy of the simulation cell. The excess energy can then be partioned into a part associated with the grain boundaries and a part associated with the triple line.
+
+The approach employed here is to model the potential energy contained within a fixed radius of the triple line. This region forms a cylinder with the triple line as its axis of symmetry. A specific function is used to model the total potential energy as a function of the radial distance from the triple line. 
+
+The function is a sum of two simple functions that represent the contributions of the triple line and the grain boundaries respectively. This approaches assumes a simple geometry and considers the asymptotic behaviour as the radial distances becomes arbitrarily large.
+
+The geometry of the system assumes three grain planar grain boundaries whose normal vectors are all parallel to the $\mathbf{k}$ vector of the simulation cell. The only contributions to the excess potential energy are from the three grain boundaries and the triple line. Although the grain boundaries and triples lines are two dimension and one dimensional respectively the effect on the potential energy is assumed to be three dimensional.
+
+The effect of the three grain boundaries is assumed to increase linearly with the radius $r$. 
+
+
+The complete potential energy contained with a cylindrical volume of height $h$ and radius $r$ can then be modelled using the following equation
+
+\[ V(r) = 2 \pi h P_{L} r^2 + 3(P_G-P_L)h w r + T_0  
+\]
+
+for radius $r_c < r < r_L$ where $r_c$ is a postive critical radius.
+
+The first term represents the total potential energy present if there were no grain boundaries or triple lines but the grains were still strained. The second term is then the excess energy due to the three grain boundaries measured above the strained grains potential energy. Finally the last term is the contribution from the triple line. Here is has been assumed that the triple line has a volume given by $\pi r_c h$ and for $r > r_c$ the triple line energy is effectively constant.
+
+\subsection{Lattice Orientation}
+
+The identifying of grains using their local lattice orientation cannot be used to rigorously separate different grains. Adjacent grains can have identical orientations and yet still form a grain boundary due to translation difference. Provided the translation is not a symmetry of the lattice a grain boundary can form due to a stacking difference.
+
+\subsection{Gamma Surfaces}
+
+The statistical approach outlined in section $LABEL$ implicitly assumes that the grain boundary energy does not vary substantially along the length of the grain boundary.
+
+\subsection{Verifying Numerical Results}
+
+The simulation cell is periodic in nature and this can be used to test some of the numerical results. In particular there are four periodically equivalent triple lines positioned at the four corners of the simulation cell. The total excess energy and how it is proportioned should be very similar for each periodically equivalent triple line. It is important to emphasize that in reality there are not four distinct triple lines and they correspond to a single triple line in the periodic simluation cell.
+
+
+\[ f(x) = \frac{p(x)}{q(x)} \]
+
+with $p(0)=0$ and $\liminf{x}{f^{\prime}(x)}=0$
+
+\[ \frac{p^{\prime}(x)q(x) -q^{\prime}(x)p(x)}{[q(x)]^2} = m\]
+
+
+\[ f(x) = mx - n\ln(x+n/m)\]
+\[ f'(x) = m -\frac{n}{x+p} = 0 \Rightarrow  mx + mp - n = 0 \]
+
+
+\subsection{The [111] Direction}
+The simulation was run with the each grains $[111]$ direction orientated parallel to the simulation cells $\mathbf{k}$ vector. An important consequence of this is that the grains now have order six rotation symmetry around the $\mathbf{k}$ vector. As the grains are also defined by regular hexagonal boundaries it is likely that grain boundary normal direction will not affect the excess potential energy as much as the previous grain configuration.
+
+The symmetry of the simulation cell and the three grains now suggest that each triple line has a very similar neighbourhood in terms of the adjacent grains and grain boundaries. This in turn suggests that the excess energy associated with each triple line in the simulation cell should be approximately equal.
+
+
+\subsection{Triple Lines with atomic ordering}
+
+A twin grain boundary occurs where there is a reflective symmetry across the grain boundary interface. Such a grain boundary generally has only a small amount of excess energy associated with it and this is due to some partial ordering and bonding of the grain boundary atoms.
+ 
+\end{document}
