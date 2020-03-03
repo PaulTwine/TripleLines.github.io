@@ -219,11 +219,15 @@ def SortInDistanceOrder(inArray: np.array)->np.array:
         else:
                 return inArray, np.array([0])
 def ArcSegment(arrPoints: np.array, arrVector1: np.array, arrVector2: np.array, fltRadius: float)->list:
-        lstIndices = [] #sector of a cylinder bounded by the two vectors and part of a cylindrical curved surface
+        #sector of a cylinder bounded by the two vectors and part of a cylindrical curved surface
+        #for semicircular sections use arrVector1 == arrVector2
         arrUnit1 = NormaliseVector(arrVector1[0:2])
         arrUnit2 = NormaliseVector(arrVector2[0:2]) 
-        lstIndices.extend(np.where((np.dot(arrPoints,arrUnit1) > 0) & (np.dot(arrPoints,arrUnit1) < fltRadius)
-                             & (np.dot(arrPoints,arrUnit2) > 0) & (np.dot(arrPoints,arrUnit2) < fltRadius)
-                             & (np.linalg.norm(arrPoints[:,0:2],axis=1) 
-                         <fltRadius))[0])
+        lstIndices = np.where((np.dot(arrPoints,arrUnit1) > 0)  & (np.dot(arrPoints,arrUnit2) > 0)  & 
+                                (np.linalg.norm(arrPoints[:,0:2],axis=1)  <fltRadius))[0]
+        return list(lstIndices)
+def CylindricalVolume(arrPoints: np.array, arrCentre: np.array, fltRadius: float, fltHeight: float)->list:
+        arrPointsNew = arrPoints - arrCentre
+        lstIndices = np.where((np.linalg.norm(arrPointsNew[:,0:2],axis=1) <= fltRadius)
+                               & (np.abs(arrPointsNew[:,2]) <= fltHeight/2))[0]
         return list(lstIndices)
