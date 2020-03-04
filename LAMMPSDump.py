@@ -255,8 +255,8 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         if len(arrPoints) ==0:
             return inPoint
         else:
-           return np.mean(arrPoints, axis=0)           
-    def FindTriplePoints(self,fltGridLength: float, blnFindGrainBoundaries = False):
+           return np.median(arrPoints, axis=0)           
+    def FindTriplePoints(self,fltGridLength: float, fltSearchRadius: float,blnFindGrainBoundaries = False):
         lstGrainBoundaries = []
         fltMidHeight = self.CellHeight/2
         objQPoints = QuantisedRectangularPoints(self.GetOtherAtoms()[:,self.__intPositionX:self.__intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength)
@@ -265,14 +265,14 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         #arrTripleLines = self.MoveToSimulationCell(arrTripleLines)
         for j  in range(len(arrTripleLines)):
-            arrTripleLines[j] = self.FindNonGrainMean(arrTripleLines[j], 3*fltGridLength)
+            arrTripleLines[j] = self.FindNonGrainMean(arrTripleLines[j], fltSearchRadius)
         self.__TripleLines = arrTripleLines 
         if blnFindGrainBoundaries:
             lstGrainBoundaries = objQPoints.GetGrainBoundaries()
             for j in range(len(lstGrainBoundaries)):
                 for k,Points in enumerate(lstGrainBoundaries[j]):
                     arrPoint = np.array([Points[0], Points[1],fltMidHeight])
-                    lstGrainBoundaries[j][k] = self.FindNonGrainMean(arrPoint, 3*fltGridLength)
+                    lstGrainBoundaries[j][k] = self.FindNonGrainMean(arrPoint, fltSearchRadius)
             self.__GrainBoundaries = lstGrainBoundaries
         return arrTripleLines
     def GetGrainBoundaries(self, intValue = None):
@@ -319,10 +319,10 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             lstMergedIndices.append(lstCurrentIndices)
             setIndices = setIndices.difference(lstCurrentIndices)
         return lstMergedIndices
-    def EstimateTripleLineEnergy(self,fltGridSize: float, fltIncrement: float):
+    def EstimateTripleLineEnergy(self,fltGridSize: float, fltSearchRadius: float, fltIncrement: float):
         arrEnergy = np.zeros([len(self.__TripleLines),3])
         fltPEDatum = np.median(self.GetLatticeAtoms()[:,self.__intPE])
-        self.FindTriplePoints(fltGridSize)
+        self.FindTriplePoints(fltGridSize, fltSearchRadius)
         #fltHeight = np.dot(self.GetCellVectors()[2], np.array([0,0,1]))
         for j in range(len(self.__TripleLines)):
             lstRadius = []
