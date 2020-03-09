@@ -7,11 +7,9 @@ import LAMMPSDump as LD
 import sys
 
 intCounter = int(sys.argv[1])
-intIncrements = int(sys.argv[2])
+intIncrement = float(sys.argv[2])
 fltSymmetry = float(sys.argv[3])
-fltAngle1, fltAngle2 = np.divmod(intCounter, intIncrements)
-fltAngle1 = fltAngle1*fltSymmetry/intIncrements 
-fltAngle2 = fltAngle2*fltSymmetry/intIncrements 
+fltAngle1, fltAngle2 = gf.AngleGenerator(intCounter, intIncrement, fltSymmetry)
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 l = 3

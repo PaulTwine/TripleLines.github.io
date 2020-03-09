@@ -231,3 +231,13 @@ def CylindricalVolume(arrPoints: np.array, arrCentre: np.array, fltRadius: float
         lstIndices = np.where((np.linalg.norm(arrPointsNew[:,0:2],axis=1) <= fltRadius)
                                & (np.abs(arrPointsNew[:,2]) <= fltHeight/2))[0]
         return list(lstIndices)
+def AngleGenerator(intCounter: int, fltIncrement: float, fltLimit: float): #assumes job array entry which is 1 based so use intCounter-1. Returns angles in pairs excluding zero angles and pairs of equal angle
+        fltAngle1, fltAngle2 = np.divmod((intCounter-1)*fltIncrement, fltLimit-2*fltIncrement)
+        fltAngle1 = (fltAngle1+1)*fltIncrement
+        fltAngle2 = np.mod(fltAngle1+fltAngle2, fltLimit-fltIncrement)
+        return (fltAngle1, fltAngle2+fltIncrement)
+def IndexFromAngles(fltAngle1, fltAngle2, intLength, fltIncrement, fltLimit):
+        lstOfAngles = []
+        for j in range(1,intLength+1):
+                lstOfAngles.append(AngleGenerator(j, fltIncrement, fltLimit))
+        return lstOfAngles.index(tuple(fltAngle1, fltAngle2))
