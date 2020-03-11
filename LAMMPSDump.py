@@ -271,7 +271,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
                 arrPoint = np.array([arrGB[k,0], arrGB[k,1],fltMidHeight])
                 arrPoint =  self.FindNonGrainMean(arrPoint, fltSearchRadius)
                 arrPoint[2] = fltMidHeight
-                lstGrainBoundaries[j][k] = arrPoint
+                git lstGrainBoundaries[j][k] = arrPoint
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         self.__GrainBoundaries = lstGrainBoundaries
         self.__TripleLines = arrTripleLines 
