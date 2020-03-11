@@ -290,25 +290,26 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             lstPoints.extend(gf.CylindricalVolume(arrPoints[:,1:4],arrCentre,fltRadius,fltHeight))
 
         return list(np.unique(lstPoints))
-    def FindBoxAtoms(self, arrCentre: np.array, arrLength: np.array, arrWidth: np.array)->list:
+    def FindBoxAtoms(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array,
+    arrHeight: np.array, blnPeriodic = True)->list:
         lstPoints = []
-        fltLength = np.linalg.norm(arrLength, axis=0)
-        fltWidth = np.linalg.norm(arrWidth, axis=0)
-        arrCentre3d = np.array([arrCentre[0],arrCentre[1],0])
-        arrCentres = self.PeriodicEquivalents(arrCentre3d)
-        for j in arrCentres:
-            arrCurrentPoints = self.GetAtomData()[:,1:3]-j[0:2]
-            lstPoints.extend(np.where((np.abs(np.dot(arrCurrentPoints, arrLength/fltLength )) < fltLength/2) 
-             & (np.abs(np.dot(arrCurrentPoints, arrWidth/fltWidth)) < fltWidth/2))[0])
+        if blnPeriodic: 
+            arrCentres = self.PeriodicEquivalents(arrCentre)
+            for j in arrCentres:
+                lstPoints.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],j, arrLength, arrWidth, arrHeight))
+        else:
+            lstPoints.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],arrCentre, arrLength, arrWidth, arrHeight))
         return list(np.unique(lstPoints))
-    def FindValuesInCylinder(self, arrPoints: np.array ,arrCentre: np.array, fltRadius: float, fltHeight: float, intColumn: int): #arrPoints = [AtomID, x,y,z]
-        #lstRows = []
+    def FindValuesInBox(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array, 
+    arrHeight: np.array, intColumn: int):
+        lstIDs = self.FindBoxAtoms(arrPoints, arrCentre, arrLength, arrWidth,arrHeight)
+        return self.GetAtomsByID(lstIDs)[:,intColumn]
+    def FindValuesInCylinder(self, arrPoints: np.array ,arrCentre: np.array, fltRadius: float, fltHeight: float, intColumn: int): 
         lstIDs = self.FindCylindricalAtoms(arrPoints, arrCentre, fltRadius, fltHeight)
         #for j in lstIndices:
         #    lstRows.extend(np.where(np.linalg.norm(self.GetAtomData()[:,1:4] - arrPoints[j],axis=1)==0)[0])
         #lstRows = list(np.unique(lstRows))
         return self.GetAtomsByID(lstIDs)[:, intColumn]
-        #return self.GetRows(lstRows)[:,intColumn]
     def MergePeriodicTripleLines(self, fltDistanceTolerance: float):
         lstMergedIndices = []
         setIndices = set(range(self.GetNumberOfTripleLines()))

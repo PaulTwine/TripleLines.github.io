@@ -231,6 +231,14 @@ def CylindricalVolume(arrPoints: np.array, arrCentre: np.array, fltRadius: float
         lstIndices = np.where((np.linalg.norm(arrPointsNew[:,0:2],axis=1) <= fltRadius)
                                & (np.abs(arrPointsNew[:,2]) <= fltHeight/2))[0]
         return list(lstIndices)
+def ParallelopipedVolume(arrPoints: np.array, arrStartPoint: np.array, arrAlong: np.array, arrAcross: np.array, arrUp:np.array)->list:
+        arrPointsNew = arrPoints - arrStartPoint
+        fltHeight = np.linalg.norm(arrUp, axis = 0)
+        fltLength = np.linalg.norm(arrAlong, axis = 0)
+        fltWidth = np.linalg.norm(arrAcross, axis = 0)
+        lstIndices = np.where((np.dot(arrPointsNew, NormaliseVector(arrUp)) <= fltHeight) &  (np.abs(np.dot(arrPointsNew, NormaliseVector(arrAcross))) <= fltWidth/2) & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) <= fltLength)
+        & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) >= 0) & (np.dot(arrPointsNew, NormaliseVector(arrUp)) >= 0))[0]
+        return list(lstIndices)
 def AngleGenerator(intCounter: int, fltIncrement: float, fltLimit: float): #assumes job array entry which is 1 based so use intCounter-1. Returns angles in pairs excluding zero angles and pairs of equal angle
         fltAngle1, fltAngle2 = np.divmod((intCounter-1)*fltIncrement, fltLimit-2*fltIncrement)
         fltAngle1 = (fltAngle1+1)*fltIncrement
