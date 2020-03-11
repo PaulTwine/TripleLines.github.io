@@ -373,12 +373,11 @@ class GrainBoundary(object):
             return (self.GetPoints(intValue+1) + self.GetPoints(intValue))/2 
     def GetLinearDirection(self):
         if len(self.__LinearDirection) == 0:
-            arrMatrix = np.cov(self.__Points, self.__Points)
+            arrMatrix = np.cov(self.__Points[:,0:2], self.__Points[:,0:2])
             eValues, eVectors = np.linalg.eig(arrMatrix)
             intIndex = np.argmax(np.abs(eValues))
             vctAxis = np.real(eVectors[:,intIndex])
-            vctAxis = gf.NormaliseVector(vctAxis)
-            self.__LinearDirection = np.array([vctAxis[0], vctAxis[1],0])
+            self.__LinearDirection = gf.NormaliseVector(np.array([vctAxis[0], vctAxis[1], 0]))
         return self.__LinearDirection
 
 
