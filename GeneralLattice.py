@@ -2,6 +2,7 @@ import numpy as np
 import GeometryFunctions as gf
 import LatticeShapes as ls
 import LatticeDefinitions as ld
+from scipy import spatial
 
 class PureCell(object):
     def __init__(self,inCellNodes: np.array): 
@@ -333,6 +334,7 @@ class GrainBoundary(object):
         self.__Points = gf.SortInDistanceOrder(arrPoints)[0]
         self.FindGrainBoundaryLength()
         self.__Centre = np.mean(self.__Points, axis = 0)
+        self.__LinearDirection = []
     def FindGrainBoundaryLength(self):
         lstfltLength = []
         for j in range(0, self.GetNumberOfPoints()-1):
@@ -369,3 +371,41 @@ class GrainBoundary(object):
             return self.__Centre
         elif intValue < self.GetNumberOfPoints():
             return (self.GetPoints(intValue+1) + self.GetPoints(intValue))/2 
+    def GetLinearDirection(self):
+        if len(self.__LinearDirection) == 0:
+            arrMatrix = np.cov(self.__Points, self.__Points)
+            eValues, eVectors = np.linalg.eig(arrMatrix)
+            intIndex = np.argmax(np.abs(eValues))
+            vctAxis = np.real(eVectors[:,intIndex])
+            vctAxis = gf.NormaliseVector(vctAxis)
+            self.__LinearDirection = np.array([vctAxis[0], vctAxis[1],0])
+        return self.__LinearDirection
+
+
+class DefectStructure(object):
+    def __init__(self, arrTripleLines: np.array, arrGrainBoundaries: np.array):
+        self.__TripleLines = arrTripleLines
+        self.__GrainBoundaryPoints = arrGrainBoundaries
+        lstOfGrainObjects = []
+        for j in arrGrainBoundaries:
+            lstOfGrainObjects.append(GrainBoundary(j))
+        self.__GrainBoundariesObjects = lstOfGrainObjects
+    def GetNeighbouringGrainBoundaries(self, intTripleLine: int):
+        lstDistances = [] #the closest distance 
+        lstPositions = []
+        arrTripleLine = self.__TripleLines[intTripleLine]
+        for j in self.__GrainBoundaryPoints:
+            lstDistances.append(np.linalg.norm(np.min(j-arrTripleLine,axis=0)))
+        for k in range(3):
+            lstPositions.append(gf.FindNthSmallestPosition(lstDistances,k))
+        return lstPositions
+    def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
+        arrDistances = np.linalg.norm(self.__GrainBoundaryPoints[intGrainBoundary]-self.__TripleLines[intTripleLine], axis=0)
+        intPosition = np.argmin(arrDistances)
+        vctDirection = self.__GrainBoundariesObjects[intGrainBoundary].GetLinearDirection()
+        if intPosition > len(arrDistances)/2:
+            vctDirection = -vctDirection
+        return vctDirection
+           
+
+

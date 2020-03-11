@@ -256,24 +256,25 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             return inPoint
         else:
            return np.median(arrPoints, axis=0)           
-    def FindTriplePoints(self,fltGridLength: float, fltSearchRadius: float,blnFindGrainBoundaries = False):
+    def FindTriplePoints(self,fltGridLength: float, fltSearchRadius: float):
         lstGrainBoundaries = []
         fltMidHeight = self.CellHeight/2
         objQPoints = QuantisedRectangularPoints(self.GetOtherAtoms()[:,self.__intPositionX:self.__intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength)
         arrTripleLines = objQPoints.FindTriplePoints()
         self.__TripleLineDistanceMatrix = spatial.distance_matrix(arrTripleLines[:,0:2], arrTripleLines[:,0:2])
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
-        #arrTripleLines = self.MoveToSimulationCell(arrTripleLines)
-        for j  in range(len(arrTripleLines)):
-            arrTripleLines[j] = self.FindNonGrainMean(arrTripleLines[j], fltSearchRadius)
+        lstGrainBoundaries = objQPoints.GetGrainBoundaries()
+        for i  in range(len(arrTripleLines)):
+            arrTripleLines[i] = self.FindNonGrainMean(arrTripleLines[i], fltSearchRadius)
+        for j,arrGB in enumerate(lstGrainBoundaries):
+            for k in range(len(arrGB)):
+                arrPoint = np.array([arrGB[k,0], arrGB[k,1],fltMidHeight])
+                arrPoint =  self.FindNonGrainMean(arrPoint, fltSearchRadius)
+                arrPoint[2] = fltMidHeight
+                lstGrainBoundaries[j][k] = arrPoint
+        arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
+        self.__GrainBoundaries = lstGrainBoundaries
         self.__TripleLines = arrTripleLines 
-        if blnFindGrainBoundaries:
-            lstGrainBoundaries = objQPoints.GetGrainBoundaries()
-            for j in range(len(lstGrainBoundaries)):
-                for k,Points in enumerate(lstGrainBoundaries[j]):
-                    arrPoint = np.array([Points[0], Points[1],fltMidHeight])
-                    lstGrainBoundaries[j][k] = self.FindNonGrainMean(arrPoint, fltSearchRadius)
-            self.__GrainBoundaries = lstGrainBoundaries
         return arrTripleLines
     def GetGrainBoundaries(self, intValue = None):
         if intValue is None:
@@ -450,11 +451,15 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         return self.__NumberOfGrainBoundaries
     def GetGrainBoundaries(self):
         lstGrainBoundaries = []
+        lstLineDefects = []
         if not self.__blnGrainBoundaries:
             self.FindGrainBoundaries()
         for j in range(1,self.__NumberOfGrainBoundaries+1): #label 0 is the background
             arrPoints = np.argwhere(self.__GrainBoundaryLabels == j) #find the positions for each label
-            lstGrainBoundaries.append(self.__ConvertToCoordinates(arrPoints))
+            if len(arrPoints) > 2:
+                lstGrainBoundaries.append(self.__ConvertToCoordinates(arrPoints))
+            else:
+                lstLineDefects.append(self.__ConvertToCoordinates(arrPoints))
         return lstGrainBoundaries
 
 # class Quantised2DPoints(object):
