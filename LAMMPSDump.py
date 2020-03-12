@@ -1,6 +1,7 @@
 import re
 import numpy as np
 import GeometryFunctions as gf
+import GeneralLattice as gl
 from scipy import spatial, optimize
 #from sklearn.cluster import AffinityPropagation
 from skimage.morphology import skeletonize, thin, medial_axis, label, remove_small_holes
@@ -44,7 +45,7 @@ class LAMMPSData(object):
                     raise Exception("Unexpected "+repr(line))
                 lstColumnNames = line[11:].strip().split()
                 intNumberOfColumns = len(lstColumnNames)
-                objTimeStep = LAMMPSPostProcess(timestep, N,intNumberOfColumns,lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
+                objTimeStep = LAMMPSAnalysis(timestep, N,intNumberOfColumns,lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
                 objTimeStep.SetColumnNames(lstColumnNames)
                 for i in range(N):
                     line = next(Dfile).strip().split()
@@ -177,18 +178,17 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
         LAMMPSTimeStep.__init__(self,fltTimeStep,intNumberOfAtoms, lstColumnNames, lstBoundaryType, lstBounds)
         self.__Dimensions = self.GetNumberOfDimensions()
-        self.__LatticeStructure = intLatticeType #lattice structure type as defined by OVITOS
-        self.__intStructureType = int(self.GetColumnNames().index('StructureType'))
-        self.__intPositionX = int(self.GetColumnNames().index('x'))
-        self.__intPositionY = int(self.GetColumnNames().index('y'))
-        self.__intPositionZ = int(self.GetColumnNames().index('z'))
-        self.__intPE = int(self.GetColumnNames().index('c_pe1'))
+        self._LatticeStructure = intLatticeType #lattice structure type as defined by OVITOS
+        self._intStructureType = int(self.GetColumnNames().index('StructureType'))
+        self._intPositionX = int(self.GetColumnNames().index('x'))
+        self._intPositionY = int(self.GetColumnNames().index('y'))
+        self._intPositionZ = int(self.GetColumnNames().index('z'))
+        self._intPE = int(self.GetColumnNames().index('c_pe1'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
-        self.__GrainBoundaries = []
     def CategoriseAtoms(self):    
-        lstOtherAtoms = list(np.where(self.GetColumnByIndex(self.__intStructureType).astype('int') == 0)[0])
-        lstLatticeAtoms =  list(np.where(self.GetColumnByIndex(self.__intStructureType).astype('int') == self.__LatticeStructure)[0])
-        lstUnknownAtoms = list(np.where(np.isin(self.GetColumnByIndex(self.__intStructureType).astype('int') ,[0,1],invert=True))[0])
+        lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
+        lstLatticeAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
+        lstUnknownAtoms = list(np.where(np.isin(self.GetColumnByIndex(self._intStructureType).astype('int') ,[0,1],invert=True))[0])
         self.__LatticeAtoms = lstLatticeAtoms
         self.__NonLatticeAtoms = lstOtherAtoms + lstUnknownAtoms
         self.__OtherAtoms = lstOtherAtoms
@@ -217,49 +217,122 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         return inArray[:,0],inArray[:,1], inArray[:,2]
     def __PlotList(self, strList: list):
         arrPoints = self.GetRows(strList)
-        return arrPoints[:,self.__intPositionX], arrPoints[:,self.__intPositionY], arrPoints[:,self.__intPositionZ]
+        return arrPoints[:,self._intPositionX], arrPoints[:,self._intPositionY], arrPoints[:,self._intPositionZ]
     def __GetCoordinate(self, intIndex: int):
         arrPoint = self.GetRow(intIndex)
-        return arrPoint[self.__intPositionX:self.__intPositionZ+1]
+        return arrPoint[self._intPositionX:self._intPositionZ+1]
     def __GetCoordinates(self, strList: list):
         arrPoints = self.GetRows(strList)
-        return arrPoints[:,self.__intPositionX:self.__intPositionZ+1]
+        return arrPoints[:,self._intPositionX:self._intPositionZ+1]
     def MakePeriodicDistanceMatrix(self, inVector1: np.array, inVector2: np.array)->np.array:
         arrPeriodicDistance = np.zeros([len(inVector1), len(inVector2)])
         for j in range(len(inVector1)):
             for k in range(j,len(inVector2)):
                 arrPeriodicDistance[j,k] = self.PeriodicMinimumDistance(inVector1[j],inVector2[k])
-        return arrPeriodicDistance + arrPeriodicDistance.T - np.diag(arrPeriodicDistance.diagonal())
-    def GetNumberOfTripleLines(self)->int:
-        return len(self.__TripleLines)
-    def GetTripleLines(self)->np.array:
-        return self.__TripleLines
+        if np.shape(arrPeriodicDistance)[0] == np.shape(arrPeriodicDistance)[1]:
+            return arrPeriodicDistance + arrPeriodicDistance.T - np.diag(arrPeriodicDistance.diagonal())
+        else:
+            return arrPeriodicDistance
     def PeriodicMinimumDistance(self, inVector1: np.array, inVector2: np.array)->float:
         arrVectorPeriodic = self.PeriodicEquivalents(np.abs(inVector1-inVector2))
         return np.min(np.linalg.norm(arrVectorPeriodic, axis=1))
     def FindNonGrainMean(self, inPoint: np.array, fltRadius: float): 
         lstPointsIndices = []
         #arrPeriodicPositions = self.PeriodicEquivalents(inPoint)
-        lstPointsIndices = self.FindCylindricalAtoms(self.GetOtherAtoms()[:,0:self.__intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
+        lstPointsIndices = self.FindCylindricalAtoms(self.GetOtherAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
         #for j in arrPeriodicPositions:
-        #    lstPointsIndices.extend(self.FindCylindricalAtoms(self.GetRows(self.__NonLatticeAtoms)[:,self.__intPositionX:self.__intPositionX+3],j,fltRadius, self.CellHeight))
+        #    lstPointsIndices.extend(self.FindCylindricalAtoms(self.GetRows(self.__NonLatticeAtoms)[:,self._intPositionX:self._intPositionX+3],j,fltRadius, self.CellHeight))
         # for intIndex,arrPoint in enumerate(arrPeriodicPositions): 
         #         lstPointsIndices= self.__NonLatticeTree.query_ball_point(arrPoint, fltRadius)
         #         if len(lstPointsIndices) > 0:
         #             lstPoints.extend(np.subtract(self.__NonLatticeTree.data[lstPointsIndices],arrPeriodicTranslations[intIndex]))
         lstPointsIndices = list(np.unique(lstPointsIndices))
-        #arrPoints = self.GetRows(lstPointsIndices)[:,self.__intPositionX:self.__intPositionZ+1]
-        arrPoints = self.GetOtherAtoms()[lstPointsIndices, self.__intPositionX:self.__intPositionZ+1]
+        #arrPoints = self.GetRows(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
+        arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
         for j in range(len(arrPoints)):
             arrPoints[j] = self.PeriodicShiftCloser(inPoint, arrPoints[j])
         if len(arrPoints) ==0:
             return inPoint
         else:
-           return np.median(arrPoints, axis=0)           
+           return np.mean(arrPoints, axis=0)           
+    def FindCylindricalAtoms(self,arrPoints, arrCentre: np.array, fltRadius: float, fltHeight: float, blnPeriodic =True)->list: #arrPoints are [atomId, x,y,z]
+        lstIndices = []
+        if blnPeriodic:
+            arrCentres = self.PeriodicEquivalents(arrCentre)
+            for j in arrCentres:
+                lstIndices.extend(gf.CylindricalVolume(arrPoints[:,1:4],j,fltRadius,fltHeight))
+        else:
+            lstIndices.extend(gf.CylindricalVolume(arrPoints[:,1:4],arrCentre,fltRadius,fltHeight))
+        lstIndices = list(np.unique(lstIndices))
+        return list(arrPoints[lstIndices,0])
+    def FindBoxAtoms(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array,
+    arrHeight: np.array, blnPeriodic = True)->list:
+        lstIndices = []
+        if blnPeriodic: 
+            arrCentres = self.PeriodicEquivalents(arrCentre)
+            for j in arrCentres:
+                lstIndices.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],j, arrLength, arrWidth, arrHeight))
+        else:
+            lstIndices.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],arrCentre, arrLength, arrWidth, arrHeight))
+        lstIndices = list(np.unique(lstIndices))
+        return list(arrPoints[lstIndices,0])
+    def FindValuesInBox(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array, 
+    arrHeight: np.array, intColumn: int):
+        lstIDs = self.FindBoxAtoms(arrPoints, arrCentre, arrLength, arrWidth,arrHeight)
+        return self.GetAtomsByID(lstIDs)[:,intColumn]
+    def FindValuesInCylinder(self, arrPoints: np.array ,arrCentre: np.array, fltRadius: float, fltHeight: float, intColumn: int): 
+        lstIDs = self.FindCylindricalAtoms(arrPoints, arrCentre, fltRadius, fltHeight)
+        #for j in lstIndices:
+        #    lstRows.extend(np.where(np.linalg.norm(self.GetAtomData()[:,1:4] - arrPoints[j],axis=1)==0)[0])
+        #lstRows = list(np.unique(lstRows))
+        return self.GetAtomsByID(lstIDs)[:, intColumn]
+
+class LAMMPSAnalysis(LAMMPSPostProcess):
+    def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
+        LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
+        self.__GrainBoundaries = []
+    def EstimateTripleLineEnergy(self,fltGridSize: float, fltSearchRadius: float, fltIncrement: float):
+            arrEnergy = np.zeros([len(self.__TripleLines),3])
+            fltPEDatum = np.median(self.GetLatticeAtoms()[:,self._intPE])
+            self.FindTriplePoints(fltGridSize, fltSearchRadius)
+            #fltHeight = np.dot(self.GetCellVectors()[2], np.array([0,0,1]))
+            for j in range(len(self.__TripleLines)):
+                lstRadius = []
+                lstExcessEnergy = [] #excess energy above the grain energy which includes a strain energy contribution
+                lstTripleLineEnergy = [] #excess energy in the triple line
+                fltClosest = np.sort(self.__TripleLineDistanceMatrix[j])[1] #finds the closest triple line
+                for i in range(0, np.floor(fltClosest/(2*fltIncrement)).astype('int')): #only search halfway between the points
+                    arrCurrentTripleLine = self.MoveToSimulationCell(self.__TripleLines[j])
+                    arrCurrentTripleLine[2] = self.CellHeight/2
+                    r=i*fltIncrement
+                    lstRadius.append(r)
+                    arrPEValues = self.FindValuesInCylinder(self.GetAtomData()[:,0:self._intPositionZ+1],arrCurrentTripleLine,r,2*self.CellHeight,self._intPE)
+                    lstExcessEnergy.append(np.sum(arrPEValues)-fltPEDatum*len(arrPEValues)) #subtract off grain energy
+                pLinearGB = optimize.curve_fit(gf.LinearRule,lstRadius, lstExcessEnergy)[0]
+                for k in range(len(lstRadius)):
+                    lstTripleLineEnergy.append(lstExcessEnergy[k]-pLinearGB[0]*lstRadius[k]) #subtract off GB energy
+                pLinearTJ = optimize.curve_fit(gf.LinearRule,lstRadius, lstTripleLineEnergy)[0]    
+                if np.abs(np.mean(lstTripleLineEnergy) - pLinearGB[1]) > 0.0001 or np.abs(pLinearTJ[0]) > 0.0001:
+                    raise("Fitting parameters are beyond tolerance")
+                arrEnergy[j,0] = fltClosest/2
+                arrEnergy[j,1] = lstExcessEnergy[-1]
+                arrEnergy[j,2] = pLinearTJ[1]
+            return arrEnergy
+    def MergePeriodicTripleLines(self, fltDistanceTolerance: float):
+        lstMergedIndices = []
+        setIndices = set(range(self.GetNumberOfTripleLines()))
+        lstCurrentIndices = []
+        arrPeriodicDistanceMatrix = self.MakePeriodicDistanceMatrix(self.__TripleLines,self.__TripleLines)
+        while len(setIndices) > 0:
+            lstCurrentIndices = list(*np.where(arrPeriodicDistanceMatrix[setIndices.pop()] < fltDistanceTolerance))
+            lstMergedIndices.append(lstCurrentIndices)
+            setIndices = setIndices.difference(lstCurrentIndices)
+        return lstMergedIndices
     def FindTriplePoints(self,fltGridLength: float, fltSearchRadius: float):
         lstGrainBoundaries = []
+        lstGrainBoundaryObjects = []
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetOtherAtoms()[:,self.__intPositionX:self.__intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength)
+        objQPoints = QuantisedRectangularPoints(self.GetOtherAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength)
         arrTripleLines = objQPoints.FindTriplePoints()
         self.__TripleLineDistanceMatrix = spatial.distance_matrix(arrTripleLines[:,0:2], arrTripleLines[:,0:2])
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
@@ -271,9 +344,10 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
                 arrPoint = np.array([arrGB[k,0], arrGB[k,1],fltMidHeight])
                 arrPoint =  self.FindNonGrainMean(arrPoint, fltSearchRadius)
                 arrPoint[2] = fltMidHeight
-                git lstGrainBoundaries[j][k] = arrPoint
+                lstGrainBoundaries[j][k] = arrPoint
+            lstGrainBoundaryObjects.append(gl.GrainBoundary(lstGrainBoundaries[j]))
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
-        self.__GrainBoundaries = lstGrainBoundaries
+        self.__GrainBoundaries = lstGrainBoundaryObjects
         self.__TripleLines = arrTripleLines 
         return arrTripleLines
     def GetGrainBoundaries(self, intValue = None):
@@ -281,75 +355,57 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             return self.__GrainBoundaries
         else:
             return self.__GrainBoundaries[intValue]
-    def FindCylindricalAtoms(self,arrPoints, arrCentre: np.array, fltRadius: float, fltHeight: float, blnPeriodic =True)->list: #arrPoints are [atomId, x,y,z]
-        lstPoints = []
-        if blnPeriodic:
-            arrCentres = self.PeriodicEquivalents(arrCentre)
-            for j in arrCentres:
-                lstPoints.extend(gf.CylindricalVolume(arrPoints[:,1:4],j,fltRadius,fltHeight))
+    def GetNumberOfTripleLines(self)->int:
+        return len(self.__TripleLines)
+    def GetTripleLines(self, intValue = None)->np.array:
+        if intValue is None:
+            return self.__TripleLines
         else:
-            lstPoints.extend(gf.CylindricalVolume(arrPoints[:,1:4],arrCentre,fltRadius,fltHeight))
-
-        return list(np.unique(lstPoints))
-    def FindBoxAtoms(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array,
-    arrHeight: np.array, blnPeriodic = True)->list:
-        lstPoints = []
-        if blnPeriodic: 
-            arrCentres = self.PeriodicEquivalents(arrCentre)
-            for j in arrCentres:
-                lstPoints.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],j, arrLength, arrWidth, arrHeight))
-        else:
-            lstPoints.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],arrCentre, arrLength, arrWidth, arrHeight))
-        return list(np.unique(lstPoints))
-    def FindValuesInBox(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array, 
-    arrHeight: np.array, intColumn: int):
-        lstIDs = self.FindBoxAtoms(arrPoints, arrCentre, arrLength, arrWidth,arrHeight)
-        return self.GetAtomsByID(lstIDs)[:,intColumn]
-    def FindValuesInCylinder(self, arrPoints: np.array ,arrCentre: np.array, fltRadius: float, fltHeight: float, intColumn: int): 
-        lstIDs = self.FindCylindricalAtoms(arrPoints, arrCentre, fltRadius, fltHeight)
-        #for j in lstIndices:
-        #    lstRows.extend(np.where(np.linalg.norm(self.GetAtomData()[:,1:4] - arrPoints[j],axis=1)==0)[0])
-        #lstRows = list(np.unique(lstRows))
-        return self.GetAtomsByID(lstIDs)[:, intColumn]
-    def MergePeriodicTripleLines(self, fltDistanceTolerance: float):
-        lstMergedIndices = []
-        setIndices = set(range(self.GetNumberOfTripleLines()))
-        lstCurrentIndices = []
-        arrPeriodicDistanceMatrix = self.MakePeriodicDistanceMatrix(self.__TripleLines,self.__TripleLines)
-        while len(setIndices) > 0:
-            lstCurrentIndices = list(*np.where(arrPeriodicDistanceMatrix[setIndices.pop()] < fltDistanceTolerance))
-            lstMergedIndices.append(lstCurrentIndices)
-            setIndices = setIndices.difference(lstCurrentIndices)
-        return lstMergedIndices
-    def EstimateTripleLineEnergy(self,fltGridSize: float, fltSearchRadius: float, fltIncrement: float):
-        arrEnergy = np.zeros([len(self.__TripleLines),3])
-        fltPEDatum = np.median(self.GetLatticeAtoms()[:,self.__intPE])
-        self.FindTriplePoints(fltGridSize, fltSearchRadius)
-        #fltHeight = np.dot(self.GetCellVectors()[2], np.array([0,0,1]))
-        for j in range(len(self.__TripleLines)):
-            lstRadius = []
-            lstExcessEnergy = [] #excess energy above the grain energy which includes a strain energy contribution
-            lstTripleLineEnergy = [] #excess energy in the triple line
-            fltClosest = np.sort(self.__TripleLineDistanceMatrix[j])[1] #finds the closest triple line
-            for i in range(0, np.floor(fltClosest/(2*fltIncrement)).astype('int')): #only search halfway between the points
-                arrCurrentTripleLine = self.MoveToSimulationCell(self.__TripleLines[j])
-                arrCurrentTripleLine[2] = self.CellHeight/2
-                r=i*fltIncrement
-                lstRadius.append(r)
-                arrPEValues = self.FindValuesInCylinder(self.GetAtomData()[:,0:self.__intPositionZ+1],arrCurrentTripleLine,r,2*self.CellHeight,self.__intPE)
-                lstExcessEnergy.append(np.sum(arrPEValues)-fltPEDatum*len(arrPEValues)) #subtract off grain energy
-            pLinearGB = optimize.curve_fit(gf.LinearRule,lstRadius, lstExcessEnergy)[0]
-            for k in range(len(lstRadius)):
-                lstTripleLineEnergy.append(lstExcessEnergy[k]-pLinearGB[0]*lstRadius[k]) #subtract off GB energy
-            pLinearTJ = optimize.curve_fit(gf.LinearRule,lstRadius, lstTripleLineEnergy)[0]    
-            if np.abs(np.mean(lstTripleLineEnergy) - pLinearGB[1]) > 0.0001 or np.abs(pLinearTJ[0]) > 0.0001:
-                raise("Fitting parameters are beyond tolerance")
-            arrEnergy[j,0] = fltClosest/2
-            arrEnergy[j,1] = lstExcessEnergy[-1]
-            arrEnergy[j,2] = pLinearTJ[1]
-        return arrEnergy
+            return self.__TripleLines[intValue]
+    def GetNeighbouringGrainBoundaries(self, intTripleLine: int):
+        lstDistances = [] #the closest distance 
+        lstPositions = []
+        arrTripleLine = self.__TripleLines[intTripleLine]
+        for arrGB in self.__GrainBoundaries:
+            lstTemporary = []
+            for j in arrGB.GetPoints(): 
+                lstTemporary.append(self.PeriodicMinimumDistance(j ,arrTripleLine))
+            lstDistances.append(np.min(lstTemporary))
+        for k in range(3):
+            lstPositions.append(gf.FindNthSmallestPosition(lstDistances,k))
+        return lstPositions
+    def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
+        fltStart = self.PeriodicMinimumDistance(self.__GrainBoundaries[intGrainBoundary].GetPoints(0), self.__TripleLines[intTripleLine])
+        fltEnd = self.PeriodicMinimumDistance(self.__GrainBoundaries[intGrainBoundary].GetPoints(-1), self.__TripleLines[intTripleLine])
+        vctDirection = self.__GrainBoundaries[intGrainBoundary].GetLinearDirection()
+        if fltEnd < fltStart:
+            vctDirection = -vctDirection
+        return vctDirection
+    def FindThreeGrainStrips(self, intTripleLine: int,fltWidth: float, fltIncrement: float):
+        lstNeighbouringGB = self.GetNeighbouringGrainBoundaries(intTripleLine)
+        lstOfVectors = [] #unit vectors that bisect the grain boundary directions
+        lstValues = []
+        lstRadii = []
+        lstIndices  = []
+        fltClosest = np.sort(self.__TripleLineDistanceMatrix[intTripleLine])[1]
+        intMax = np.floor(fltClosest/(2*fltIncrement)).astype('int')
+        for intV in range(3):
+            #lstOfVectors.append(self.GetGrainBoundaryDirection(lstNeighbouringGB[intV],intTripleLine))
+            lstOfVectors.append(gf.NormaliseVector(np.mean(self.GetGrainBoundaries(lstNeighbouringGB[intV]).GetPoints(),axis=0)-self.__TripleLines[intTripleLine]))
+        for j in range(1,intMax):
+            r = fltIncrement*j
+            lstRadii.append(r)
+            for kVector in range(len(lstOfVectors)):
+                v = gf.NormaliseVector(lstOfVectors[np.mod(kVector,3)] + lstOfVectors[np.mod(kVector+1,3)])
+                lstIndices.extend(self.FindBoxAtoms(self.GetAtomData()[:,0:4],
+                                                           self.__TripleLines[intTripleLine],r*v, 
+                                                           fltWidth*np.cross(v,np.array([0,0,1])),np.array([0,0,self.CellHeight])))
+                lstIndices = list(np.unique(lstIndices))
+            lstValues.append(np.mean(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
+        return lstRadii, lstValues,lstIndices    
 
 
+    
 class QuantisedRectangularPoints(object): #linear transform parallelograms into a rectangular parameter space
     def __init__(self, in2DPoints: np.array, inUnitBasisVectors: np.array, n: int, fltGridSize: float):
         self.__WrapperWidth = n
@@ -461,149 +517,3 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
             else:
                 lstLineDefects.append(self.__ConvertToCoordinates(arrPoints))
         return lstGrainBoundaries
-
-# class Quantised2DPoints(object):
-#     def __init__(self, in2DPoints: np.array, infltSideLength: float, inBoundaryVectors: np.array, intWrapperWidth: int):
-#         self.__GridLength = infltSideLength
-#         self.__DataPoints = in2DPoints
-#         self.__MaxX = np.max(np.abs(in2DPoints[:,0]))
-#         self.__MaxY = np.max(np.abs(in2DPoints[:,1]))
-#         self.__WrapperWidth = intWrapperWidth
-#         self.__GrainValue = 0
-#         self.__GBValue = 1 #just fixed constants used in the array 
-#         self.__DislocationValue = 2
-#         self.__TripleLineValue = 3
-#         self.QuantisedVectors(infltSideLength,inBoundaryVectors)
-#         self.Skeletonised = False
-#         self.MakeGrid()
-#         self.ExtendGrid()
-#         self.__TriplePoints = []
-#     def MakeGrid(self): 
-#         arrReturn = np.zeros([np.round(self.__MaxX/self.__GridLength+1).astype('int'),np.round(self.__MaxY/self.__GridLength+1).astype('int')])
-#         for j in self.__DataPoints:
-#             arrReturn[(np.round(j[0]/self.__GridLength)).astype('int'),(np.round(j[1]/self.__GridLength)).astype('int')] +=1
-#         self.__GridArray = arrReturn.astype('bool').astype('int')
-#         self.__Height, self.__Width = np.shape(arrReturn)
-#     def ExtendGrid(self): #2n excess rows and columns around the GB array
-#         n = self.__WrapperWidth
-#         self.__ExtendedGrid = np.zeros([np.round(self.__MaxX/self.__GridLength+2*n+1).astype('int'),
-#                                         np.round(self.__MaxY/self.__GridLength +2*n+1).astype('int')])
-#         self.__ExtendedGrid[n: -n, n: -n] = self.__GridArray.astype('int')                                
-#     def CopyGBToWrapper(self,arrPoints: np.array, arrShift: np.array, intValue = None):
-#         for j in arrPoints:
-#                 intCurrent =  int(self.__ExtendedGrid[j[0],j[1]])
-#                 if intCurrent == self.__GBValue or intCurrent == self.__DislocationValue:
-#                     if intValue is None:
-#                        # self.__ExtendedGrid[j[0]+arrShift[0],j[1]+arrShift[1]] = intCurrent
-#                         if intCurrent !=0:
-#                             self.SetSkeletonValue(j+arrShift,intCurrent)
-#                     else:
-#                         self.__ExtendedGrid[j[0]+arrShift[0],j[1]+arrShift[1]] = intValue   
-#     def CopyOppositeEdges(self, arrPoints, arrShift):
-#         for j in arrPoints:
-#             intCurrent =  int(self.__SkeletonGrid[j[0],j[1]])
-#             if intCurrent != self.__GrainValue:
-#             # self.__ExtendedGrid[j[0]+arrShift[0],j[1]+arrShift[1]] = intCurrent
-#                 self.SetSkeletonValue(j+arrShift,intCurrent)
-#     def QuantisedVectors(self,infltSize: float, inBoundaryVectors: np.array):
-#         self.__QVectors = np.array([gf.QuantisedVector(inBoundaryVectors[0]/infltSize),gf.QuantisedVector(inBoundaryVectors[1]/infltSize)]) 
-#     def GetQVectors(self)->np.array:
-#         return self.__QVectors
-#     def GetExtendedGrid(self)->np.array:
-#         return self.__ExtendedGrid
-#     def GetGrid(self)->np.array:
-#         return self.__GridArray
-#     def CopyPointsToWrapper(self, intValue =1):
-#         self.__vctDown = self.__QVectors[0]#assumes vertically down
-#         self.__vctAcross = self.__QVectors[1]#assumes diagonal going right and possibly down or  up
-#         self.__vctExtDown = gf.ExtendQuantisedVector(self.__QVectors[0][-1],2*self.__WrapperWidth)
-#         vctAcrossTranslation = np.array([0,self.__WrapperWidth])
-#         self.__vctDownEdge = self.__vctExtDown + vctAcrossTranslation
-#         self.__vctExtAcross = gf.ExtendQuantisedVector(self.__QVectors[1][-1],2*self.__WrapperWidth)
-#         vctDownTranslation = np.array([self.__WrapperWidth - self.__vctAcross[self.__WrapperWidth][0],0])
-#         self.__vctAcrossEdge = self.__vctExtAcross + vctDownTranslation
-#         for k in range(self.__WrapperWidth):
-#             self.CopyGBToWrapper(self.__vctAcrossEdge+self.__vctDown[k], self.__vctDown[-1], intValue)
-#             self.CopyGBToWrapper(self.__vctAcrossEdge+self.__vctDown[-1]-self.__vctDown[k], -self.__vctDown[-1],intValue)
-#             self.CopyGBToWrapper(self.__vctDownEdge+self.__vctAcross[k], self.__vctAcross[-1],intValue)
-#             self.CopyGBToWrapper(self.__vctDownEdge+self.__vctAcross[-1] -self.__vctAcross[k], -self.__vctAcross[-1],intValue)
-#     def ClearWrapperValues(self):
-#         lstPoints = []
-#         self.__SkeletonGrid[:,:self.__WrapperWidth] = self.__GrainValue #removes left wrapper column
-#         self.__SkeletonGrid[:,-self.__WrapperWidth:] = self.__GrainValue #remove right wrapper column
-#         for k in range(0,self.__WrapperWidth-1):
-#             # lstPoints.extend(self.__vctDownEdge-self.__vctAcross[k])
-#             # lstPoints.extend(self.__vctDownEdge+self.__vctAcross[k] + self.__vctAcross[-1])
-#             # lstPoints.extend(self.__vctAcrossEdge-self.__vctDown[k])
-#             # lstPoints.extend(self.__vctAcrossEdge+self.__vctDown[k] + self.__vctDown[-1])
-#             lstPoints.extend(self.__vctAcross+np.array([k, self.__WrapperWidth]))
-#             lstPoints.extend(self.__vctAcross+np.array([k+1+self.__Height, self.__WrapperWidth]))
-#             #lstPoints.extend(self.__vctExtDown+np.array([0 ,self.__Width + self.__WrapperWidth + k]))
-#             for j in lstPoints:
-#                 self.SetSkeletonValue(j,self.__GrainValue)
-#        # self.CopyOppositeEdges(self.__vctAcrossEdge,self.__vctDown[-1])
-#     def __ConvertToCoordinates(self, inArrayPosition: np.array): #takes array position and return real 2D coordinates
-#         return (inArrayPosition-np.array([self.__WrapperWidth, self.__WrapperWidth]))*self.__GridLength 
-#     def GetTriplePoints(self):
-#         if len(self.__TriplePoints) > 0:
-#             return self.__ConvertToCoordinates(self.__TriplePoints)
-#     def GetDefects(self):
-#         if len(self.__Dislocations) > 0:
-#             return self.__ConvertToCoordinates(self.__Dislocations)
-#     def GetSkeletonPoints(self):
-#         if not self.Skeletonised:
-#             self.SkeletonisePoints()
-#         return self.__SkeletonGrid
-#     def SetSkeletonValue(self, arrPosition:np.array, intValue):
-#         intDown, intAcross = np.shape(self.__SkeletonGrid)
-#         if arrPosition[0] < intDown and arrPosition[1] < intAcross:
-#             self.__SkeletonGrid[arrPosition[0],arrPosition[1]] = intValue
-#     def SkeletonisePoints(self):
-#         if not self.Skeletonised:
-#             arrOutSk = self.GetExtendedGrid().astype('int')
-#             arrOutSk = skeletonize(arrOutSk)
-#             arrOutSk = remove_small_holes(arrOutSk, 4)
-#             arrOutSk = (thin(arrOutSk)).astype('int')
-#             self.__SkeletonGrid = arrOutSk.astype('int')
-#             self.Skeletonised = True
-#     def ClassifyGBPoints(self,m:int,blnFlagEndPoints = False)-> np.array:
-#         self.SkeletonisePoints()
-#         arrTotal =np.zeros(4*m)
-#         intLow = int((m-1)/2)
-#         intHigh = int((m+1)/2)
-#         arrArgList = np.argwhere(self.__SkeletonGrid==self.__GBValue)
-#         arrCurrent = np.zeros([m,m])
-#         for x in arrArgList: #loop through the array positions which have GB atoms
-#             arrCurrent = self.GetSkeletonPoints()[x[0]-intLow:x[0]+intHigh,x[1]-intLow:x[1]+intHigh] #sweep out a m x m square of array positions 
-#             intSwaps = 0
-#             if np.shape(arrCurrent) == (m,m): #centre j. This check avoids boundary points
-#                 intValue = arrCurrent[0,0]
-#                 arrTotal[:m ] = arrCurrent[0,:]
-#                 arrTotal[m:2*m] =  arrCurrent[:,-1]
-#                 arrTotal[2*m:3*m] = arrCurrent[-1,::-1]
-#                 arrTotal[3*m:4*m] = arrCurrent[-1::-1,0]
-#                 for k in arrTotal:
-#                     if (k!= intValue): #the move has changed from grain (int 0) to grain boundary (int 1) or vice versa
-#                         intSwaps += 1
-#                         intValue = k
-#                 if intSwaps == 6:
-#                     if not (arrCurrent[0].all() == self.__GBValue or arrCurrent[-1].all() == self.__GBValue or arrCurrent[:,0].all() == self.__GBValue or  arrCurrent[:,-1].all() ==self.__GBValue):
-#                         self.SetSkeletonValue(x,self.__TripleLineValue)
-#                 if intSwaps < 4:
-#                     if blnFlagEndPoints:
-#                         self.SetSkeletonValue(x,self.__DislocationValue)
-#         self.__TriplePoints = np.argwhere(self.__SkeletonGrid == self.__TripleLineValue)
-#         self.__Dislocations = np.argwhere(self.__SkeletonGrid == self.__DislocationValue)
-#     def FindGrainBoundaries(self)->list:
-#         lstGBPoints = []
-#         self.SkeletonisePoints()
-#         self.ClassifyGBPoints(5, blnFlagEndPoints=False)
-#         self.ClearWrapperValues()
-#         arrLabels = label(self.__SkeletonGrid == self.__GBValue)
-#         self.__GrainBoundaries = arrLabels
-#         self.__NumberOfGrainBoundaries = len(np.unique(arrLabels))
-#         for j in range(1,self.__NumberOfGrainBoundaries+1):
-#             lstGBPoints.append(np.argwhere(arrLabels == j))
-#         return lstGBPoints
-#     def GetGrainBoundaries(self):
-#         return self.__GrainBoundaries
