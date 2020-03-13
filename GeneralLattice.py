@@ -379,6 +379,10 @@ class GrainBoundary(object):
             vctAxis = np.real(eVectors[:,intIndex])
             self.__LinearDirection = gf.NormaliseVector(np.array([vctAxis[0], vctAxis[1], 0]))
         return self.__LinearDirection
+    def AddPoints(self, inNewPoints: np.array):
+        self.__Points = np.append(self.__Points, inNewPoints, axis=0)
+        self.__Points =np.unique(self.__Points, axis=0)
+        #lstTmp = []
 
 
 class DefectStructure(object):

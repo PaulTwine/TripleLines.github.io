@@ -381,17 +381,21 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         if fltEnd < fltStart:
             vctDirection = -vctDirection
         return vctDirection
-    def FindThreeGrainStrips(self, intTripleLine: int,fltWidth: float, fltIncrement: float):
+    def FindThreeGrainStrips(self, intTripleLine: int,fltWidth: float, fltIncrement: float, fltLength = None):
         lstNeighbouringGB = self.GetNeighbouringGrainBoundaries(intTripleLine)
         lstOfVectors = [] #unit vectors that bisect the grain boundary directions
         lstValues = []
         lstRadii = []
         lstIndices  = []
-        fltClosest = np.sort(self.__TripleLineDistanceMatrix[intTripleLine])[1]
-        intMax = np.floor(fltClosest/(2*fltIncrement)).astype('int')
+        if fltLength is None:
+            fltClosest = np.sort(self.__TripleLineDistanceMatrix[intTripleLine])[1]/2
+        else:
+            fltClosest = fltLength
+        intMax = np.floor(fltClosest/(fltIncrement)).astype('int')
         for intV in range(3):
             #lstOfVectors.append(self.GetGrainBoundaryDirection(lstNeighbouringGB[intV],intTripleLine))
-            lstOfVectors.append(gf.NormaliseVector(np.mean(self.GetGrainBoundaries(lstNeighbouringGB[intV]).GetPoints(),axis=0)-self.__TripleLines[intTripleLine]))
+            arrMeanVector = self.PeriodicShiftCloser(self.__TripleLines[intTripleLine],np.mean(self.GetGrainBoundaries(lstNeighbouringGB[intV]).GetPoints(),axis=0))
+            lstOfVectors.append(gf.NormaliseVector(arrMeanVector - self.__TripleLines[intTripleLine]))
         for j in range(1,intMax):
             r = fltIncrement*j
             lstRadii.append(r)
@@ -402,7 +406,46 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                                                            fltWidth*np.cross(v,np.array([0,0,1])),np.array([0,0,self.CellHeight])))
                 lstIndices = list(np.unique(lstIndices))
             lstValues.append(np.mean(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
-        return lstRadii, lstValues,lstIndices    
+        return lstRadii, lstValues,lstIndices  
+    def MergePeriodicGrainBoundaries(self, fltTolerance: float):
+        intN = len(self.GetGrainBoundaries())
+        lstMergedGBs = []
+        lstRemainingIndices = list(range(intN))
+        while len(lstRemainingIndices) > 0:
+            lstCurrentGBs = [lstRemainingIndices[0]]
+            del lstRemainingIndices[0]
+            counter = 0
+            while counter < len(lstRemainingIndices):
+                k = lstRemainingIndices[counter]
+                if self.CheckGB(self.GetGrainBoundaries(lstCurrentGBs[0]), self.GetGrainBoundaries(k),fltTolerance):
+                    lstCurrentGBs.append(k)
+                    lstRemainingIndices.remove(k)
+                else:
+                    counter += 1
+            lstMergedGBs.append(lstCurrentGBs)
+        for lstMergedIDs in lstMergedGBs:
+            if len(lstMergedIDs) > 1:
+                for lstID in lstMergedIDs[1:]:
+                    arrPoints = np.array(list(map(lambda x: self.PeriodicShiftCloser(self.__GrainBoundaries[lstMergedIDs[0]].GetPoints(0),x), self.__GrainBoundaries[lstID].GetPoints())))
+                    self.__GrainBoundaries[lstMergedIDs[0]].AddPoints(arrPoints)
+                    del self.__GrainBoundaries[lstID]
+        return lstMergedGBs
+            
+    def CheckGB(self,arrGB1: gl.GrainBoundary, arrGB2: gl.GrainBoundary, fltTolerance: float):
+        blnFound = False
+        counter =0
+        if arrGB1.GetAccumulativeLength(-1) <= arrGB2.GetAccumulativeLength(-1): 
+            pts1 = arrGB1.GetPoints()
+            pts2 = arrGB2.GetPoints()
+        else:
+            pts1 = arrGB2.GetPoints()
+            pts2 = arrGB1.GetPoints()
+        while counter < len(pts1) and not(blnFound): 
+            if (self.PeriodicMinimumDistance(pts1[counter], pts2[0]) < fltTolerance) or (self.PeriodicMinimumDistance(pts1[counter], pts2[-1]) < fltTolerance):
+                blnFound = True
+            else:
+                counter +=1
+        return blnFound
 
 
     
