@@ -291,10 +291,12 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
         self.__GrainBoundaries = []
+        self.__lstMergedGBs = []
+        self.__lstMergedTripleLines = []
     def EstimateTripleLineEnergy(self,fltGridSize: float, fltSearchRadius: float, fltIncrement: float):
             arrEnergy = np.zeros([len(self.__TripleLines),3])
             fltPEDatum = np.median(self.GetLatticeAtoms()[:,self._intPE])
-            self.FindTriplePoints(fltGridSize, fltSearchRadius)
+            self.FindTripleLines(fltGridSize, fltSearchRadius)
             #fltHeight = np.dot(self.GetCellVectors()[2], np.array([0,0,1]))
             for j in range(len(self.__TripleLines)):
                 lstRadius = []
@@ -327,8 +329,9 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             lstCurrentIndices = list(*np.where(arrPeriodicDistanceMatrix[setIndices.pop()] < fltDistanceTolerance))
             lstMergedIndices.append(lstCurrentIndices)
             setIndices = setIndices.difference(lstCurrentIndices)
+        self.__lstMergedTripleLines
         return lstMergedIndices
-    def FindTriplePoints(self,fltGridLength: float, fltSearchRadius: float):
+    def FindTripleLines(self,fltGridLength: float, fltSearchRadius: float):
         lstGrainBoundaries = []
         lstGrainBoundaryObjects = []
         fltMidHeight = self.CellHeight/2
@@ -429,6 +432,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                     arrPoints = np.array(list(map(lambda x: self.PeriodicShiftCloser(self.__GrainBoundaries[lstMergedIDs[0]].GetPoints(0),x), self.__GrainBoundaries[lstID].GetPoints())))
                     self.__GrainBoundaries[lstMergedIDs[0]].AddPoints(arrPoints)
                     del self.__GrainBoundaries[lstID]
+        self.__lstMergedGBs = lstMergedGBs
         return lstMergedGBs
             
     def CheckGB(self,arrGB1: gl.GrainBoundary, arrGB2: gl.GrainBoundary, fltTolerance: float):
