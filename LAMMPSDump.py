@@ -162,6 +162,9 @@ class LAMMPSTimeStep(object):
         return arrVector
     def MoveToSimulationCell(self, inPositionVector: np.array)->np.array:
         return gf.WrapVectorIntoSimulationCell(self.__CellBasis, self.__BasisConversion, inPositionVector)
+    def PeriodicShiftAllCloser(self, inFixedPoint: np.array, inAllPointsToShift: np.array)->np.array:
+        arrPoints = np.array(list(map(lambda x: self.PeriodicShiftCloser(inFixedPoint, x), inAllPointsToShift)))
+        return arrPoints
     def PeriodicShiftCloser(self, inFixedPoint: np.array, inPointToShift: np.array)->np.array:
         arrPeriodicVectors = self.PeriodicEquivalents(inPointToShift)
         fltDistances = list(map(np.linalg.norm, np.subtract(arrPeriodicVectors, inFixedPoint)))
@@ -238,23 +241,17 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         return np.min(np.linalg.norm(arrVectorPeriodic, axis=1))
     def FindNonGrainMean(self, inPoint: np.array, fltRadius: float): 
         lstPointsIndices = []
-        #arrPeriodicPositions = self.PeriodicEquivalents(inPoint)
-        lstPointsIndices = self.FindCylindricalAtoms(self.GetOtherAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
-        #for j in arrPeriodicPositions:
-        #    lstPointsIndices.extend(self.FindCylindricalAtoms(self.GetRows(self.__NonLatticeAtoms)[:,self._intPositionX:self._intPositionX+3],j,fltRadius, self.CellHeight))
-        # for intIndex,arrPoint in enumerate(arrPeriodicPositions): 
-        #         lstPointsIndices= self.__NonLatticeTree.query_ball_point(arrPoint, fltRadius)
-        #         if len(lstPointsIndices) > 0:
-        #             lstPoints.extend(np.subtract(self.__NonLatticeTree.data[lstPointsIndices],arrPeriodicTranslations[intIndex]))
+        lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
         lstPointsIndices = list(np.unique(lstPointsIndices))
         #arrPoints = self.GetRows(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
         arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
-        for j in range(len(arrPoints)):
-            arrPoints[j] = self.PeriodicShiftCloser(inPoint, arrPoints[j])
+        #for j in range(len(arrPoints)):
+        #    arrPoints[j] = self.PeriodicShiftCloser(inPoint, arrPoints[j])
+        arrPoints = self.PeriodicShiftAllCloser(inPoint, arrPoints)
         if len(arrPoints) ==0:
             return inPoint
         else:
-           return np.mean(arrPoints, axis=0)           
+           return np.median(arrPoints, axis=0)           
     def FindCylindricalAtoms(self,arrPoints, arrCentre: np.array, fltRadius: float, fltHeight: float, blnPeriodic =True)->list: #arrPoints are [atomId, x,y,z]
         lstIndices = []
         if blnPeriodic:
@@ -335,7 +332,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstGrainBoundaries = []
         lstGrainBoundaryObjects = []
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetOtherAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength)
+        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength)
         arrTripleLines = objQPoints.FindTriplePoints()
         self.__TripleLineDistanceMatrix = spatial.distance_matrix(arrTripleLines[:,0:2], arrTripleLines[:,0:2])
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
@@ -433,8 +430,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                     self.__GrainBoundaries[lstMergedIDs[0]].AddPoints(arrPoints)
                     del self.__GrainBoundaries[lstID]
         self.__lstMergedGBs = lstMergedGBs
-        return lstMergedGBs
-            
+        return lstMergedGBs        
     def CheckGB(self,arrGB1: gl.GrainBoundary, arrGB2: gl.GrainBoundary, fltTolerance: float):
         blnFound = False
         counter =0
