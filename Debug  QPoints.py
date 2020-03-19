@@ -22,46 +22,46 @@ from IPython.core.debugger import set_trace
 
 
 
-#fig = plt.figure()
-#ax = fig.gca(projection='3d')
+# #fig = plt.figure()
+# #ax = fig.gca(projection='3d')
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
-l = 3
-h= 4
-z = a2*np.array([0,0,h])
-#ax.set_xlabel('x')
-#ax.set_ylabel('y')
-#ax.set_zlabel('z')
-strDataFile = 'new.data'
-#strDumpFile = 'dump.eam'
-strDumpFile = 'VolumeTest/dump.eam'
-strPMFile = strDumpFile + 'PM'
-arr111BasisVectors = gf.RotatedBasisVectors(np.arccos(1/np.sqrt(3)), np.array([1,-1,0])/np.sqrt(2))
-arrHorizontalVector = np.array([l*a2,0,0])
-arrDiagonalVector =  np.array([a2*l/2, a2*l*np.sqrt(3)/2,0])
+# l = 3
+# h= 4
+# z = a2*np.array([0,0,h])
+# #ax.set_xlabel('x')
+# #ax.set_ylabel('y')
+# #ax.set_zlabel('z')
+# strDataFile = 'new.data'
+# #strDumpFile = 'dump.eam'
+# strDumpFile = 'VolumeTest/dump.eam'
+# strPMFile = strDumpFile + 'PM'
+# arr111BasisVectors = gf.RotatedBasisVectors(np.arccos(1/np.sqrt(3)), np.array([1,-1,0])/np.sqrt(2))
+# arrHorizontalVector = np.array([l*a2,0,0])
+# arrDiagonalVector =  np.array([a2*l/2, a2*l*np.sqrt(3)/2,0])
 
 
-MySimulationCell = gl.SimulationCell(np.array([3*arrHorizontalVector,3*arrDiagonalVector, z])) 
-objHex1 = gl.ExtrudedRegularPolygon(l*a2, h*a2, 6, arr111BasisVectors, ld.FCCCell, np.array([a1,a1,a1]))
-objHex2 = gl.ExtrudedRegularPolygon(l*a2, h*a2, 6, gf.RotateVectors(gf.DegreesToRadians(20),z, arr111BasisVectors), ld.FCCCell, np.array([a1,a1,a1]),-arrDiagonalVector+2*arrHorizontalVector)
-objHex3 = gl.ExtrudedRegularPolygon(l*a2, h*a2, 6, gf.RotateVectors(gf.DegreesToRadians(40),z,arr111BasisVectors), ld.FCCCell, np.array([a1,a1,a1]), arrHorizontalVector + arrDiagonalVector)
-MySimulationCell.AddGrain(objHex1)
-MySimulationCell.AddGrain(objHex2)
-MySimulationCell.AddGrain(objHex3)
-MySimulationCell.WrapAllPointsIntoSimulationCell()
-MySimulationCell.RemovePlaneOfAtoms(np.array([[0,0,1,a2*h]]),0.1)
-#MySimulationCell.WriteLAMMPSDataFile(strDataFile)
+# MySimulationCell = gl.SimulationCell(np.array([3*arrHorizontalVector,3*arrDiagonalVector, z])) 
+# objHex1 = gl.ExtrudedRegularPolygon(l*a2, h*a2, 6, arr111BasisVectors, ld.FCCCell, np.array([a1,a1,a1]))
+# objHex2 = gl.ExtrudedRegularPolygon(l*a2, h*a2, 6, gf.RotateVectors(gf.DegreesToRadians(20),z, arr111BasisVectors), ld.FCCCell, np.array([a1,a1,a1]),-arrDiagonalVector+2*arrHorizontalVector)
+# objHex3 = gl.ExtrudedRegularPolygon(l*a2, h*a2, 6, gf.RotateVectors(gf.DegreesToRadians(40),z,arr111BasisVectors), ld.FCCCell, np.array([a1,a1,a1]), arrHorizontalVector + arrDiagonalVector)
+# MySimulationCell.AddGrain(objHex1)
+# MySimulationCell.AddGrain(objHex2)
+# MySimulationCell.AddGrain(objHex3)
+# MySimulationCell.WrapAllPointsIntoSimulationCell()
+# MySimulationCell.RemovePlaneOfAtoms(np.array([[0,0,1,a2*h]]),0.1)
+# #MySimulationCell.WriteLAMMPSDataFile(strDataFile)
 
 
-
+strPMFile = '/home/paul/csf3_scratch/TripleLines/data1/dump.eam1PM'
 objData = LD.LAMMPSData(strPMFile,1)
 objProcess = objData.GetTimeStepByIndex(0)
-objProcess.FindTriplePoints(4.05,True)
-objProcess.GetGrainBoundaries()
+#objProcess.FindTriplePoints(4.05)
+#objProcess.GetGrainBoundaries()
 #objProcess.CategoriseAtoms()         
 #objQPoints = LD.Quantised2DPoints(objProcess.GetOtherAtoms()[:,1:3], a1, objProcess.GetCellVectors()[0:2,0:2],11) 
-objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],5,a1)
-fig,ax = plt.subplots(1,5)
+objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],5,a2, 5)
+fig,ax = plt.subplots(1,6)
 ax[0].imshow(objQPoints.GetArrayGrid())
 #objQPoints.CopyPointsToWrapper()
 ax[1].imshow(objQPoints.GetExtendedArrayGrid())
@@ -74,6 +74,9 @@ ax[3].imshow(objQPoints.GetExtendedSkeletonPoints())
 print(objQPoints.GetGrainBoundaries())
 ax[4].imshow(arrLabel)
 #print(np.unique(objQPoints.FindGrainBoundaries()))
+objQPoints.FindDislocations()
+print(objQPoints.GetDislocations())
+ax[5].imshow(objQPoints.GetExtendedSkeletonPoints())
 plt.show()
 
 # arrTripleLines  = objProcess.FindTriplePoints(4.05,True)
