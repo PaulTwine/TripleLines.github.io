@@ -382,7 +382,13 @@ class GrainBoundary(object):
     def AddPoints(self, inNewPoints: np.array):
         self.__Points = np.append(self.__Points, inNewPoints, axis=0)
         self.__Points =np.unique(self.__Points, axis=0)
-        #lstTmp = []
+    def GetMeanPoint(self)->np.array:
+        return np.mean(self.__Points, axis = 0)
+    def GetClosestPoint(self, inPoint)->np.array: #returns closest GBPoint to inPoint
+        inPoint[2] = self.GetPoints(0)[2]
+        fltDistances = np.linalg.norm(self.__Points - inPoint, axis=1)
+        intMin = np.argmin(fltDistances)
+        return self.__Points[intMin]
 
 
 class DefectStructure(object):

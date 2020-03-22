@@ -2,7 +2,7 @@ import re
 import numpy as np
 import GeometryFunctions as gf
 import GeneralLattice as gl
-from scipy import spatial, optimize
+from scipy import spatial, optimize, ndimage
 #from sklearn.cluster import AffinityPropagation
 from skimage.morphology import skeletonize, thin, medial_axis, label, remove_small_holes
 
@@ -332,13 +332,11 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstGrainBoundaries = []
         lstGrainBoundaryObjects = []
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength, intMinCount)
-        arrTripleLines = objQPoints.FindTriplePoints()
-        self.__TripleLineDistanceMatrix = spatial.distance_matrix(arrTripleLines[:,0:2], arrTripleLines[:,0:2])
-        arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
+        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],9,fltGridLength, intMinCount)
+        self.__TripleLines = objQPoints.FindTriplePoints()
+        self.__TripleLineDistanceMatrix = spatial.distance_matrix(self.__TripleLines[:,0:2], self.__TripleLines[:,0:2])
+        self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         lstGrainBoundaries = objQPoints.GetGrainBoundaries()
-        for i  in range(len(arrTripleLines)):
-            arrTripleLines[i] = self.FindNonGrainMean(arrTripleLines[i], fltSearchRadius)
         for j,arrGB in enumerate(lstGrainBoundaries):
             for k in range(len(arrGB)):
                 arrPoint = np.array([arrGB[k,0], arrGB[k,1],fltMidHeight])
@@ -346,10 +344,43 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 arrPoint[2] = fltMidHeight
                 lstGrainBoundaries[j][k] = arrPoint
             lstGrainBoundaryObjects.append(gl.GrainBoundary(lstGrainBoundaries[j]))
-        arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         self.__GrainBoundaries = lstGrainBoundaryObjects
-        self.__TripleLines = arrTripleLines 
-        return arrTripleLines
+        for i  in range(len(self.__TripleLines)):
+            self.__TripleLines[i] = self.FindNonGrainMean(self.__TripleLines[i], fltSearchRadius)
+            self.__TripleLines[i] = self.MoveTripleLine(i)
+        self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
+        return self.__TripleLines
+    def __NudgeTripleLine(self,intTripleLine, intGB1 :int, intGB2: int, fltIncrement: float, fltWidth, fltLength):
+        arrTripleLine = self.GetTripleLines(intTripleLine)
+        lstRadii, lstValues = self.FindGrainStrip(intTripleLine, intGB1,intGB2, fltIncrement,fltWidth, 'mean',fltLength)[0:2]
+        if np.argmax(lstValues) ==0: #then the triple line has moved to far in this direction so nudge back
+            v1 = gf.NormaliseVector(np.mean(self.GetGrainBoundaries(intGB1).GetPoints(),axis=0) - arrTripleLine)
+            v2 = gf.NormaliseVector(np.mean(self.GetGrainBoundaries(intGB2).GetPoints(),axis=0) - arrTripleLine)
+            v = gf.NormaliseVector(v1+v2)
+            arrTripleLine = arrTripleLine -lstRadii[0]*v
+        return arrTripleLine
+    def MoveTripleLine(self,intTripleLine:int):
+        lstGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
+        lstPoints = []
+        for j in lstGBs:
+            fltDistances = []
+            for k in self.GetGrainBoundaries(j).GetPoints():
+                fltDistances.append(self.PeriodicMinimumDistance(k, self.GetTripleLines(intTripleLine)))
+            lstPoints.append(self.GetGrainBoundaries(j).GetPoints(np.argmin(fltDistances)))
+        arrPoints = self.PeriodicShiftAllCloser(self.GetTripleLines(intTripleLine),np.array(lstPoints))
+        return gf.EquidistantPoint(*arrPoints)
+    def OptimiseTripleLinePosition(self, intTripleLine: int, fltIncrement, fltWidth, fltLength):
+        lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
+        fltDifference =1 #set to any non-zero value
+        intCounter = 0 #initialise counter
+        while fltDifference > 0 and intCounter < 50: #hard coded to do at most 50 iterations
+            arrTripleLine = self.GetTripleLines(intTripleLine)
+            for j in range(len(lstOfGBs)):
+                arrNewTripleLine = self.__NudgeTripleLine(intTripleLine, lstOfGBs[np.mod(j,3)],lstOfGBs[np.mod(j+1,3)],
+                fltIncrement, fltWidth, fltLength)
+                self.SetTripleLine(intTripleLine, arrNewTripleLine)
+            fltDifference = np.linalg.norm(arrTripleLine - arrNewTripleLine)
+            intCounter += 1
     def GetGrainBoundaries(self, intValue = None):
         if intValue is None:
             return self.__GrainBoundaries
@@ -362,6 +393,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return self.__TripleLines
         else:
             return self.__TripleLines[intValue]
+    def SetTripleLine(self, intPosition: np.array, arrValue: np.array):
+        self.__TripleLines[intPosition] = arrValue
     def GetNeighbouringGrainBoundaries(self, intTripleLine: int):
         lstDistances = [] #the closest distance 
         lstPositions = []
@@ -496,6 +529,7 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         for j in arrPoints:
             self.__ArrayGrid[j[0],j[1]] += 1 #this array represents the simultion cell
         self.__ArrayGrid = (self.__ArrayGrid >= intMinCount).astype('int')
+        self.__ArrayGrid = ndimage.binary_dilation(self.__ArrayGrid, np.ones([3,3]))
         self.__ExtendedArrayGrid = np.zeros([np.shape(self.__ArrayGrid)[0]+2*n,np.shape(self.__ArrayGrid)[1]+2*n])
         self.__ExtendedArrayGrid[n:-n, n:-n] = self.__ArrayGrid
         self.__ExtendedArrayGrid[0:n, n:-n] = self.__ArrayGrid[-n:,:]
