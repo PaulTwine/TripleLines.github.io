@@ -87,9 +87,6 @@ class GeneralLattice(RealCell):
         arrLatticePoints = self.MakeLatticePoints(arrCellPoints)
         arrLatticePoints = np.delete(arrLatticePoints, self.CheckLatticeConstraints(arrLatticePoints), axis = 0)
         self.GenerateRealPoints(arrLatticePoints)
-      #  self.__RealPoints = np.matmul(arrLatticePoints, self.GetRealBasisVectors())
-      #  self.__RealPoints = np.delete(self.__RealPoints, self.CheckLinearConstraints(self.__RealPoints), axis=0)
-      #  self.__LatticePoints = np.delete(arrLatticePoints, self.CheckLinearConstraints(self.__RealPoints),axis=0)
     def MakeLatticePoints(self, inCellPoints):
         arrLatticePoints = np.empty([self.GetNumberOfCellNodes()*len(inCellPoints), self.Dimensions()])
         for i, position in enumerate(inCellPoints):
@@ -109,7 +106,7 @@ class GeneralLattice(RealCell):
             rtnArray[k, 3] = np.linalg.norm(inConstraints[k,3] * np.matmul(rtnArray[k,:-1],np.linalg.inv(np.diag(self.__LatticeParameters))),axis=0)
         self.__LatticeConstraints = rtnArray
     def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
-        arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1]))
+        arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
         arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
         return arrPositions
     def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
@@ -159,7 +156,11 @@ class GeneralLattice(RealCell):
         return(arrRanges)
     def GetQuaternionOrientation(self)->np.array:
        # return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(self.GetUnitBasisVectors()))
-        return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(np.transpose(self.GetUnitBasisVectors())))            
+        return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(np.transpose(self.GetUnitBasisVectors())))     
+    def GetLinearConstraints(self):
+        return self.__LinearConstraints
+    def GetLatticeConstraints(self):
+        return self.__LatticeConstraints
 class ExtrudedRegularPolygon(GeneralLattice):
     def __init__(self, fltSideLength: float, fltHeight: float, intNumberOfSides: int, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin = None):
         intDimensions = len(inBasisVectors[0])
@@ -389,6 +390,11 @@ class GrainBoundary(object):
         fltDistances = np.linalg.norm(self.__Points - inPoint, axis=1)
         intMin = np.argmin(fltDistances)
         return self.__Points[intMin]
+    def ShiftPoint(self, intPointIndex: int, inPoint: np.array):
+        self.__Points[inPointIndex,0] = self.__Points[inPointInde,0] + inPoint[0]
+        self.__Points[inPointIndex,1] = self.__Points[inPointInde,1] + inPoint[1]
+        
+
 
 
 class DefectStructure(object):

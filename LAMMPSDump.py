@@ -4,7 +4,8 @@ import GeometryFunctions as gf
 import GeneralLattice as gl
 from scipy import spatial, optimize, ndimage
 #from sklearn.cluster import AffinityPropagation
-from skimage.morphology import skeletonize, thin, medial_axis, label, remove_small_holes
+from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes,label
+#from scipy.ndimage import label
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int):
@@ -175,6 +176,9 @@ class LAMMPSTimeStep(object):
         return (self.__AtomData[:, [self.GetColumnNames().index('OrientationX'),self.GetColumnNames().index('OrientationY'),self.GetColumnNames().index('OrientationZ'), self.GetColumnNames().index('OrientationW')]])  
     def GetData(self, inDimensions: np.array, lstOfColumns):
         return np.where(self.__AtomData[:,lstOfColumns])
+    def GetBoundingBox(self):
+        return np.array([self.GetCellBasis()[0,0]+self.GetCellBasis()[1,0]+self.GetCellBasis()[2,0],
+        self.GetCellBasis()[1,1]+self.GetCellBasis()[2,1], self.GetCellBasis()[2,2]])
 
 
 class LAMMPSPostProcess(LAMMPSTimeStep):
@@ -338,11 +342,12 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         lstGrainBoundaries = objQPoints.GetGrainBoundaries()
         for j,arrGB in enumerate(lstGrainBoundaries):
+            arrFirstPoint = arrGB[0]
             for k in range(len(arrGB)):
                 arrPoint = np.array([arrGB[k,0], arrGB[k,1],fltMidHeight])
-                arrPoint =  self.FindNonGrainMean(arrPoint, fltSearchRadius)
+              #  arrPoint =  self.FindNonGrainMean(arrPoint, fltSearchRadius)
                 arrPoint[2] = fltMidHeight
-                lstGrainBoundaries[j][k] = arrPoint
+                lstGrainBoundaries[j][k] = self.PeriodicShiftCloser(arrFirstPoint, arrPoint)
             lstGrainBoundaryObjects.append(gl.GrainBoundary(lstGrainBoundaries[j]))
         self.__GrainBoundaries = lstGrainBoundaryObjects
         for i  in range(len(self.__TripleLines)):
@@ -350,15 +355,14 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             self.__TripleLines[i] = self.MoveTripleLine(i)
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         return self.__TripleLines
-    def __NudgeTripleLine(self,intTripleLine, intGB1 :int, intGB2: int, fltIncrement: float, fltWidth, fltLength):
-        arrTripleLine = self.GetTripleLines(intTripleLine)
-        lstRadii, lstValues = self.FindGrainStrip(intTripleLine, intGB1,intGB2, fltIncrement,fltWidth, 'mean',fltLength)[0:2]
-        if np.argmax(lstValues) ==0: #then the triple line has moved to far in this direction so nudge back
-            v1 = gf.NormaliseVector(np.mean(self.GetGrainBoundaries(intGB1).GetPoints(),axis=0) - arrTripleLine)
-            v2 = gf.NormaliseVector(np.mean(self.GetGrainBoundaries(intGB2).GetPoints(),axis=0) - arrTripleLine)
-            v = gf.NormaliseVector(v1+v2)
-            arrTripleLine = arrTripleLine -lstRadii[0]*v
-        return arrTripleLine
+    # def NudgeGrainBoundary(self, objGrainBoundary: gl.GrainBoundary, fltLatticeParameter: float)->np.array:
+    #     arrGBDirection = gf.NormaliseVector(objGrainBoundary.GetLinearDirection())
+    #     arrAcross = gf.NormaliseVector(np.cross(arGBDirection, np.array([0,0,1]))) 
+    #     lstIDs = []
+    #     for j in objGrainBoundary.GetPoints():
+    #         lstIDs = self.FindBoxAtoms(self.GetNonLatticeAtoms()[:,0:4], j,arrGBDirections*fltLatticeParameter/2, 3*fltLatticeParameter*arrAcross,self.GetCellVectors()[2]])
+    #         arrMean = np.mean(self.GetAtomsByID(lstIDs),axis=0)
+    #         arrShift = np.dot(arrMean, arrAcross)*arrAcross
     def MoveTripleLine(self,intTripleLine:int):
         lstGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
         lstPoints = []
@@ -537,6 +541,8 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__ExtendedArrayGrid[:,0:n] = self.__ExtendedArrayGrid[:,-2*n:-n]
         self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
         self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
+        #self.__ExtendedSkeletonGrid = thin(self.__ExtendedArrayGrid).astype('int')
+        #self.__ExtendedSkeletonGrid = medial_axis(self.__ExtendedArrayGrid).astype('int')
         self.__GrainValue = 0
         self.__GBValue = 1 #just fixed constants used in the array 
         self.__DislocationValue = 2
@@ -611,17 +617,18 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__GrainBoundaryLabels = label(arrSkeleton)
         lstUniqueIDs = list(np.unique(self.__GrainBoundaryLabels))
         lstUniqueIDs.remove(self.__GrainValue)
-        intCounter = 0
-        while intCounter < len(lstUniqueIDs):
-            intID = lstUniqueIDs[intCounter]
-            if len(np.argwhere(self.__GrainBoundaryLabels == intID)) < 3:
-                self.__GrainBoundaryLabels[self.__GrainBoundaryLabels == intID] = self.__GrainValue
-                lstUniqueIDs.remove(intID)
-            else:
-                intCounter += 1
+        #intCounter = 0
+        # while intCounter < len(lstUniqueIDs):
+        #     intID = lstUniqueIDs[intCounter]
+        #     if len(np.argwhere(self.__GrainBoundaryLabels == intID)) < 3:
+        #         self.__GrainBoundaryLabels[self.__GrainBoundaryLabels == intID] = self.__GrainValue
+        #         lstUniqueIDs.remove(intID)
+        #     else:
+        #         intCounter += 1
         self.__GrainBoundaryIDs = lstUniqueIDs
         self.__NumberOfGrainBoundaries = len(lstUniqueIDs)   
         self.__blnGrainBoundaries = True
+        self.MergeGrainBoundaries()
     def GetGrainBoundaryLabels(self):
         if  not self.__blnGrainBoundaries:
             self.FindGrainBoundaries()
@@ -632,10 +639,28 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         return len(self.__GrainBoundaryIDs)
     def GetGrainBoundaries(self)->np.array:
         lstGrainBoundaries = []
-        #lstLineDefects = []
         if not self.__blnGrainBoundaries:
             self.FindGrainBoundaries()
         for j in self.__GrainBoundaryIDs:
             arrPoints = np.argwhere(self.__GrainBoundaryLabels == j) 
             lstGrainBoundaries.append(self.__ConvertToCoordinates(arrPoints))
         return lstGrainBoundaries
+    def MergeGrainBoundaries(self):
+        arrMod = np.array([np.shape(self.__ArrayGrid)])
+        lstCurrentIDs = list(np.copy(self.__GrainBoundaryIDs))
+        counter = 0
+        while (counter < len(self.__GrainBoundaryIDs)):
+            j = self.__GrainBoundaryIDs[counter]
+            lstCurrentIDs.remove(j)
+            arrPointsj = np.argwhere(self.__GrainBoundaryLabels == j)
+            arrPointsj = np.fmod(arrPointsj, arrMod)
+            for k in lstCurrentIDs:
+                arrPointsk = np.argwhere(self.__GrainBoundaryLabels == k)
+                arrPointsk = np.fmod(arrPointsk, arrMod)
+                arrDistanceMatrix = spatial.distance_matrix(arrPointsj, arrPointsk)
+                if np.min(arrDistanceMatrix) < 2: #the two grain boundaries periodically link
+                    self.__GrainBoundaryLabels[self.__GrainBoundaryLabels == k] = j
+                    self.__GrainBoundaryIDs.remove(k)
+                    lstCurrentIDs.remove(k)
+            counter +=1
+      
