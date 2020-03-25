@@ -348,8 +348,11 @@ class GrainBoundary(object):
     def GetVector(self, intVector: int)->np.array:
         if intVector < self.GetNumberOfPoints() -1:
             return self.__Points[intVector+1]-self.__Points[intVector]
-    def GetAcrossVector(self,intVector)->np.array:
-        return gf.NormaliseVector(np.cross(self.GetVector(intVector), np.array([0,0,1])))
+    def GetAcrossVector(self,intVector = None)->np.array:
+        if intVector is None:
+            return gf.NormaliseVector(np.cross(self.GetLinearDirection(), np.array([0,0,1])))
+        else:
+            return gf.NormaliseVector(np.cross(self.GetVector(intVector), np.array([0,0,1])))
     def GetSegmentLength(self, intValue:int)->float:
         return self.__Lengths[intValue]
     def GetAccumulativeLength(self, intValue: int)->float:
@@ -379,6 +382,8 @@ class GrainBoundary(object):
             intIndex = np.argmax(np.abs(eValues))
             vctAxis = np.real(eVectors[:,intIndex])
             self.__LinearDirection = gf.NormaliseVector(np.array([vctAxis[0], vctAxis[1], 0]))
+        if np.dot(self.__LinearDirection, self.__Centre-self.__Points[0]) < 0:
+            self.__LinearDirection = -1*self.__LinearDirection
         return self.__LinearDirection
     def AddPoints(self, inNewPoints: np.array):
         self.__Points = np.append(self.__Points, inNewPoints, axis=0)
@@ -391,8 +396,8 @@ class GrainBoundary(object):
         intMin = np.argmin(fltDistances)
         return self.__Points[intMin]
     def ShiftPoint(self, intPointIndex: int, inPoint: np.array):
-        self.__Points[inPointIndex,0] = self.__Points[inPointInde,0] + inPoint[0]
-        self.__Points[inPointIndex,1] = self.__Points[inPointInde,1] + inPoint[1]
+        self.__Points[intPointIndex,0] = self.__Points[intPointIndex,0] + inPoint[0]
+        self.__Points[intPointIndex,1] = self.__Points[intPointIndex,1] + inPoint[1]
         
 
 
