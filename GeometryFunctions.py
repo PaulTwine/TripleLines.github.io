@@ -251,5 +251,5 @@ def IndexFromAngles(fltAngle1, fltAngle2, intLength, fltIncrement, fltLimit):
         return lstOfAngles.index(tuple(fltAngle1, fltAngle2))
 def FindNthSmallestPosition(inArray: np.array, intN :int)->int:
         fltValue = np.sort(inArray)[intN]
-        intPosition = np.argwhere(inArray == fltValue)[0][0]
-        return intPosition
+        intPosition = np.where(inArray == fltValue)[0]
+        return list(intPosition)

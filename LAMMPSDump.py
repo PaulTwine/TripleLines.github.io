@@ -294,33 +294,22 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         self.__GrainBoundaries = []
         self.__lstMergedGBs = []
         self.__lstMergedTripleLines = []
-    def EstimateTripleLineEnergy(self,fltGridSize: float, fltSearchRadius: float, fltIncrement: float, intMinCount =1):
-            arrEnergy = np.zeros([len(self.__TripleLines),3])
-            fltPEDatum = np.median(self.GetLatticeAtoms()[:,self._intPE])
-            self.FindTripleLines(fltGridSize, fltSearchRadius, intMinCount)
-            #fltHeight = np.dot(self.GetCellVectors()[2], np.array([0,0,1]))
-            for j in range(len(self.__TripleLines)):
-                lstRadius = []
-                lstExcessEnergy = [] #excess energy above the grain energy which includes a strain energy contribution
-                lstTripleLineEnergy = [] #excess energy in the triple line
-                fltClosest = np.sort(self.__TripleLineDistanceMatrix[j])[1] #finds the closest triple line
-                for i in range(0, np.floor(fltClosest/(2*fltIncrement)).astype('int')): #only search halfway between the points
-                    arrCurrentTripleLine = self.MoveToSimulationCell(self.__TripleLines[j])
-                    arrCurrentTripleLine[2] = self.CellHeight/2
-                    r=i*fltIncrement
-                    lstRadius.append(r)
-                    arrPEValues = self.FindValuesInCylinder(self.GetAtomData()[:,0:self._intPositionZ+1],arrCurrentTripleLine,r,2*self.CellHeight,self._intPE)
-                    lstExcessEnergy.append(np.sum(arrPEValues)-fltPEDatum*len(arrPEValues)) #subtract off grain energy
-                pLinearGB = optimize.curve_fit(gf.LinearRule,lstRadius, lstExcessEnergy)[0]
-                for k in range(len(lstRadius)):
-                    lstTripleLineEnergy.append(lstExcessEnergy[k]-pLinearGB[0]*lstRadius[k]) #subtract off GB energy
-                pLinearTJ = optimize.curve_fit(gf.LinearRule,lstRadius, lstTripleLineEnergy)[0]    
-                if np.abs(np.mean(lstTripleLineEnergy) - pLinearGB[1]) > 0.0001 or np.abs(pLinearTJ[0]) > 0.0001:
-                    raise("Fitting parameters are beyond tolerance")
-                arrEnergy[j,0] = fltClosest/2
-                arrEnergy[j,1] = lstExcessEnergy[-1]
-                arrEnergy[j,2] = pLinearTJ[1]
-            return arrEnergy
+    def FindTripleLineEnergy(self, intTripleLine: int, fltIncrement: float, fltWidth: float):
+        lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
+       # lstEquivalentTripleLines = self.GetEquivalentTripleLines(intTripleLine)
+       # lstOfTripleLines = list(range(self.GetNumberOfTripleLines))
+        # for j in lstEquivalentTripleLines:
+        #     lstOfTripleLines.remove(j) 
+        # fltClosest = np.min(self.__TripleLineDistanceMatrix[intTripleLine,lstOfTripleLines])/2
+        lstV = [3*[]]
+        lstR = [3*[]]
+        lstI = [3*[]]
+        lstFit = [3*[]]
+        for j in range(len(lstOfGBs)):
+            lstR[j],lstV[j],lstI[j] = self.FindGrainStrip(intTripleLine,lstOfGBs[j], lstOfGBs[np.mod(j+1,3)],fltWidth,fltIncrement)
+            popt, poptv = optimize.curve_fit(gf.LinearRule, lstR,lstV)
+            for r in lstR[j]:
+                lstFit[j].append(gf.LinearRule(r, *popt))
     def MergePeriodicTripleLines(self, fltDistanceTolerance: float):
         lstMergedIndices = []
         setIndices = set(range(self.GetNumberOfTripleLines()))
@@ -336,7 +325,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstGrainBoundaries = []
         lstGrainBoundaryObjects = []
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],9,fltGridLength, intMinCount)
+        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],9,fltGridLength/4, intMinCount)
         self.__TripleLines = objQPoints.FindTriplePoints()
         self.__TripleLineDistanceMatrix = spatial.distance_matrix(self.__TripleLines[:,0:2], self.__TripleLines[:,0:2])
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
@@ -345,14 +334,13 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             arrFirstPoint = arrGB[0]
             for k in range(len(arrGB)):
                 arrPoint = np.array([arrGB[k,0], arrGB[k,1],fltMidHeight])
-              #  arrPoint =  self.FindNonGrainMean(arrPoint, fltSearchRadius)
                 arrPoint[2] = fltMidHeight
                 lstGrainBoundaries[j][k] = self.PeriodicShiftCloser(arrFirstPoint, arrPoint)
             lstGrainBoundaryObjects.append(gl.GrainBoundary(lstGrainBoundaries[j]))
-            self.NudgeGrainBoundary(lstGrainBoundaryObjects[j],4.05)
+            #self.NudgeGrainBoundary(lstGrainBoundaryObjects[j],fltGridLength)
         self.__GrainBoundaries = lstGrainBoundaryObjects
         for i  in range(len(self.__TripleLines)):
-            self.__TripleLines[i] = self.FindNonGrainMean(self.__TripleLines[i], fltSearchRadius)
+           # self.__TripleLines[i] = self.FindNonGrainMean(self.__TripleLines[i], fltSearchRadius)
             self.__TripleLines[i] = self.MoveTripleLine(i)
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         return self.__TripleLines
@@ -361,7 +349,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         arrAcross = gf.NormaliseVector(np.cross(arrGBDirection, np.array([0,0,1]))) 
         lstIDs = []
         for index, j in enumerate(objGrainBoundary.GetPoints()):
-            lstIDs = self.FindBoxAtoms(self.GetNonLatticeAtoms()[:,0:4], j,arrGBDirection*fltLatticeParameter/2, 2*fltLatticeParameter*arrAcross,self.GetCellVectors()[2])
+            lstIDs = self.FindBoxAtoms(self.GetNonLatticeAtoms()[:,0:4], j-arrGBDirection/2,arrGBDirection*fltLatticeParameter/2, 3*fltLatticeParameter*arrAcross,self.GetCellVectors()[2])
             arrPoints = self.GetAtomsByID(lstIDs)[:,1:4]
             arrPoints = self.PeriodicShiftAllCloser(j, arrPoints)
             if len(arrPoints) > 0:
@@ -383,6 +371,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return self.__GrainBoundaries
         else:
             return self.__GrainBoundaries[intValue]
+    def GetNumberOfGrainBoundaries(self)->int:
+        return len(self.__GrainBoundaries)
     def GetNumberOfTripleLines(self)->int:
         return len(self.__TripleLines)
     def GetTripleLines(self, intValue = None)->np.array:
@@ -401,8 +391,12 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             for j in arrGB.GetPoints(): 
                 lstTemporary.append(self.PeriodicMinimumDistance(j ,arrTripleLine))
             lstDistances.append(np.min(lstTemporary))
-        for k in range(3):
-            lstPositions.append(gf.FindNthSmallestPosition(lstDistances,k))
+        intCounter = 0
+        while len(lstPositions) < 3 and intCounter < self.GetNumberOfGrainBoundaries():
+            lstValues = gf.FindNthSmallestPosition(lstDistances,intCounter)
+            lstPositions.extend(lstValues)
+            lstPositions = list(np.unique(lstPositions))
+            intCounter += 1
         return lstPositions
     def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
         fltStart = self.PeriodicMinimumDistance(self.__GrainBoundaries[intGrainBoundary].GetPoints(0), self.__TripleLines[intTripleLine])
@@ -473,7 +467,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         intMax = np.floor(fltClosest/(fltIncrement)).astype('int')
         for intV in range(3):
             #lstOfVectors.append(self.GetGrainBoundaryDirection(lstNeighbouringGB[intV],intTripleLine))
-            arrMeanVector = self.PeriodicShiftCloser(self.__TripleLines[intTripleLine],np.mean(self.GetGrainBoundaries(lstNeighbouringGB[intV]).GetPoints(),axis=0))
+            arrMeanVector = np.mean(self.PeriodicShiftAllCloser(self.__TripleLines[intTripleLine],self.GetGrainBoundaries(lstNeighbouringGB[intV]).GetPoints()),axis=0)
             lstOfVectors.append(gf.NormaliseVector(arrMeanVector - self.__TripleLines[intTripleLine]))
         for j in range(1,intMax):
             r = fltIncrement*j
@@ -489,45 +483,6 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             elif strValue =='sum':
                 lstValues.append(np.sum(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
         return lstRadii, lstValues,lstIndices  
-    # def MergePeriodicGrainBoundaries(self, fltTolerance: float): #Not needed as this occurs within QPoints object
-    #     intN = len(self.GetGrainBoundaries())
-    #     lstMergedGBs = []
-    #     lstRemainingIndices = list(range(intN))
-    #     while len(lstRemainingIndices) > 0:
-    #         lstCurrentGBs = [lstRemainingIndices[0]]
-    #         del lstRemainingIndices[0]
-    #         counter = 0
-    #         while counter < len(lstRemainingIndices):
-    #             k = lstRemainingIndices[counter]
-    #             if self.CheckGB(self.GetGrainBoundaries(lstCurrentGBs[0]), self.GetGrainBoundaries(k),fltTolerance):
-    #                 lstCurrentGBs.append(k)
-    #                 lstRemainingIndices.remove(k)
-    #             else:
-    #                 counter += 1
-    #         lstMergedGBs.append(lstCurrentGBs)
-    #     for lstMergedIDs in lstMergedGBs:
-    #         if len(lstMergedIDs) > 1:
-    #             for lstID in lstMergedIDs[1:]:
-    #                 arrPoints = np.array(list(map(lambda x: self.PeriodicShiftCloser(self.__GrainBoundaries[lstMergedIDs[0]].GetPoints(0),x), self.__GrainBoundaries[lstID].GetPoints())))
-    #                 self.__GrainBoundaries[lstMergedIDs[0]].AddPoints(arrPoints)
-    #                 del self.__GrainBoundaries[lstID]
-    #     self.__lstMergedGBs = lstMergedGBs
-    #     return lstMergedGBs        
-    def CheckGB(self,arrGB1: gl.GrainBoundary, arrGB2: gl.GrainBoundary, fltTolerance: float):
-        blnFound = False
-        counter =0
-        if arrGB1.GetAccumulativeLength(-1) <= arrGB2.GetAccumulativeLength(-1): 
-            pts1 = arrGB1.GetPoints()
-            pts2 = arrGB2.GetPoints()
-        else:
-            pts1 = arrGB2.GetPoints()
-            pts2 = arrGB1.GetPoints()
-        while counter < len(pts1) and not(blnFound): 
-            if (self.PeriodicMinimumDistance(pts1[counter], pts2[0]) < fltTolerance) or (self.PeriodicMinimumDistance(pts1[counter], pts2[-1]) < fltTolerance):
-                blnFound = True
-            else:
-                counter +=1
-        return blnFound
     def GetEquivalentTripleLines(self, intTripleLine: int)->list:
         for lstTripleLines in self.__lstMergedTripleLines:
             if intTripleLine in lstTripleLines:
@@ -646,7 +601,8 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__GrainBoundaryIDs = lstUniqueIDs
         self.__NumberOfGrainBoundaries = len(lstUniqueIDs)   
         self.__blnGrainBoundaries = True
-        self.MergeGrainBoundaries()
+        self.MergeGrainBoundaries() #merges periodically equivalent grain boundaries
+        self.ExtendGrainBoundaries() #adds one more GB points between the end of the grain boundary and the triple line
     def GetGrainBoundaryLabels(self):
         if  not self.__blnGrainBoundaries:
             self.FindGrainBoundaries()
@@ -681,4 +637,12 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
                     self.__GrainBoundaryIDs.remove(k)
                     lstCurrentIDs.remove(k)
             counter +=1
+    def ExtendGrainBoundaries(self):
+        arrPoints = np.argwhere(self.__ExtendedSkeletonGrid == self.__GBValue)
+        for j in self.__GrainBoundaryIDs:
+            arrGBPoints = np.argwhere(self.__GrainBoundaryLabels ==j)
+            for k in arrPoints:
+                if np.any(np.linalg.norm(arrGBPoints-k,axis=1) < 2):
+                    self.__GrainBoundaryLabels[k[0],k[1]] = j
+
       

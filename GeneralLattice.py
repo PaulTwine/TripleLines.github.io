@@ -376,14 +376,14 @@ class GrainBoundary(object):
         elif intValue < self.GetNumberOfPoints():
             return (self.GetPoints(intValue+1) + self.GetPoints(intValue))/2 
     def GetLinearDirection(self):
-        if len(self.__LinearDirection) == 0:
+        if len(self.__LinearDirection) ==0:
             arrMatrix = np.cov(self.__Points[:,0:2], self.__Points[:,0:2])
             eValues, eVectors = np.linalg.eig(arrMatrix)
             intIndex = np.argmax(np.abs(eValues))
             vctAxis = np.real(eVectors[:,intIndex])
             self.__LinearDirection = gf.NormaliseVector(np.array([vctAxis[0], vctAxis[1], 0]))
-        if np.dot(self.__LinearDirection, self.__Centre-self.__Points[0]) < 0:
-            self.__LinearDirection = -1*self.__LinearDirection
+            if np.dot(self.__LinearDirection, self.__Centre-self.__Points[0]) < 0:
+                self.__LinearDirection = -1*self.__LinearDirection
         return self.__LinearDirection
     def AddPoints(self, inNewPoints: np.array):
         self.__Points = np.append(self.__Points, inNewPoints, axis=0)
