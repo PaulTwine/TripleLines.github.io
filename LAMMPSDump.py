@@ -287,29 +287,36 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         #    lstRows.extend(np.where(np.linalg.norm(self.GetAtomData()[:,1:4] - arrPoints[j],axis=1)==0)[0])
         #lstRows = list(np.unique(lstRows))
         return self.GetAtomsByID(lstIDs)[:, intColumn]
-
 class LAMMPSAnalysis(LAMMPSPostProcess):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
         self.__GrainBoundaries = []
         self.__lstMergedGBs = []
         self.__lstMergedTripleLines = []
+    def __Reciprocal(self, r,a,b):
+        return a/(r+b)-a/b
     def FindTripleLineEnergy(self, intTripleLine: int, fltIncrement: float, fltWidth: float):
-        lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
-       # lstEquivalentTripleLines = self.GetEquivalentTripleLines(intTripleLine)
-       # lstOfTripleLines = list(range(self.GetNumberOfTripleLines))
+        lstR = []
+        lstV = []
+        lstI = []
+        # lstEquivalentTripleLines = self.GetEquivalentTripleLines(intTripleLine)
+        # lstOfTripleLines = list(range(self.GetNumberOfTripleLines))
+        # self.__TripleLineDistanceMatrix = self.MakePeriodicDistanceMatrix(self.__TripleLines[:,0:2], self.__TripleLines[:,0:2])
         # for j in lstEquivalentTripleLines:
-        #     lstOfTripleLines.remove(j) 
+        #      lstOfTripleLines.remove(j) 
         # fltClosest = np.min(self.__TripleLineDistanceMatrix[intTripleLine,lstOfTripleLines])/2
-        lstV = [3*[]]
-        lstR = [3*[]]
-        lstI = [3*[]]
-        lstFit = [3*[]]
-        for j in range(len(lstOfGBs)):
-            lstR[j],lstV[j],lstI[j] = self.FindGrainStrip(intTripleLine,lstOfGBs[j], lstOfGBs[np.mod(j+1,3)],fltWidth,fltIncrement)
-            popt, poptv = optimize.curve_fit(gf.LinearRule, lstR,lstV)
-            for r in lstR[j]:
-                lstFit[j].append(gf.LinearRule(r, *popt))
+        lstR,lstV,lstI = self.FindThreeGrainStrips(intTripleLine,fltWidth,fltIncrement, 'mean')
+        intStart = len(lstV) - np.argmax(lstV[-1:0:-1]) #find the max value position counting backwards as the first max is used
+        fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
+        popt, poptv = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])
+        while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.001 and intStart < len(lstR)): #check to see if the fit is good
+            intStart += 1
+            popt, poptv = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])
+        fltRadius = lstR[intStart]
+        arrValues = self.FindValuesInCylinder(self.GetAtomData()[:,0:4],self.GetTripleLines(intTripleLine),fltRadius,self.CellHeight, self._intPE)
+        intNumberOfAtoms = len(arrValues)
+        fltEnergy = np.sum(arrValues)
+        return fltEnergy, fltRadius, intNumberOfAtoms 
     def MergePeriodicTripleLines(self, fltDistanceTolerance: float):
         lstMergedIndices = []
         setIndices = set(range(self.GetNumberOfTripleLines()))
@@ -337,7 +344,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 arrPoint[2] = fltMidHeight
                 lstGrainBoundaries[j][k] = self.PeriodicShiftCloser(arrFirstPoint, arrPoint)
             lstGrainBoundaryObjects.append(gl.GrainBoundary(lstGrainBoundaries[j]))
-            #self.NudgeGrainBoundary(lstGrainBoundaryObjects[j],fltGridLength)
+            self.NudgeGrainBoundary(lstGrainBoundaryObjects[j],fltGridLength)
         self.__GrainBoundaries = lstGrainBoundaryObjects
         for i  in range(len(self.__TripleLines)):
            # self.__TripleLines[i] = self.FindNonGrainMean(self.__TripleLines[i], fltSearchRadius)
