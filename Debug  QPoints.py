@@ -24,32 +24,40 @@ from IPython.core.debugger import set_trace
 
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
-strPMFile = '../../PythonLAMMPS/VolumeTest/dump.eamPM'
-objData = LD.LAMMPSData(strPMFile,1)
-objProcess = objData.GetTimeStepByIndex(0)
-#objProcess.FindTriplePoints(4.05)
-#objProcess.GetGrainBoundaries()
-#objProcess.CategoriseAtoms()         
+#strDumpFile = '../../PythonLAMMPS/VolumeTest/dump.eamPM'
+strDumpFile = '/home/paul/csf3_scratch/TripleLines/data1/dump.eam1PM'
+objData = LD.LAMMPSData(strDumpFile,1)
+objProcess = objData.GetTimeStepByIndex(-1)
+objProcess.CategoriseAtoms()         
 #objQPoints = LD.Quantised2DPoints(objProcess.GetOtherAtoms()[:,1:3], a1, objProcess.GetCellVectors()[0:2,0:2],11) 
-objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],9,a2/4, 1)
-fig,ax = plt.subplots(1,6)
+objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],10,a2, 1)
+fig,ax = plt.subplots(1,4)
 ax[0].imshow(objQPoints.GetArrayGrid())
 #objQPoints.CopyPointsToWrapper()
-ax[1].imshow(objQPoints.GetExtendedArrayGrid())
 arrTriplePoints = objQPoints.FindTriplePoints()
+ax[1].imshow(objQPoints.GetExtendedSkeletonPoints())
 objQPoints.FindGrainBoundaries()
+print(objQPoints.GetNumberOfGrainBoundaries())
+#objQPoints.ClassifyGBPoints(3,True)
+#objQPoints.FindGrainBoundaries()
 ax[2].imshow(objQPoints.GetExtendedSkeletonPoints())
 #print(objQPoints.ClearWrapperValues())
-arrLabel = objQPoints.GetGrainBoundaryLabels()
+
+
+#objQPoints.MakeGrainBoundaries(1,4)
+#objQPoints.ClearWrapper()
+#arrLabel = objQPoints.GetGrainBoundaryLabels()
+objQPoints.MergeGrainBoundaries()
+print(objQPoints.GetNumberOfGrainBoundaries())
 ax[3].imshow(objQPoints.GetExtendedSkeletonPoints())
 #print(objQPoints.GetGrainBoundaries())
-ax[4].imshow(arrLabel)
+#ax[4].imshow(arrLabel)
 #print(np.unique(objQPoints.FindGrainBoundaries()))
 #objQPoints.MergeGrainBoundaries()
 #print(objQPoints.GetDislocations())
-ax[5].imshow(objQPoints.GetExtendedSkeletonPoints())
+#ax[5].imshow(objQPoints.GetExtendedSkeletonPoints())
 plt.show()
-print(objQPoints.GetGrainBoundaries()[0])
+#print(objQPoints.GetGrainBoundaries()[0])
 # lstMerged = objProcess.MergePeriodicTripleLines(4.05*np.sqrt(2))
 # arrEnergies = objProcess.EstimateTripleLineEnergy(-3.36,4.05, True)
 
