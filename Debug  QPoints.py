@@ -25,12 +25,12 @@ from IPython.core.debugger import set_trace
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 #strDumpFile = '../../PythonLAMMPS/VolumeTest/dump.eamPM'
-strDumpFile = '/home/paul/csf3_scratch/TripleLines/data1/dump.eam1PM'
+strDumpFile = '/home/paul/csf3_scratch/TripleLines/data4/dump.eam4PM'
 objData = LD.LAMMPSData(strDumpFile,1)
 objProcess = objData.GetTimeStepByIndex(-1)
 objProcess.CategoriseAtoms()         
 #objQPoints = LD.Quantised2DPoints(objProcess.GetOtherAtoms()[:,1:3], a1, objProcess.GetCellVectors()[0:2,0:2],11) 
-objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],10,a2, 1)
+objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],5,a2, 1)
 fig,ax = plt.subplots(1,4)
 ax[0].imshow(objQPoints.GetArrayGrid())
 #objQPoints.CopyPointsToWrapper()
@@ -40,7 +40,8 @@ objQPoints.FindGrainBoundaries()
 print(objQPoints.GetNumberOfGrainBoundaries())
 #objQPoints.ClassifyGBPoints(3,True)
 #objQPoints.FindGrainBoundaries()
-ax[2].imshow(objQPoints.GetExtendedSkeletonPoints())
+pos = ax[2].imshow(objQPoints.GetExtendedSkeletonPoints())
+#fig.colorbar(pos, ax=ax[2])
 #print(objQPoints.ClearWrapperValues())
 
 
@@ -50,14 +51,14 @@ ax[2].imshow(objQPoints.GetExtendedSkeletonPoints())
 objQPoints.MergeGrainBoundaries()
 print(objQPoints.GetNumberOfGrainBoundaries())
 ax[3].imshow(objQPoints.GetExtendedSkeletonPoints())
-#print(objQPoints.GetGrainBoundaries())
+#print(objQPoints.GetGrainBoundaryLabels())
 #ax[4].imshow(arrLabel)
 #print(np.unique(objQPoints.FindGrainBoundaries()))
 #objQPoints.MergeGrainBoundaries()
 #print(objQPoints.GetDislocations())
 #ax[5].imshow(objQPoints.GetExtendedSkeletonPoints())
 plt.show()
-#print(objQPoints.GetGrainBoundaries()[0])
+print(np.min(sc.spatial.distance_matrix(objQPoints.GetGrainBoundaries()[0], objQPoints.GetGrainBoundaries()[-1])))
 # lstMerged = objProcess.MergePeriodicTripleLines(4.05*np.sqrt(2))
 # arrEnergies = objProcess.EstimateTripleLineEnergy(-3.36,4.05, True)
 
