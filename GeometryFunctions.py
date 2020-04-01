@@ -160,7 +160,7 @@ def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.arr
                 invMatrix = np.linalg.inv(arrMatrix)
                 vctDirection = np.matmul(invMatrix, np.array([np.dot(arrMatrix[0],0.5*(inVector2+inVector3) - inVector1),0,0.5*np.dot(arrMatrix[2],arrMatrix[2])]))+inVector1
         else:
-                vctDirection= np.mean(np.array([inVector1, inVector2, inVector3]), axis=0)
+                vctDirection= np.mean(np.unique(np.array([inVector1, inVector2, inVector3]),axis=0), axis=0)
         return vctDirection    
 def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: float)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(inPlane[:,:-1])), np.transpose(inPlane[:,-1]))
