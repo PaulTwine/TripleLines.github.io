@@ -3,9 +3,7 @@ import numpy as np
 import GeometryFunctions as gf
 import GeneralLattice as gl
 from scipy import spatial, optimize, ndimage
-#from sklearn.cluster import AffinityPropagation
-from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes,label, area_closing
-#from scipy.ndimage import label
+from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int):
