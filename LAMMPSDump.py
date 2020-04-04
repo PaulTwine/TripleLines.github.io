@@ -4,6 +4,8 @@ import GeometryFunctions as gf
 import GeneralLattice as gl
 from scipy import spatial, optimize, ndimage
 from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes
+from scipy.cluster.vq import kmeans,vq
+from skimage.filters import gaussian
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int):
@@ -368,7 +370,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstGrainBoundaries = []
         lstGrainBoundaryObjects = []
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength, intMinCount)
+        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],5,fltGridLength/2, intMinCount)
         self.__TripleLines = objQPoints.FindTriplePoints()
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         lstGrainBoundaries = objQPoints.GetGrainBoundaries()
@@ -384,8 +386,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             self.NudgeGrainBoundary(lstGrainBoundaryObjects[j],fltGridLength)
         self.__GrainBoundaries = lstGrainBoundaryObjects
         for i  in range(len(self.__TripleLines)):
-      #      self.__TripleLines[i] = self.FindNonGrainMedian(self.__TripleLines[i], fltSearchRadius)
-            self.__TripleLines[i] = self.MoveTripleLine(i,fltSearchRadius)
+            self.__TripleLines[i] = self.FindNonGrainMedian(self.__TripleLines[i], fltSearchRadius)
+          #  self.__TripleLines[i] = self.MoveTripleLine(i,fltSearchRadius)
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         self.__TripleLineDistanceMatrix = spatial.distance_matrix(self.__TripleLines[:,0:2], self.__TripleLines[:,0:2])
         return self.__TripleLines
@@ -402,7 +404,23 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 arrShift = np.dot(arrMean-j, arrAcross)*arrAcross
                 objGrainBoundary.ShiftPoint(index,arrShift)
     def MoveTripleLine(self, intTripleLine, fltRadius)->np.array:
-        arrPoint = self.FindNonGrainMedian(self.GetTripleLines(intTripleLine), fltRadius)
+        arrPoint = np.zeros([3])
+        arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4], 
+                                            self.GetTripleLines(intTripleLine), fltRadius,self.CellHeight,[1,2,3])
+        arrMovedPoints = self.PeriodicShiftAllCloser(self.GetTripleLines(intTripleLine), arrPoints)
+        # arrPoint = np.mean(arrMovedPoints, axis=0)
+        # centroids = kmeans(arrMovedPoints[:,0:2],3)[0]
+        # idx = vq([:,0:2],centroids)[0]
+        # intMin = np.argmin(np.bincount(idx))
+        # arrPoint[0:2] = centroids[intMin]
+        intGradient = np.polyfit(*arrPoints[0:2],1)[1]
+        arrVector = gf.NormaliseVector(np.array([1, intGradient]))
+        arrGBsVectors = self.GetGrainBoundaryVectors(intTripleLine)
+        intMax = np.argmax(np.abs(np.matmul(arrGBsVectors, arrVector))) #dot product closest to -1 
+        if np.dot(arrVector, arrGBsVectors[intMax]) > 0:
+            arrVector = -arrVector
+        arrPoint[0:2] = np.mean(arrMovedPoints,axis=0)[0:2] + fltRadius*arrVector
+        arrPoint[2] = self.CellHeight/2
         fltTolerance = 1
         counter = 0
         while (fltTolerance > 0 and counter < 100):
@@ -415,10 +433,19 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             counter += 1 
             arrPoint = arrNextPoint
         return arrNextPoint
+    def GetGrainBoundaryVectors(self, intTripleLine: int)->np.array: #return unit vectors pointing inwards to the tripleline
+        arrVectors = np.ones([3,2])
+        lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
+        arrTripleLine = self.GetTripleLines(intTripleLine)
+        for j, intGB in enumerate(lstOfGBs):
+            arrGBMean = self.PeriodicShiftCloser(arrTripleLine,self.GetGrainBoundaries(intGB).GetMeanPoint())[0:2]
+            arrVector =  gf.NormaliseVector(arrGBMean - arrTripleLine[0:2])
+            arrVectors[j] = arrVector
+        return arrVectors
     # def MoveTripleLine(self,intTripleLine:int):
     #     lstGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
     #     lstVectors= []
-    #     arrPoints = np.zeros([3,3])
+    #     arrPoints = np.zeros([3,3])j
     #     counter = 0
     #     blnStop = False #set this flag during the loop if the previous and next point as very clsoe
     #     arrPreviousPoint = np.copy(self.GetTripleLines(intTripleLine))
@@ -591,7 +618,7 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         for j in arrPoints:
             self.__ArrayGrid[j[0],j[1]] += 1 #this array represents the simultion cell
         self.__ArrayGrid = (self.__ArrayGrid >= intMinCount).astype('int')
-        self.__ArrayGrid = ndimage.binary_dilation(self.__ArrayGrid, np.ones([1,1]))
+        self.__ArrayGrid = ndimage.binary_dilation(self.__ArrayGrid, np.ones([2,2]))
         self.__ArrayGrid = remove_small_holes(self.__ArrayGrid, 4)
         self.__ExtendedArrayGrid = np.zeros([np.shape(self.__ArrayGrid)[0]+2*n,np.shape(self.__ArrayGrid)[1]+2*n])
         self.__ExtendedArrayGrid[n:-n, n:-n] = self.__ArrayGrid
@@ -599,8 +626,9 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__ExtendedArrayGrid[-n:, n:-n] = self.__ArrayGrid[:n,:]
         self.__ExtendedArrayGrid[:,0:n] = self.__ExtendedArrayGrid[:,-2*n:-n]
         self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
+      #  self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=0.5)
         self.__ExtendedArrayGrid = (self.__ExtendedArrayGrid.astype('bool')).astype('int')
-        self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
+        self.__ExtendedSkeletonGrid = thin(self.__ExtendedArrayGrid).astype('int')
         self.__GrainValue = 0
         self.__GBValue = 1 #just fixed constants used in the array 
         self.__DislocationValue = 2
