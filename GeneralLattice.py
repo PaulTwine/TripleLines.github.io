@@ -292,7 +292,7 @@ class SimulationCell(object):
             self.__UnitBasisVectors = np.array(lstBasisVectors)
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
-    def WrapAllPointsIntoSimulationCell(self)->np.array:
+    def WrapAllPointsIntoSimulationCell(self, intRound = 8)->np.array:
         lstUniqueRowindices = []
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
@@ -302,7 +302,7 @@ class SimulationCell(object):
                 arrAllAtomTypes[i] = objGrain.GetAtomType()
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
-        arrAllAtoms = self.WrapVectorIntoSimulationBox(arrAllAtoms)
+        arrAllAtoms = np.round(self.WrapVectorIntoSimulationBox(arrAllAtoms),intRound)
         self.__UniqueRealPoints,lstUniqueRowindices = np.unique(arrAllAtoms,axis=0,return_index=True)
         self.__AtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
         self.blnPointsAreWrapped = True

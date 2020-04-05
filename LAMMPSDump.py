@@ -387,7 +387,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         self.__GrainBoundaries = lstGrainBoundaryObjects
         for i  in range(len(self.__TripleLines)):
             self.__TripleLines[i] = self.FindNonGrainMedian(self.__TripleLines[i], fltSearchRadius)
-          #  self.__TripleLines[i] = self.MoveTripleLine(i,fltSearchRadius)
+          #A  self.__TripleLines[i] = self.MoveTripleLine(i,fltSearchRadius)
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         self.__TripleLineDistanceMatrix = spatial.distance_matrix(self.__TripleLines[:,0:2], self.__TripleLines[:,0:2])
         return self.__TripleLines
