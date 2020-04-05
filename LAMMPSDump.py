@@ -628,7 +628,7 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
       #  self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=0.5)
         self.__ExtendedArrayGrid = (self.__ExtendedArrayGrid.astype('bool')).astype('int')
-        self.__ExtendedSkeletonGrid = thin(self.__ExtendedArrayGrid).astype('int')
+        self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
         self.__GrainValue = 0
         self.__GBValue = 1 #just fixed constants used in the array 
         self.__DislocationValue = 2

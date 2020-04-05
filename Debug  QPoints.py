@@ -25,7 +25,7 @@ from IPython.core.debugger import set_trace
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 #strDumpFile = '../../PythonLAMMPS/VolumeTest/dump.eamPM'
-strDumpFile = '/home/paul/csf3_scratch/TripleLines/2Axis111/data1/dump.eam1PM'
+strDumpFile = '/home/paul/csf3_scratch/TripleLines/data1/dump.eam1PM'
 objData = LD.LAMMPSData(strDumpFile,1)
 objProcess = objData.GetTimeStepByIndex(-1)
 objProcess.CategoriseAtoms()         
