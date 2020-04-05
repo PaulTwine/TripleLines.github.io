@@ -249,7 +249,11 @@ def IndexFromAngles(fltAngle1, fltAngle2, intLength, fltIncrement, fltLimit):
         for j in range(1,intLength+1):
                 lstOfAngles.append(AngleGenerator(j, fltIncrement, fltLimit))
         return lstOfAngles.index(tuple(fltAngle1, fltAngle2))
-def FindNthSmallestPosition(inArray: np.array, intN :int)->int:
+def FindNthSmallestPosition(inArray: np.array, intN :int)->list:
         fltValue = np.sort(inArray)[intN]
-        intPosition = np.where(inArray == fltValue)[0]
-        return list(intPosition)
+        lstPosition = np.where(inArray == fltValue)[0]
+        return list(lstPosition)
+def FindNthLargestPosition(inArray: np.array, intN: int)->list:
+        fltValue = np.sort(inArray)[len(inArray)-intN-1]
+        lstPosition = np.where(inArray == fltValue)[0]
+        return list(lstPosition)

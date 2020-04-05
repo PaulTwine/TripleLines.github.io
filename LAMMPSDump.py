@@ -244,9 +244,22 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def PeriodicMinimumDistance(self, inVector1: np.array, inVector2: np.array)->float:
         arrVectorPeriodic = self.PeriodicEquivalents(np.abs(inVector1-inVector2))
         return np.min(np.linalg.norm(arrVectorPeriodic, axis=1))
-    def FindNonGrainMedian(self, inPoint: np.array, fltRadius: float): 
+    def FindNonGrainMean(self, inPoint: np.array, fltRadius: float): 
         lstPointsIndices = []
         lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
+        if len(lstPointsIndices) > 0:
+            lstPointsIndices = list(np.unique(lstPointsIndices))
+        #arrPoints = self.GetRows(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
+            arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
+        #for j in range(len(arrPoints)):
+        #    arrPoints[j] = self.PeriodicShiftCloser(inPoint, arrPoints[j])
+            arrPoints = self.PeriodicShiftAllCloser(inPoint, arrPoints)
+            return np.mean(arrPoints, axis=0)  
+        else:
+            return inPoint
+    def FindGrainMean(self, inPoint: np.array, fltRadius: float): 
+        lstPointsIndices = []
+        lstPointsIndices = self.FindCylindricalAtoms(self.GetLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
         if len(lstPointsIndices) > 0:
             lstPointsIndices = list(np.unique(lstPointsIndices))
         #arrPoints = self.GetRows(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
@@ -354,17 +367,6 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         arrDistanceMatrix = self.MakePeriodicDistanceMatrix(arrGB1.GetPoints(),arrGB2.GetPoints())
         if np.min(arrDistanceMatrix) < fltTolerance:
             blnFound = True
-        # if arrGB1.GetAccumulativeLength(-1) <= arrGB2.GetAccumulativeLength(-1): 
-        #     pts1 = arrGB1.GetPoints()
-        #     pts2 = arrGB2.GetPoints()
-        # else:
-        #     pts1 = arrGB2.GetPoints()
-        #     pts2 = arrGB1.GetPoints()
-        # while counter < len(pts1) and not(blnFound): 
-        #     if (self.PeriodicMinimumDistance(pts1[counter], pts2[0]) < fltTolerance) or (self.PeriodicMinimumDistance(pts1[counter], pts2[-1]) < fltTolerance):
-        #         blnFound = True
-        #     else:
-        #         counter +=1
         return blnFound       
     def FindTripleLines(self,fltGridLength: float, fltSearchRadius: float, intMinCount: int):
         lstGrainBoundaries = []
@@ -386,8 +388,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             self.NudgeGrainBoundary(lstGrainBoundaryObjects[j],fltGridLength)
         self.__GrainBoundaries = lstGrainBoundaryObjects
         for i  in range(len(self.__TripleLines)):
-            self.__TripleLines[i] = self.FindNonGrainMedian(self.__TripleLines[i], fltSearchRadius)
-          #A  self.__TripleLines[i] = self.MoveTripleLine(i,fltSearchRadius)
+            self.__TripleLines[i] = self.FindNonGrainMean(self.__TripleLines[i], fltSearchRadius)
+            self.__TripleLines[i] = self.MoveTripleLine(i,fltSearchRadius)
         self.__TripleLines[:,2] = fltMidHeight*np.ones(len(self.__TripleLines))
         self.__TripleLineDistanceMatrix = spatial.distance_matrix(self.__TripleLines[:,0:2], self.__TripleLines[:,0:2])
         return self.__TripleLines
@@ -405,34 +407,46 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 objGrainBoundary.ShiftPoint(index,arrShift)
     def MoveTripleLine(self, intTripleLine, fltRadius)->np.array:
         arrPoint = np.zeros([3])
+        arrNextPoint = np.zeros([3])
         arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4], 
                                             self.GetTripleLines(intTripleLine), fltRadius,self.CellHeight,[1,2,3])
         arrMovedPoints = self.PeriodicShiftAllCloser(self.GetTripleLines(intTripleLine), arrPoints)
-        # arrPoint = np.mean(arrMovedPoints, axis=0)
-        # centroids = kmeans(arrMovedPoints[:,0:2],3)[0]
-        # idx = vq([:,0:2],centroids)[0]
-        # intMin = np.argmin(np.bincount(idx))
-        # arrPoint[0:2] = centroids[intMin]
-        intGradient = np.polyfit(*arrPoints[0:2],1)[1]
-        arrVector = gf.NormaliseVector(np.array([1, intGradient]))
-        arrGBsVectors = self.GetGrainBoundaryVectors(intTripleLine)
-        intMax = np.argmax(np.abs(np.matmul(arrGBsVectors, arrVector))) #dot product closest to -1 
-        if np.dot(arrVector, arrGBsVectors[intMax]) > 0:
-            arrVector = -arrVector
-        arrPoint[0:2] = np.mean(arrMovedPoints,axis=0)[0:2] + fltRadius*arrVector
+        arr2DPoints = arrMovedPoints[:,0:2]
+        arrConvexHull = spatial.ConvexHull(arr2DPoints).vertices
+        arrPoint[0:2] = np.mean(arr2DPoints[arrConvexHull],axis=0)
+        #intLength = len(arrConvexHull)
+        # arrDistances = np.ones(intLength)
+        # for j in range(intLength):
+        #     arrDistances[j] = np.linalg.norm(arr2DPoints[arrConvexHull[np.mod(j+1,intLength)]]-arr2DPoints[arrConvexHull[j]])
+        # arrVectors =np.ones([3,3])
+        # for k in range(3):
+        #     intGreatest = gf.FindNthLargestPosition(arrDistances, k)[0]
+        #     arrVectors[k,0:2] = (arr2DPoints[arrConvexHull[intGreatest]]+arr2DPoints[arrConvexHull[intGreatest-1]])/2
+        # arrPoint = gf.EquidistantPoint(*arrVectors)
         arrPoint[2] = self.CellHeight/2
         fltTolerance = 1
         counter = 0
-        while (fltTolerance > 0 and counter < 100):
-            arrNextPoint = self.FindNonGrainMedian(arrPoint, fltRadius)
+        while (fltTolerance > 0 and counter < 10):
+            arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4], 
+                                            arrPoint, fltRadius,self.CellHeight,[1,2,3])
+            arrMovedPoints = self.PeriodicShiftAllCloser(arrPoint, arrPoints)
+            arr2DPoints = arrMovedPoints[:,0:2]
+            arrConvexHull = spatial.ConvexHull(arr2DPoints).vertices
+            arrNextPoint[0:2] = np.mean(arr2DPoints[arrConvexHull],axis=0)
+            arrNextPoint[2] = self.CellHeight/2           
             fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-            if fltTolerance == 0:
-                fltRadius = 0.75*fltRadius
-                arrNextPoint = self.FindNonGrainMedian(arrPoint, fltRadius) #finally tweak in a smaller radius     
-                fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-            counter += 1 
             arrPoint = arrNextPoint
-        return arrNextPoint
+            counter += 1
+        # while (fltTolerance > 0 and counter < 100):
+        #     arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius/2)
+        #     fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
+        #     if fltTolerance == 0:
+        #         fltRadius = 0.75*fltRadius
+        #         arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius) #finally tweak in a smaller radius     
+        #         fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
+        #     counter += 1 
+        #     arrPoint = arrNextPoint
+        return self.FindNonGrainMean(arrNextPoint,fltRadius/4)
     def GetGrainBoundaryVectors(self, intTripleLine: int)->np.array: #return unit vectors pointing inwards to the tripleline
         arrVectors = np.ones([3,2])
         lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
@@ -465,7 +479,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
     #                 arrPoints[j] = arrPreviousPoint
     #         arrNextPoint = gf.EquidistantPoint(*arrPoints)
     #         #arrNextPoint = np.mean(arrPoints, axis=0)
-    #         arrNextPoint = self.FindNonGrainMedian(arrNextPoint, 4.05/2)
+    #         arrNextPoint = self.FindNonGrainMean(arrNextPoint, 4.05/2)
     #         arrNextPoint[2] = self.CellHeight/2
     #         self.SetTripleLine(intTripleLine, arrNextPoint)
     #         if np.linalg.norm(arrNextPoint- arrPreviousPoint) < 0.05:
