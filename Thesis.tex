@@ -3,6 +3,7 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
+%\usepackage{natbib}
 \title{Uncovering the properties of triple junctions}
 \author{Paul Twine}
 \begin{document}
@@ -10,16 +11,19 @@
 
 \chapter{Literature Review}
 
+\nocite{*}
 A fundamental question in material science is how to find relationships between the microstructure and the macroscopic properties of a material. Polycrystalline materials comprise of grains, grain boundaries and triple junctions and their properties are essential to understanding the microstructure. The grain boundary is a two dimensional interface between two misorientated grains. A junction line occurs where three or more grain boundaries meet. The most common junction line is a triple line which has three adjacent grains. This paper will focus on triple line junctions although other higher order stable junction types do exist.
 
 Grain boundaries always have a positive excess energy compared to a pristine crystal at zero kelvin. In general the excess energy of a planar grain boundary depends upon the relative misorientation between the two adjacent crystals and also the normal direction of the planer grain boundary. In general the macroscopic relationship between two planar grain boundaries can be described by five degrees of freedom. 
 
-The five degrees of freedom can be clearly demonstrated by considering the relative orientation of the two crystals and normal direction of the planar grain boundary. Firstly the misorientation between two crystals can be defined by an axis of rotation and a rotation about that axis.  The axis only defines a direction and can be completely specified by two degrees of freedom. A third degree of freedom is then the angle of rotation about that axis. Finally the grain boundary itself is a plane which can be defined by a normal unit vector which requires a further two degrees of freedom as there is no need to distinguish between antiparallel and parallel vectors.
+The five degrees of freedom can be clearly demonstrated by considering the relative orientations of the two crystals and the normal direction of the planar grain boundary. Firstly the misorientation between two crystals can be defined by an axis of rotation and an angle of rotation about that axis.  The axis only defines a direction and can be completely specified by two degrees of freedom. A third degree of freedom is then the angle of rotation about that axis. Finally the grain boundary itself is a plane which can be defined by a normal unit vector which requires a further two degrees of freedom as there is no need to distinguish between antiparallel and parallel vectors.
 
 
 For non-planer grain boundaries an increase curvature also generally increases the excess energy.  The excess energy in a grain boundary can be lowered considerably if they two lattices of the neighbouring grains form a coincident site lattice. As some atoms within the grain boundary retain some of . Whilst grains and grain boundaries have been studied extensively there has been relatively little work on triple lines.
 
 In general the excess energy associated with a grain bounary will vary periodically along the length of the grain boundary. This is to expected as is defined as the intersection of two periodic grain structures. The periodicity may be obscured if the length of the grain boundary is less than the periodic length. An intutive measure of the grain boundary energy is to average the excess energy over one period and then normalise this per unit of surface area.
+
+A general method already exists for finding the excess energy associated with a planar grain boundary of a bicrystal. Firstly the potential energy of a single crystal with a fixed number of atoms is calculated. Then this crystal is bisected and the orientation of one half is changed so that there exists a crystallographic misorientation and a planar interface between the two halves of the crystal. The difference in the energy between the bisected crystal and the original single crystal can then be taken to be the excess energy of the grain boundary.
 
 Triple lines have been investigated as purely mathematical objects and a good summary of the key points can be found in (JEAN E. TAYLOR Mathematics Department, Rutgers University, Piscataway, NJ 08855, USA). The discussion includes scenarios where the triple line can have positive and negative excess energy. Taylor discusses different scenarios and specifically address potential issues with negative triple lines. Taylor argues that extra cylindrical sections could be added to a planar grain boundary so that the axis of symmetry is perpendicular to the grain boundary normal. In this way extra triple lines could be added and if they had a negative excess energy then the energy of the system could be made increasingly more negative. However such a process necessarily also required extra grain boundary to be created which has a positive excess energy and so this process does not seem physically plausible.
 
@@ -177,5 +181,6 @@ A twin grain boundary occurs where there is a reflective symmetry across the gra
 The method so far has focussed on molecular dynamics which has essentially used classical mechanics to simulate the motion of atoms based upon a emperical potential. The entropy of the system has not been considered. The energy calculations have focussed on the potential energies of different regions in the system. Molecular systems actually minimise their free energy and not necessarily the potential energy 
 
 A future examination of the triple lines will extend this approach using density function theory. This is a well established quantum mechanical approximation and the results can be compared to the classical simulations. In general it will not be possible to run DFT simulations with the same size of simulation cell.  
- 
+\bibliographystyle{ieeetr}
+\bibliography{FirstYearReport} 
 \end{document}
