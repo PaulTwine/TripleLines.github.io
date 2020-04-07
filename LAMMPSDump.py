@@ -406,20 +406,25 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 arrShift = np.dot(arrMean-j, arrAcross)*arrAcross
                 objGrainBoundary.ShiftPoint(index,arrShift)
     def TriangulateCentre(self, inPoints: np.array, fltRadius: float)->np.array:
-        arr2DPoints = inPoints[:,0:2]
-        arrConvexHull = spatial.ConvexHull(arr2DPoints).vertices
+        if len(inPoints) > 2:
+            arr2DPoints = inPoints[:,0:2]
+            arrConvexHull = spatial.ConvexHull(arr2DPoints).vertices
        # arrPoint[0:2] = np.mean(arr2DPoints[arrConvexHull],axis=0)
-        intLength = len(arrConvexHull)
-        arrDistances = np.ones(intLength)
-        for j in range(intLength):
-             arrDistances[j] = np.linalg.norm(arr2DPoints[arrConvexHull[np.mod(j+1,intLength)]]-arr2DPoints[arrConvexHull[j]])
-        arrVectors =np.ones([3,3])
-        for k in range(3):
-            intGreatest = gf.FindNthLargestPosition(arrDistances, k)[0]
-            arrVectors[k,0:2] = (arr2DPoints[arrConvexHull[intGreatest]]+arr2DPoints[arrConvexHull[intGreatest-1]])/2
-        arrPoint = gf.EquidistantPoint(*arrVectors)
-        arrPoint[2] = self.CellHeight/2
-        return arrPoint
+            intLength = len(arrConvexHull)
+            arrDistances = np.ones(intLength)
+            for j in range(intLength):
+                    arrDistances[j] = np.linalg.norm(arr2DPoints[arrConvexHull[np.mod(j+1,intLength)]]-arr2DPoints[arrConvexHull[j]])
+            arrVectors =np.ones([3,3])
+            for k in range(3):
+                intGreatest = gf.FindNthLargestPosition(arrDistances, k)[0]
+                arrVectors[k,0:2] = (arr2DPoints[arrConvexHull[intGreatest]]+arr2DPoints[arrConvexHull[intGreatest-1]])/2
+            arrPoint = gf.EquidistantPoint(*arrVectors)
+            arrPoint[2] = self.CellHeight/2
+            return arrPoint
+        elif len(inPoints) > 0:
+            return np.mean(inPoints, axis=0)
+        else:
+            return None
     def MoveTripleLine(self, intTripleLine, fltRadius)->np.array:
         arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],self.GetTripleLines(intTripleLine), fltRadius,self.CellHeight,[1,2,3])
         arrMovedPoints = self.PeriodicShiftAllCloser(self.GetTripleLines(intTripleLine), arrPoints)
@@ -432,7 +437,10 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrPoint, fltRadius,self.CellHeight,[1,2,3])
             if len(arrPoints) > 0 and fltTolerance > 0:
                 arrMovedPoints = self.PeriodicShiftAllCloser(arrPoint, arrPoints)
-                arrNextPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)          
+                arrNextPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)
+                if arrNextPoint is None:
+                    arrNextPoint = arrPoint
+                    blnStop = True          
                 fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
                 arrPoint = arrNextPoint
                 counter += 1
