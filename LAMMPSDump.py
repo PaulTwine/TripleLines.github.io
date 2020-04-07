@@ -314,7 +314,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
         if len(lstR[intStart:]) > 2 and len(lstV[intStart:]) >2:
             popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
-            while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.01 and intStart < len(lstR)-3): #check to see if the fit is good if not move along one increment
+           # while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.001 and intStart < len(lstR)-3): #check to see if the fit is good if not move along one increment
+            while (-popt[0]/popt[1] > 0.999*fltMeanLatticeValue and intStart < len(lstR)-3):
                 intStart += 1
                 popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
         fltRadius = lstR[intStart]
@@ -423,31 +424,43 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         arrNextPoint = np.zeros([3])
         fltTolerance = 1
         counter = 0
-        while (fltTolerance > 0 and counter < 10):
+        blnStop = False
+        while (fltTolerance > 0 and counter < 10 and not(blnStop)):
             arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrPoint, fltRadius,self.CellHeight,[1,2,3])
-            arrMovedPoints = self.PeriodicShiftAllCloser(arrPoint, arrPoints)
-            arrNextPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)          
-            fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-            arrPoint = arrNextPoint
-            if fltTolerance == 0:
-                fltRadius = 0.95*fltRadius
-                arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrPoint, fltRadius,self.CellHeight,[1,2,3])
+            if len(arrPoints) > 0 and fltTolerance > 0:
                 arrMovedPoints = self.PeriodicShiftAllCloser(arrPoint, arrPoints)
                 arrNextPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)          
                 fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
                 arrPoint = arrNextPoint
-            counter += 1
-        # while (fltTolerance > 0 and counter < 100):
-        #     arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius/2)
-        #     fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-        #     if fltTolerance == 0:
-        #         fltRadius = 0.75*fltRadius
-        #         arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius) #finally tweak in a smaller radius     
-        #         fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-        #     counter += 1 
-        #     arrPoint = arrNextPoint
-       # return arrNextPoint
-        return self.FindNonGrainMean(arrNextPoint,2*4.05)
+                counter += 1
+            else:
+                blnStop = True
+            # if fltTolerance == 0:
+            #     fltRadius = 0.95*fltRadius
+            #     arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrPoint, fltRadius,self.CellHeight,[1,2,3])
+            #     arrMovedPoints = self.PeriodicShiftAllCloser(arrPoint, arrPoints)
+            #     arrNextPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)          
+            #     fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
+            #     arrPoint = arrNextPoint
+            # else:
+            #     counter += 1
+        counter = 0
+        fltTolerance = 1
+        fltRadius = fltRadius/2
+        while (fltTolerance > 0 and counter < 10):
+            arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius)
+            fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
+            if fltTolerance == 0:
+                fltRadius = 0.9*fltRadius
+                arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius) #finally tweak in a smaller radius     
+                if len(arrNextPoint) > 0: 
+                    fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
+                else:
+                    fltTolerance = 0
+            counter += 1 
+            arrPoint = arrNextPoint
+        return arrNextPoint
+        #return self.FindNonGrainMean(arrNextPoint,4.05)
     def GetGrainBoundaryVectors(self, intTripleLine: int)->np.array: #return unit vectors pointing inwards to the tripleline
         arrVectors = np.ones([3,2])
         lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
