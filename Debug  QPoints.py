@@ -25,24 +25,26 @@ from IPython.core.debugger import set_trace
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 #strDumpFile = '../../PythonLAMMPS/VolumeTest/dump.eamPM'
-strDumpFile = '/home/paul/csf3_scratch/TripleLines/data1/dump.eam1PM'
+strDumpFile = '/home/paul/csf3_scratch/TripleLines/data13/dump.eam13PM'
 objData = LD.LAMMPSData(strDumpFile,1)
 objProcess = objData.GetTimeStepByIndex(-1)
 objProcess.CategoriseAtoms()         
 #objQPoints = LD.Quantised2DPoints(objProcess.GetOtherAtoms()[:,1:3], a1, objProcess.GetCellVectors()[0:2,0:2],11) 
-objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],5,a2/2, 2)
+objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],10,a2/2, 2)
 fig,ax = plt.subplots(1,4)
 ax[0].imshow(objQPoints.GetArrayGrid())
 #objQPoints.CopyPointsToWrapper()
 arrTriplePoints = objQPoints.FindTriplePoints()
 ax[1].imshow(objQPoints.GetExtendedSkeletonPoints())
-#objQPoints.FindGrainBoundaries()
+objQPoints.FindGrainBoundaries()
 #print(objQPoints.GetNumberOfGrainBoundaries())
 #objQPoints.ClassifyGBPoints(3,True)
 #objQPoints.FindGrainBoundaries()
-#pos = ax[2].imshow(objQPoints.GetExtendedSkeletonPoints())
+ax[2].imshow(objQPoints.GetExtendedSkeletonPoints())
 #fig.colorbar(pos, ax=ax[2])
 #print(objQPoints.ClearWrapperValues())
+print(len(objQPoints.GetGrainBoundaries()))
+
 
 
 #objQPoints.MakeGrainBoundaries(1,4)
