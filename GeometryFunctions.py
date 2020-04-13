@@ -198,7 +198,7 @@ def AsymptoticLinear(r,a,b):
 def SortInDistanceOrder(inArray: np.array)->np.array:
         intLength = np.shape(inArray)[0]
         setIndices =set()
-        if intLength > 1:
+        if intLength > 2:
                 myMatrix = np.round(sc.spatial.distance.cdist(inArray,inArray),4)
                 arrSortedColumn = np.sort(myMatrix, axis =1)[:,2]
                 intStart = np.argwhere(arrSortedColumn==np.max(arrSortedColumn)) #assumes an endpoint is furthest from 2nd neighbour
@@ -239,11 +239,25 @@ def ParallelopipedVolume(arrPoints: np.array, arrStartPoint: np.array, arrAlong:
         lstIndices = np.where((np.dot(arrPointsNew, NormaliseVector(arrUp)) <= fltHeight) &  (np.abs(np.dot(arrPointsNew, NormaliseVector(arrAcross))) <= fltWidth/2) & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) <= fltLength)
         & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) >= 0) & (np.dot(arrPointsNew, NormaliseVector(arrUp)) >= 0))[0]
         return list(lstIndices)
-def AngleGenerator(intCounter: int, fltIncrement: float, fltLimit: float, blnAllowDuplices = True): #assumes job array entry which is 1 based so use intCounter-1. Returns angles in pairs excluding zero angles and pairs of equal angle
-        fltAngle1, fltAngle2 = np.divmod((intCounter-1)*fltIncrement, fltLimit-2*fltIncrement)
-        fltAngle1 = (fltAngle1+1)*fltIncrement
-        fltAngle2 = np.mod(fltAngle1+fltAngle2, fltLimit-fltIncrement)
-        return (fltAngle1, fltAngle2+fltIncrement)
+# def AngleGenerator(intCounter: int, fltIncrement: float, fltLimit: float, blnAllowDuplices = True): #assumes job array entry which is 1 based so use intCounter-1. Returns angles in pairs excluding zero angles and pairs of equal angle
+#         fltAngle1, fltAngle2 = np.divmod((intCounter-1)*fltIncrement, fltLimit-2*fltIncrement)
+#         fltAngle1 = (fltAngle1+1)*fltIncrement
+#         fltAngle2 = np.mod(fltAngle1+fltAngle2, fltLimit-fltIncrement)
+#         return (fltAngle1, fltAngle2+fltIncrement)
+def AngleGenerator(intJobArray: int, fltIncrement: float, fltSymmetry: float): #updated to keep the angles in
+    intN = int(fltSymmetry/fltIncrement -1) #ascending numerical order. intJobArray starts at 1 but Python is zero based 
+    lstOfValues = []
+    arrOfValues = np.zeros([intN*(intN-1),2])
+    for i in range(intN):
+        lstOfValues.append(fltIncrement*(i+1))
+    counter = 0
+    for j in lstOfValues:
+        for k in lstOfValues:
+            if j!=k:
+                arrOfValues[counter,0] = j
+                arrOfValues[counter,1] = k
+                counter +=1
+    return arrOfValues[intJobArray-1, 0],arrOfValues[intJobArray-1, 1]
 def IndexFromAngles(fltAngle1, fltAngle2, intLength, fltIncrement, fltLimit):
         lstOfAngles = []
         for j in range(1,intLength+1):
