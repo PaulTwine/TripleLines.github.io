@@ -2,7 +2,7 @@ import numpy as np
 import GeometryFunctions as gf
 import LatticeShapes as ls
 import LatticeDefinitions as ld
-from scipy import spatial
+import scipy as sc
 
 class PureCell(object):
     def __init__(self,inCellNodes: np.array): 
@@ -426,6 +426,91 @@ class DefectStructure(object):
         if intPosition > len(arrDistances)/2:
             vctDirection = -vctDirection
         return vctDirection
+
+# class GrainBoundaryCurve(object):
+#     def __init__(self,arrTwoTripleLines: np.array, arrLatticePoints2D, lstTJIDs):
+#         self.__TripleLines = dict()
+#         self.__TripleLineIDs = lstTJIDs
+#         self.__XFit = np.zeros([4])
+#         self.__YFit = np.zeros([4])
+#         for j in range(2):
+#             self.__TripleLines[str(lstTJIDs[j])] =arrTwoTripleLines[j]
+#         self.CreateCurve(gf.SortInDistanceOrder(arrLatticePoints2D)[0])
+#     def GetTripleLine(self,strKey)->np.array:
+#         return self.__TripleLines[str(strKey)]
+#     def GetTripleLineNumbers(self)->list:
+#         return self.__TripleLineIDs
+#     def __CubicFitX(self,x,a1, a2,a3):
+#         x0 = self.GetTripleLine(self.__TripleLineIDs[0])[0]
+#         return x0 + a1*x + a2*x**2+a3*x**3 
+#     def __CubicFitY(self,y,a1, a2,a3):
+#         y0 = self.GetTripleLine(self.__TripleLineIDs[0])[1]
+#         return y0 + a1*y + a2*y**2 +a3*y**3
+#     def __CubicFit(self, t,a0,a1,a2,a3):
+#         return a0 +t*a1+t**2*a2+a3*t**3
+#     def CreateCurve(self, arrPoints: np.array):
+#         t =np.linspace(0,1,len(arrPoints))
+#         self.__XFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[0]
+#         self.__YFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[1]
+#         self.__XFit[1:4] = sc.optimize.curve_fit(self.__CubicFitX,t,arrPoints[:,0])[0]
+#         self.__YFit[1:4] = sc.optimize.curve_fit(self.__CubicFitY,t,arrPoints[:,1])[0]
+#         # self.__XFit[2:4] = sc.optimize.curve_fit(self.__CubicFitX,t,np.sort(arrPoints[:,0]))[0] 
+#         # self.__YFit[2:4] = sc.optimize.curve_fit(self.__CubicFitY,t,np.sort(arrPoints[:,1]))[0]
+#         # # self.__XFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[0]
+#         # self.__YFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[1]
+#         # self.__XFit[1] = self.GetTripleLine(self.__TripleLineIDs[1])[0] -self.__XFit[0] -self.__XFit[2]
+#         # -self.__XFit[3]
+#         # self.__YFit[1] = self.GetTripleLine(self.__TripleLineIDs[1])[1] -self.__YFit[0] -self.__YFit[2]
+#         # -self.__YFit[3]
+#         # #return self.__XFit, self.__YFit
+#     def Curve(self,fltTValue:float)->np.array:
+#         arrTValues = np.zeros([4])
+#         for j in range(len(arrTValues)):
+#             arrTValues[j] = fltTValue**j
+#         return np.array([np.dot(arrTValues, self.__XFit), np.dot(arrTValues, self.__YFit)])
+#     def PlotPoints(self, intNumberOfPoints)->np.array:
+#         t = np.linspace(0,1, intNumberOfPoints)
+#         arrPoints = np.zeros([intNumberOfPoints,2])
+#         counter = 0
+#         for fltTValue in t:
+#             arrPoints[counter] = self.Curve(fltTValue)
+#             counter +=1
+#         return zip(*arrPoints)
+#         #return arrPoints
+class GrainBoundaryCurve(object):
+    def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array):
+        self.__StartPoint = arrTripleLineStart[0:2]
+        self.__EndPoint = arrTripleLineEnd[0:2]
+        self.__AlongAxis = self.__EndPoint -self.__StartPoint
+        self.__AlongAxisLength = np.linalg.norm(self.__AlongAxis, axis=0)
+        self.__AlongUnitVector = self.__AlongAxis/self.__AlongAxisLength
+        self.__AcrossAxis = np.cross(np.array([self.__AlongUnitVector[0], self.__AlongUnitVector[1],0]), 
+        np.array([0,0,1]))[0:2]
+        self.__AcrossUnitVector = gf.NormaliseVector(self.__AcrossAxis)
+        arrProjection = np.zeros([len(arrNonLatticeAtoms),2])
+        arrNonLatticeAtoms = arrNonLatticeAtoms[:,0:2] - self.__StartPoint
+        for intPosition, arrVector in enumerate(arrNonLatticeAtoms):
+            arrProjection[intPosition] = self.__ProjectPoint(arrVector)
+        arrProjection = arrProjection[np.where((arrProjection[:,0] >0) 
+                              & (arrProjection[:,0] < self.__AlongAxisLength))]
+        arrProjection = arrProjection[arrProjection[:,0].argsort()]
+        arrProjection = np.append(np.array([[0,0]]), arrProjection, axis=0)
+        arrProjection = np.append(arrProjection,np.array([self.__ProjectPoint(self.__AlongAxis)]), axis=0)
+        arrProjection = arrProjection/self.__AlongAxisLength
+        arrWeights = np.ones(len(arrProjection))
+        arrWeights[0] = 100 #fixes the two boundary conditions so the curve goes through both triple points
+        arrWeights[-1] = 100
+        self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=0.5)
+    def __ProjectPoint(self, in2DPoint)->np.array: #assumes position vector is measured from arrTripleLineStart
+        return np.array([np.dot(in2DPoint,self.__AlongUnitVector), np.cross(self.__AlongUnitVector,in2DPoint)])
+    def GetPoints(self, fltSeparation: float)->np.array:
+        intIncrement = int(np.floor(self.__AlongAxisLength/fltSeparation))
+        arrLinespace = np.linspace(0,1,intIncrement)
+        arrPointsOut = np.zeros([len(arrLinespace),2])
+        for intCounter, fltTValue in enumerate(arrLinespace):
+            arrPointsOut[intCounter] = self.__StartPoint + fltTValue*self.__AlongAxis + self.__AlongAxisLength*self.__objSpline(fltTValue)*self.__AcrossUnitVector
+        return arrPointsOut
+
            
 
 

@@ -278,15 +278,15 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             lstIndices.extend(gf.CylindricalVolume(arrPoints[:,1:4],arrCentre,fltRadius,fltHeight))
         lstIndices = list(np.unique(lstIndices))
         return list(arrPoints[lstIndices,0])
-    def FindBoxAtoms(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array,
+    def FindBoxAtoms(self, arrPoints: np.array, arrStart: np.array, arrLength: np.array, arrWidth: np.array,
     arrHeight: np.array, blnPeriodic = True)->list:
         lstIndices = []
         if blnPeriodic: 
-            arrCentres = self.PeriodicEquivalents(arrCentre)
-            for j in arrCentres:
+            arrStarts = self.PeriodicEquivalents(arrStart)
+            for j in arrStarts:
                 lstIndices.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],j, arrLength, arrWidth, arrHeight))
         else:
-            lstIndices.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],arrCentre, arrLength, arrWidth, arrHeight))
+            lstIndices.extend(gf.ParallelopipedVolume(arrPoints[:,1:4],arrStart, arrLength, arrWidth, arrHeight))
         lstIndices = list(np.unique(lstIndices))
         return list(arrPoints[lstIndices,0])
     def FindValuesInBox(self, arrPoints: np.array, arrCentre: np.array, arrLength: np.array, arrWidth: np.array, 
