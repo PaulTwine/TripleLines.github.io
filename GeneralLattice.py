@@ -511,6 +511,54 @@ class GrainBoundaryCurve(object):
             arrPointsOut[intCounter] = self.__StartPoint + fltTValue*self.__AlongAxis + self.__AlongAxisLength*self.__objSpline(fltTValue)*self.__AcrossUnitVector
         return arrPointsOut
 
-           
+class TripleLine(object):
+    def __init__(self, strID: str ,arrCentre: np.array, arrLine: np.array):
+        self.__ID = str(strID)
+        self.__Centre = arrCentre
+        self.__Axis = arrLine
+        self.__Radius = 0
+        self.__AtomIDs = []
+        self.__AdjacentGrainBoundaries = []
+        self.__AdjacentTripleLines = []
+        self.__EquivalentTripleLines = []
+    def GetID(self)->str:
+        return self.__ID
+    def SetID(self, strID):
+        self.__ID = strID
+    def GetCentre(self)->np.array:
+        return self.__Centre
+    def SetCentre(self, inCentre:np.array):
+        self.__Centre = inCentre
+    def GetAxis(self):
+        return self.__Axis
+    def GetAtomIDs(self)->list:
+        return self.__AtomIDs
+    def SetAtomIDS(self, inList: list):
+        self.__AtomIDs = inList
+    def GetRadius(self):
+        return self.__Radius 
+    def GetNumberOfAtoms(self):
+        return len(self.__AtomIDs)
+    def SetAdjacentGrainBoundaries(self, inList):
+        self.__AdjacentGrainBoundaries.append(str(inList))
+    def GetAdjacentGrainBoundaries(self):
+        return self.__AdjacentGrainBoundaries
+    def SetAdjacentTripleLines(self, inList, blnAppend = True):
+        if blnAppend and len(self.__AdjacentTripleLines) > 0:
+            self.__AdjacentTripleLines.append(inList)
+        else:
+            self.__AdjacentTripleLines = inList
+    def GetAdjacentTripleLines(self):
+        return self.__AdjacentTripleLines
+    def SetEquivalentTripleLines(self, inList, blnAppend = True):
+        if blnAppend and len(self.__EquivalentTripleLines)>0:
+            self.__EquivalentTripleLines.append(inList)
+        else:
+            if isinstance(inList, str):
+                inList = [inList]
+            self.__EquivalentTripleLines = inList
+    def GetEquivalentTripleLines(self):
+        return self.__EquivalentTripleLines
+
 
 
