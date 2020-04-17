@@ -484,8 +484,7 @@ class GrainBoundaryCurve(object):
         self.__AlongAxis = self.__EndPoint -self.__StartPoint
         self.__AlongAxisLength = np.linalg.norm(self.__AlongAxis, axis=0)
         self.__AlongUnitVector = self.__AlongAxis/self.__AlongAxisLength
-        self.__AcrossAxis = np.cross(np.array([self.__AlongUnitVector[0], self.__AlongUnitVector[1],0]), 
-        np.array([0,0,1]))[0:2]
+        self.__AcrossAxis = np.cross(np.array([0,0,1]),np.array([self.__AlongUnitVector[0], self.__AlongUnitVector[1],0]))[0:2]
         self.__AcrossUnitVector = gf.NormaliseVector(self.__AcrossAxis)
         arrProjection = np.zeros([len(arrNonLatticeAtoms),2])
         arrNonLatticeAtoms = arrNonLatticeAtoms[:,0:2] - self.__StartPoint
@@ -493,7 +492,7 @@ class GrainBoundaryCurve(object):
             arrProjection[intPosition] = self.__ProjectPoint(arrVector)
         arrProjection = arrProjection[np.where((arrProjection[:,0] >0) 
                               & (arrProjection[:,0] < self.__AlongAxisLength))]
-        arrProjection = arrProjection[arrProjection[:,0].argsort()]
+        arrProjection = arrProjection[np.unique(arrProjection[:,0], return_index=True)[1]]
         arrProjection = np.append(np.array([[0,0]]), arrProjection, axis=0)
         arrProjection = np.append(arrProjection,np.array([self.__ProjectPoint(self.__AlongAxis)]), axis=0)
         arrProjection = arrProjection/self.__AlongAxisLength
