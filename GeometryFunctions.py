@@ -167,9 +167,12 @@ def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: flo
         arrPositions = np.argwhere(np.abs(arrPositions) < fltTolerance)[:,0]        
         return arrPositions    
 def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
+        if np.shape(inVector)[1] == 2:
+                inMatrix = inMatrix[:2,:2]
+                invMatrix = invMatrix[:2,:2]
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
-        arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
+        #arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
         return np.matmul(arrCoefficients, inMatrix) #return the wrapped vector in the standard basis
 def ExtendQuantisedVector(inVector: np.array, intAmount)->np.array: #extends 
         rtnVector = np.zeros([2])

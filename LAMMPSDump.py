@@ -301,6 +301,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
         self.__GrainBoundaries = dict()
+        self.__UniqueGrainBoundaries = dict()
         self.__MergedTripleLines = dict()
         self.__UniqueTripleLines = dict() #periodically equivalent triple lines are merged into a single point
         self.__TripleLines = dict()
@@ -332,6 +333,10 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             if intTJAtoms > 0 and intTotalAtoms > 0: 
                 fltEnergy = lstV[intStart]
             return fltEnergy,fltGBMean, fltRadius, intTJAtoms 
+    def GetUniqueTripleLineIDs(self):
+        return list(self.__UniqueTripleLines.keys())
+    def GetUniqueGrainBoundaryIDs(self):
+        return list(self.__UniqueGrainBoundaries.keys())    
     def GetUniqueTripleLines(self, strID = None)->gl.TripleLine:
         if strID is None:
             return self.__UniqueTripleLines
@@ -341,100 +346,99 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         fltMidHeight = self.CellHeight/2
         objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],10,fltGridLength/2, intMinCount)
         arrTripleLines = objQPoints.FindTriplePoints()
+        objQPoints.FindGrainBoundaries()
+        objQPoints.MakeAdjacencyMatrix()    
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         for i  in range(len(arrTripleLines)):
             arrTripleLines[i] = self.FindNonGrainMean(arrTripleLines[i], fltSearchRadius)
             arrTripleLines[i] = self.MoveTripleLine(arrTripleLines[i],fltSearchRadius)
             arrTripleLines[i,2] = fltMidHeight
             objTripleLine = gl.TripleLine('TJ'+str(i),arrTripleLines[i], self.GetCellVectors()[2,:])
+            for j in objQPoints.GetAdjacentTriplePoints(i):
+                objTripleLine.SetAdjacentTripleLines('TJ'+str(j))
             self.__TripleLines[objTripleLine.GetID()] =objTripleLine
     def MergePeriodicTripleLines(self, fltTolerance): #finds equivalent and adjacent triplelines and sets
         setKeys = set(self.__TripleLines.keys())
         while len(setKeys) > 0: 
             objTripleLine1 = self.__TripleLines[setKeys.pop()] 
-            dctClosestThree = dict()
             for strKey in set(self.__TripleLines.keys()):
                 if strKey != objTripleLine1.GetID():
                     objTripleLine2 = self.__TripleLines[strKey]
                     fltDistance =self.PeriodicMinimumDistance(objTripleLine1.GetCentre(),objTripleLine2.GetCentre())
-                    dctItem = {strKey: fltDistance}
                     if  fltDistance < fltTolerance:
                         objTripleLine1.SetEquivalentTripleLines(objTripleLine2.GetID(), True)
                         objTripleLine2.SetEquivalentTripleLines(objTripleLine1.GetID(), True)
-                    elif len(dctClosestThree) < 3:
-                        dctClosestThree.update(dctItem)
-                    else:
-                        fltMax = max(list(dctClosestThree.values()))
-                        if  fltDistance < fltMax:
-                            dctClosestThree.update(dctItem)
-                            for strExistingKey, ExistingValue in dctClosestThree.items():
-                                if ExistingValue == fltMax:
-                                    strDelKey = strExistingKey
-                            del dctClosestThree[strDelKey]
-            objTripleLine1.SetAdjacentTripleLines(list(dctClosestThree.keys()))
         setKeys = set(self.__TripleLines.keys())
         counter = 0
         while len(setKeys) > 0: 
-            objUniqueTripleLine = copy.deepcopy(self.__TripleLines[setKeys.pop()])
-            lstEquivalentTripleLines =  objUniqueTripleLine.GetEquivalentTripleLines()
-            lstEquivalentTripleLines.append(objUniqueTripleLine.GetID())
+            objTripleLine = self.__TripleLines[setKeys.pop()] #take care not to set any properties on objTripleLine
+            lstEquivalentTripleLines =  objTripleLine.GetEquivalentTripleLines()
+            lstEquivalentTripleLines.append(objTripleLine.GetID())
             setKeys = setKeys.difference(lstEquivalentTripleLines)
             arrTripleLines = np.zeros([len(lstEquivalentTripleLines),3])
             for intCounter,strTripleLine in enumerate(lstEquivalentTripleLines):
                 arrTripleLines[intCounter] = self.__TripleLines[strTripleLine].GetCentre()
-            arrCentre = self.MoveToSimulationCell(self.PeriodicShiftAllCloser(arrTripleLines[0], arrTripleLines))
-            objUniqueTripleLine.SetCentre(np.mean(arrCentre,axis=0))
+            arrCentres = self.MoveToSimulationCell(self.PeriodicShiftAllCloser(arrTripleLines[0], arrTripleLines))
+            objUniqueTripleLine = gl.UniqueTripleLine('UTJ' + str(counter),arrCentres, objTripleLine.GetAxis())
             objUniqueTripleLine.SetEquivalentTripleLines(lstEquivalentTripleLines, False)
-            objUniqueTripleLine.SetID('UTJ' + str(counter))
+            for j in lstEquivalentTripleLines:
+                objUniqueTripleLine.SetAdjacentTripleLines(self.__TripleLines[j].GetAdjacentTripleLines())
             self.__UniqueTripleLines[objUniqueTripleLine.GetID()] = objUniqueTripleLine
             counter +=1
+        setKeys = set(self.__UniqueTripleLines.keys())
+        while len(setKeys) > 0:
+            objUniqueTripleLine1 = self.__UniqueTripleLines[setKeys.pop()]
+            setAdjacentTripleLines1 = set(objUniqueTripleLine1.GetAdjacentTripleLines())
+            for strKey in self.__UniqueTripleLines.keys():
+                objUniqueTripleLine2 = self.__UniqueTripleLines[strKey]
+                if strKey != objTripleLine1.GetID():
+                    setEquivalentTripleLines2 = objUniqueTripleLine2.GetEquivalentTripleLines()
+                    setIntersection = setAdjacentTripleLines1.intersection(setEquivalentTripleLines2)
+                    if len(setIntersection) > 0:
+                        objUniqueTripleLine1.SetUniqueAdjacentTripleLines(objUniqueTripleLine2.GetID())
     def MakeGrainBoundaries(self, blnUnique = True):
-        if blnUnique:
-            setTJIDs = set(self.GetUniqueTripleLines())
-            counter = 0
-            while len(setTJIDs) > 0:
-                strCurrentTJ = setTJIDs.pop()
-                lstAdjacentTripleLines = self.GetUniqueTripleLines(strCurrentTJ).GetAdjacentTripleLines()
-                for j in lstAdjacentTripleLines:
-                    arrMovedTripleLine = self.PeriodicShiftCloser(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),self.GetUniqueTripleLines(j).GetCentre())
-                    arrLength = arrMovedTripleLine - self.GetUniqueTripleLines(strCurrentTJ).GetCentre()
-                    arrWidth = 25*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
-                    arrPoints = self.FindValuesInBox(self.GetNonLatticeAtoms()[:,0:4], 
-                    self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrLength,arrWidth,self.GetCellVectors()[:,2],[1,2,3])
-                    arrPoints = self.PeriodicShiftAllCloser(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), arrPoints)
-                    lstGBID = [strCurrentTJ ,j]
-                    if int(strCurrentTJ[2:]) > int(j[2:]):
-                        lstGBID.reverse()
-                        objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints)
-                    else:
-                        objGrainBoundary = gl.GrainBoundaryCurve(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints)
-                    strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
-                    self.__GrainBoundaries[strGBID] = objGrainBoundary
-                    counter += 1
-        
-        else:
-            setTJIDs = set(self.GetTripleLines())
-            counter = 0
-            while len(setTJIDs) > 0:
-                strCurrentTJ = setTJIDs.pop()
-                lstAdjacentTripleLines = self.GetTripleLines(strCurrentTJ).GetAdjacentTripleLines()
-                for j in lstAdjacentTripleLines:
-                    arrMovedTripleLine = self.PeriodicShiftCloser(self.GetTripleLines(strCurrentTJ).GetCentre(),self.GetTripleLines(j).GetCentre())
-                    arrLength = arrMovedTripleLine - self.GetTripleLines(strCurrentTJ).GetCentre()
-                    arrWidth = 25*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
-                    arrPoints = self.FindValuesInBox(self.GetNonLatticeAtoms()[:,0:4], 
-                    self.GetTripleLines(strCurrentTJ).GetCentre(),arrLength,arrWidth,self.GetCellVectors()[:,2],[1,2,3])
-                    arrPoints = self.PeriodicShiftAllCloser(self.GetTripleLines(strCurrentTJ).GetCentre(), arrPoints)
-                    lstGBID = [strCurrentTJ ,j]
-                    if int(strCurrentTJ[2:]) > int(j[2:]):
-                        lstGBID.reverse()
-                        objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints)
-                    else:
-                        objGrainBoundary = gl.GrainBoundaryCurve(self.GetTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints)
-                    strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
-                    self.__GrainBoundaries[strGBID] = objGrainBoundary
-                    counter += 1
-                ##to do write a duplicate removal based upon reversing the GB Id list
+        setTJIDs = set(self.GetTripleLineIDs())
+        counter = 0
+        while len(setTJIDs) > 0:
+            strCurrentTJ = setTJIDs.pop()
+            lstAdjacentTripleLines = self.GetTripleLines(strCurrentTJ).GetAdjacentTripleLines()
+            for j in lstAdjacentTripleLines:
+                arrMovedTripleLine = self.PeriodicShiftCloser(self.GetTripleLines(strCurrentTJ).GetCentre(),self.GetTripleLines(j).GetCentre())
+                arrLength = arrMovedTripleLine - self.GetTripleLines(strCurrentTJ).GetCentre()
+                arrWidth = 25*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
+                arrPoints = self.FindValuesInBox(self.GetNonLatticeAtoms()[:,0:4], 
+                self.GetTripleLines(strCurrentTJ).GetCentre(),arrLength,arrWidth,self.GetCellVectors()[:,2],[1,2,3])
+                arrPoints = self.PeriodicShiftAllCloser(self.GetTripleLines(strCurrentTJ).GetCentre(), arrPoints)
+                lstGBID = [strCurrentTJ ,j]
+                if int(strCurrentTJ[2:]) > int(j[2:]): #this overwrites the same grainboundary and sorts ID with lowest TJ number first
+                    lstGBID.reverse()
+                    objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints)
+                else:
+                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints)
+                strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
+                self.__GrainBoundaries[strGBID] = objGrainBoundary
+                counter += 1
+        setTJIDs = set(self.GetUniqueTripleLineIDs())
+        counter = 0
+        while len(setTJIDs) > 0:
+            strCurrentTJ = setTJIDs.pop()
+            lstAdjacentTripleLines = self.GetUniqueTripleLines(strCurrentTJ).GetUniqueAdjacentTripleLines()
+            for j in lstAdjacentTripleLines:
+                arrMovedTripleLine = self.PeriodicShiftCloser(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),self.GetUniqueTripleLines(j).GetCentre())
+                arrLength = arrMovedTripleLine - self.GetUniqueTripleLines(strCurrentTJ).GetCentre()
+                arrWidth = 25*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
+                arrPoints = self.FindValuesInBox(self.GetNonLatticeAtoms()[:,0:4], 
+                self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrLength,arrWidth,self.GetCellVectors()[:,2],[1,2,3])
+                arrPoints = self.PeriodicShiftAllCloser(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), arrPoints)
+                lstGBID = [strCurrentTJ ,j]
+                if int(strCurrentTJ[3:]) > int(j[3:]): #this overwrites the same grainboundary and sorts ID with lowest UTJ number first
+                    lstGBID.reverse()
+                    objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints)
+                else:
+                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints)
+                strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
+                self.__UniqueGrainBoundaries[strGBID] = objGrainBoundary
+                counter += 1
     def TriangulateCentre(self, inPoints: np.array, fltRadius: float)->np.array:
         if len(inPoints) > 2:
             arr2DPoints = inPoints[:,0:2]
@@ -507,6 +511,11 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return self.__GrainBoundaries
         else:
             return self.__GrainBoundaries[strID]
+    def GetUniqueGrainBoundaries(self, strID = None):
+        if strID is None:
+            return self.__UniqueGrainBoundaries
+        else:
+            return self.__UniqueGrainBoundaries[strID]        
     def GetNumberOfGrainBoundaries(self)->int:
         return len(self.__GrainBoundaries)
     def GetNumberOfTripleLines(self)->int:
@@ -878,5 +887,5 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
                 self.__AdjacencyMatrix[lstAdjacentTJs[0],lstAdjacentTJs[1]] =1
                 self.__AdjacencyMatrix[lstAdjacentTJs[1],lstAdjacentTJs[0]] =1
         return self.__AdjacencyMatrix
-    def FindAdjacentTriplePoints(self, intTriplePoint)->list:
-        return list(np.where(self.__AdjacencyMatrix[intTriplePoint] == 1))
+    def GetAdjacentTriplePoints(self, intTriplePoint)->np.array:
+        return np.where(self.__AdjacencyMatrix[intTriplePoint] == 1)[0]

@@ -481,6 +481,7 @@ class GrainBoundaryCurve(object):
     def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array):
         self.__StartPoint = arrTripleLineStart[0:2]
         self.__EndPoint = arrTripleLineEnd[0:2]
+        self.__GBID = sorted(lstTripleLineIDs)
         self.__AlongAxis = self.__EndPoint -self.__StartPoint
         self.__AlongAxisLength = np.linalg.norm(self.__AlongAxis, axis=0)
         self.__AlongUnitVector = self.__AlongAxis/self.__AlongAxisLength
@@ -509,6 +510,8 @@ class GrainBoundaryCurve(object):
         for intCounter, fltTValue in enumerate(arrLinespace):
             arrPointsOut[intCounter] = self.__StartPoint + fltTValue*self.__AlongAxis + self.__AlongAxisLength*self.__objSpline(fltTValue)*self.__AcrossUnitVector
         return arrPointsOut
+    def GetID(self)->list:
+        return self.__GBID
 
 class TripleLine(object):
     def __init__(self, strID: str ,arrCentre: np.array, arrLine: np.array):
@@ -544,9 +547,15 @@ class TripleLine(object):
         return self.__AdjacentGrainBoundaries
     def SetAdjacentTripleLines(self, inList, blnAppend = True):
         if blnAppend and len(self.__AdjacentTripleLines) > 0:
-            self.__AdjacentTripleLines.append(inList)
+            if isinstance(inList, str):
+                self.__AdjacentTripleLines.append(inList)
+            else:
+                self.__AdjacentTripleLines.extend(inList)
         else:
+            if isinstance(inList, str):
+                inList = [inList]
             self.__AdjacentTripleLines = inList
+        self.__AdjacentTripleLines = list(np.unique(self.__AdjacentTripleLines))
     def GetAdjacentTripleLines(self):
         return self.__AdjacentTripleLines
     def SetEquivalentTripleLines(self, inList, blnAppend = True):
@@ -556,8 +565,31 @@ class TripleLine(object):
             if isinstance(inList, str):
                 inList = [inList]
             self.__EquivalentTripleLines = inList
+        self.__EquivalentTripleLines = list(np.unique(self.__EquivalentTripleLines))
     def GetEquivalentTripleLines(self):
         return self.__EquivalentTripleLines
+
+class UniqueTripleLine(TripleLine):
+    def __init__(self, strID: str, arrCentres: np.array, arrLine: np.array):
+        self.__Centres = arrCentres
+        self.__UniqueAdjacentTripleLines =[]
+        arrCentre = np.mean(arrCentres, axis = 0)
+        TripleLine.__init__(self,strID, arrCentre, arrLine)
+    def GetCentres(self)->np.array:
+        return self.__Centres
+    def SetUniqueAdjacentTripleLines(self, inList, blnAppend = True):
+        if blnAppend and len(self.__UniqueAdjacentTripleLines) > 0:
+            if isinstance(inList, str):
+                self.__UniqueAdjacentTripleLines.append(inList)
+            else:
+                self.__UniqueAdjacentTripleLines.extend(inList)
+        else:
+            if isinstance(inList, str):
+                inList = [inList]
+            self.__UniqueAdjacentTripleLines = inList
+        self.__UniqueAdjacentTripleLines = list(np.unique(self.__UniqueAdjacentTripleLines))
+    def GetUniqueAdjacentTripleLines(self):
+        return self.__UniqueAdjacentTripleLines
 
 
 
