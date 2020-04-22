@@ -478,7 +478,7 @@ class DefectStructure(object):
 #         return zip(*arrPoints)
 #         #return arrPoints
 class GrainBoundaryCurve(object):
-    def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array):
+    def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array, fltHeight: float):
         self.__StartPoint = arrTripleLineStart[0:2]
         self.__EndPoint = arrTripleLineEnd[0:2]
         self.__GBID = sorted(lstTripleLineIDs)
@@ -487,6 +487,7 @@ class GrainBoundaryCurve(object):
         self.__AlongUnitVector = self.__AlongAxis/self.__AlongAxisLength
         self.__AcrossAxis = np.cross(np.array([0,0,1]),np.array([self.__AlongUnitVector[0], self.__AlongUnitVector[1],0]))[0:2]
         self.__AcrossUnitVector = gf.NormaliseVector(self.__AcrossAxis)
+        self.__Height = fltHeight
         arrProjection = np.zeros([len(arrNonLatticeAtoms),2])
         arrNonLatticeAtoms = arrNonLatticeAtoms[:,0:2] - self.__StartPoint
         for intPosition, arrVector in enumerate(arrNonLatticeAtoms):
@@ -503,12 +504,16 @@ class GrainBoundaryCurve(object):
         self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=0.5)
     def __ProjectPoint(self, in2DPoint)->np.array: #assumes position vector is measured from arrTripleLineStart
         return np.array([np.dot(in2DPoint,self.__AlongUnitVector), np.cross(self.__AlongUnitVector,in2DPoint)])
-    def GetPoints(self, fltSeparation: float)->np.array:
+    def GetPoints(self, fltSeparation: float, bln3D = False)->np.array:
         intIncrement = int(np.floor(self.__AlongAxisLength/fltSeparation))
         arrLinespace = np.linspace(0,1,intIncrement)
         arrPointsOut = np.zeros([len(arrLinespace),2])
         for intCounter, fltTValue in enumerate(arrLinespace):
             arrPointsOut[intCounter] = self.__StartPoint + fltTValue*self.__AlongAxis + self.__AlongAxisLength*self.__objSpline(fltTValue)*self.__AcrossUnitVector
+        if bln3D == True:
+            arr3DPoints = np.ones([len(arrPointsOut),3])*self.__Height
+            arr3DPoints[:,0:2] = arrPointsOut
+            arrPointsOut = arr3DPoints
         return arrPointsOut
     def GetID(self)->list:
         return self.__GBID
@@ -535,14 +540,25 @@ class TripleLine(object):
         return self.__Axis
     def GetAtomIDs(self)->list:
         return self.__AtomIDs
-    def SetAtomIDS(self, inList: list):
+    def SetAtomIDs(self, inList: list):
         self.__AtomIDs = inList
-    def GetRadius(self):
+    def GetRadius(self)->float:
         return self.__Radius 
+    def SetRadius(self, fltRadius: float):
+        self.__Radius = fltRadius
     def GetNumberOfAtoms(self):
         return len(self.__AtomIDs)
-    def SetAdjacentGrainBoundaries(self, inList):
-        self.__AdjacentGrainBoundaries.append(str(inList))
+    def SetAdjacentGrainBoundaries(self, inList, blnAppend = True):
+        if blnAppend and len(self.__AdjacentGrainBoundaries) > 0:
+            if isinstance(inList, str):
+                self.__AdjacentGrainBoundaries.append(inList)
+            else:
+                self.__AdjacentGrainBoundaries.extend(inList)
+        else:
+            if isinstance(inList, str):
+                inList = [inList]
+            self.__AdjacentGrainBoundaries = inList
+        self.__AdjacentGrainBoundaries = list(np.unique(self.__AdjacentGrainBoundaries))
     def GetAdjacentGrainBoundaries(self):
         return self.__AdjacentGrainBoundaries
     def SetAdjacentTripleLines(self, inList, blnAppend = True):
@@ -570,13 +586,10 @@ class TripleLine(object):
         return self.__EquivalentTripleLines
 
 class UniqueTripleLine(TripleLine):
-    def __init__(self, strID: str, arrCentres: np.array, arrLine: np.array):
-        self.__Centres = arrCentres
+    def __init__(self, strID: str, arrCentre: np.array, arrLine: np.array):
         self.__UniqueAdjacentTripleLines =[]
-        arrCentre = np.mean(arrCentres, axis = 0)
+        self.__UniqueAdjacentGrainBoundaries= []
         TripleLine.__init__(self,strID, arrCentre, arrLine)
-    def GetCentres(self)->np.array:
-        return self.__Centres
     def SetUniqueAdjacentTripleLines(self, inList, blnAppend = True):
         if blnAppend and len(self.__UniqueAdjacentTripleLines) > 0:
             if isinstance(inList, str):
@@ -590,6 +603,19 @@ class UniqueTripleLine(TripleLine):
         self.__UniqueAdjacentTripleLines = list(np.unique(self.__UniqueAdjacentTripleLines))
     def GetUniqueAdjacentTripleLines(self):
         return self.__UniqueAdjacentTripleLines
+    def SetUniqueAdjacentGrainBoundaries(self, inList, blnAppend = True):
+        if blnAppend and len(self.__UniqueAdjacentGrainBoundaries) > 0:
+            if isinstance(inList, str):
+                self.__UniqueAdjacentGrainBoundaries.append(inList)
+            else:
+                self.__UniqueAdjacentGrainBoundaries.extend(inList)
+        else:
+            if isinstance(inList, str):
+                inList = [inList]
+            self.__UniqueAdjacentGrainBoundaries = inList
+        self.__UniqueAdjacentGrainBoundaries = list(np.unique(self.__UniqueAdjacentGrainBoundaries))
+    def GetUniqueAdjacentGrainBoundaries(self):
+        return self.__UniqueAdjacentGrainBoundaries
 
 
 

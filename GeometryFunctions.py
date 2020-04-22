@@ -167,9 +167,13 @@ def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: flo
         arrPositions = np.argwhere(np.abs(arrPositions) < fltTolerance)[:,0]        
         return arrPositions    
 def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
-        if np.shape(inVector)[1] == 2:
+        if len(np.shape(inVector)) > 1:
+                if np.shape(inVector)[1] == 2:
+                        inMatrix = inMatrix[:2,:2]
+                        invMatrix = invMatrix[:2,:2]
+        elif np.shape(inVector)[0]==2:
                 inMatrix = inMatrix[:2,:2]
-                invMatrix = invMatrix[:2,:2]
+                invMatrix = invMatrix[:2,:2]                
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
         #arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
