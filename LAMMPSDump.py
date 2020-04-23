@@ -325,9 +325,10 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return 0,0,0
         else:
             fltRadius = lstR[intStart]
-            arrTJValues = self.FindValuesInCylinder(self.GetAtomData()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltRadius,self.CellHeight, self._intPE)
-            intTJAtoms = len(arrTJValues)
-            self.__UniqueTripleLines[strTripleLineID].SetAtomIDs(lstI)
+            lstTJIDs = self.FindCylindricalAtoms(self.GetAtomData()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltRadius,self.CellHeight)
+            arrTJValues = self.GetAtomsByID(lstTJIDs)[:, self._intPE]
+            intTJAtoms = len(lstTJIDs)
+            self.__UniqueTripleLines[strTripleLineID].SetAtomIDs(lstTJIDs)
             self.__UniqueTripleLines[strTripleLineID].SetRadius(fltRadius)
             if intTJAtoms > 0: 
                 fltEnergy = np.mean(arrTJValues)
@@ -744,6 +745,7 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
     def FindDislocations(self):
         return self.__Dislocations
     def ClearWrapper(self, blnUsingTripleLines = True): 
+        k = self.__WrapperWidth
         self.__ExtendedSkeletonGrid[:k, :] = self.__GrainValue
         self.__ExtendedSkeletonGrid[k:, :] = self.__GrainValue
         self.__ExtendedSkeletonGrid[:, :k] = self.__GrainValue
