@@ -7,13 +7,14 @@ import scipy as sc
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import CubicSpline
+from skimage.transform import rescale, resize, downscale_local_mean
 
 
 
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')#
 #strDumpFile = '../../PythonLAMMPS/VolumeTest/dump.eam'
-strDumpFile = '/home/paul/csf3_scratch/TripleLines/data17/dump.eam17'
+strDumpFile = '/home/paul/csf3_scratch/TripleLines/data3/dump.eam3'
 intTripleLine = 3
 a1=4.05
 a2= np.sqrt(3)*a1
@@ -22,80 +23,61 @@ objData = LD.LAMMPSData(strPMFile,1)
 objProcess = objData.GetTimeStepByIndex(-1)
 objProcess.CategoriseAtoms()
 h = objProcess.CellHeight
-objProcess.FindTripleLines(a2,3*a2, 2)
-print(objProcess.MergePeriodicTripleLines(a2))
-print(objProcess.GetUniqueTripleLines('UTJ3').GetCentre())
-print(objProcess.GetTripleLines('TJ0').GetCentre())
-#print(objProcess.GetAdjacentTripleLines(1))
-# arrStart = objProcess.GetUniqueTripleLines(0)
-# arrSecondTriple = objProcess.PeriodicShiftCloser(arrStart,objProcess.GetUniqueTripleLines(1))
-# arrLength = arrSecondTriple-arrStart
-# arrLength[2] = 12.15
-# arrWidth = 10*a1*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
-# arrPoints = objProcess.FindValuesInBox(objProcess.GetNonLatticeAtoms()[:,0:4], arrStart,arrLength,arrWidth,
-#                         objProcess.CellHeight*np.array([0,0,1]), [1,2,3]) 
-# arrPoints = objProcess.PeriodicShiftAllCloser(arrStart,arrPoints)
-# arrPointsM = arrPoints - arrStart
-# arrLinearVector = arrSecondTriple[0:2]- arrStart[0:2]
-# arrUnitVector = gf.NormaliseVector(arrLinearVector)
-# arrProjection = np.zeros([len(arrPointsM),2])
+objProcess.FindTripleLines(2*a2,3*a2, 3)
+objProcess.MergePeriodicTripleLines(2*a2)
+#print(objProcess.GetTripleLines('TJ6').GetEquivalentTripleLines())
+objProcess.MakeGrainBoundaries()
+print(objProcess.GetTripleLineIDs())
+for strVal in objProcess.GetTripleLineIDs():
+    print (objProcess.GetTripleLines(strVal).GetEquivalentTripleLines())
+#for strVal in objProcess.GetUniqueTripleLineIDs():
+#    print (objProcess.GetUniqueTripleLines(strVal).GetEquivalentTripleLines())
+#print(objProcess.FindThreeGrainStrips('UTJ0',3*a2,a2/4))
+#print(objProcess.GetGrainBoundaryIDs())
+n=2
+CellArray = plt.imread(strDumpFile+'PM.png')
+#CellArray = plt.imread('../../PythonLAMMPS/VolumeTest/CellView.png')
+CellArray0 = np.copy(CellArray[:,:,0])
+arrPoints = np.where(CellArray0 !=1)
+xmin = min(arrPoints[0])
+xmax = max(arrPoints[0])
+ymin = min(arrPoints[1])
+ymax = max(arrPoints[1])
+CellArray = CellArray[xmin:xmax,ymin:ymax,:]
+fltSize = np.shape(CellArray)[1]
+CellArray = rescale(CellArray, objProcess.GetBoundingBox()[0]/fltSize)
+CellArray = np.flip(CellArray[:,:,:], axis=0)
+#plt.matshow(CellArray[:,:,:], origin = 'lower')
+for j in objProcess.GetUniqueTripleLineIDs():
+    print(objProcess.FindTripleLineEnergy(j,a1/8,a2), j)
+    lstGBIDs = []
+    for h in objProcess.GetUniqueTripleLines(j).GetUniqueAdjacentGrainBoundaries():
+        lstGBIDs.extend(objProcess.FindGBAtoms(h,2*objProcess.GetUniqueTripleLines(j).GetRadius(),3*a2))
+    print(np.mean(objProcess.GetAtomsByID(lstGBIDs)[:,7]))
 
-# def ProjectPoint(in2DArray: np.array)->np.array:
-#     return np.array([np.dot(in2DArray,arrUnitVector), np.cross(arrUnitVector,in2DArray)])
+for i in objProcess.GetUniqueTripleLineIDs():
+    print(objProcess.GetUniqueTripleLines(i).GetUniqueAdjacentGrainBoundaries())
+for k in objProcess.GetUniqueGrainBoundaryIDs():
+    j = objProcess.MoveToSimulationCell(objProcess.GetUniqueGrainBoundaries(k).GetPoints(a1))
+    plt.scatter(j[:,0],j[:,1])
+ 
+for k in objProcess.GetUniqueGrainBoundaryIDs():
+     for j in objProcess.MoveToSimulationCell(objProcess.GetUniqueGrainBoundaries(k).GetPoints(2)):
+             CellArray[np.round(j[1]).astype('int')-n:np.round(j[1]).astype('int')+n, 
+                     np.round(j[0]).astype('int')-n:np.round(j[0]).astype('int')+n,0] =1
 
-# for pos,j in enumerate(arrPointsM[:,0:2]):
-#     #arrCross = np.cross(arrUnitVector,j)
-#     arrProjection[pos] = ProjectPoint(j)
-#     #arrProjection[pos,1] = arrCross
-#     #arrProjection[pos,0] = np.dot(j-arrCross,arrUnitVector)
-#     #arrProjection[pos,0] = np.dot(j, arrUnitVector)
-# #print(arrProjection)
-# arrProjectedEnd = ProjectPoint(arrLinearVector)
-# arrProjection = arrProjection[np.where((arrProjection[:,0] >0) 
-#                               & (arrProjection[:,0] < np.linalg.norm(arrLinearVector)))]
-# #plt.axis('square')
-# arrProjection = arrProjection[arrProjection[:,0].argsort()]
+for k in objProcess.GetUniqueTripleLineIDs():
+    j = objProcess.MoveToSimulationCell(objProcess.GetUniqueTripleLines(k).GetCentre())
+    CellArray[np.round(j[1]).astype('int')-n:np.round(j[1]).astype('int')+n,  np.round(j[0]).astype('int')-n:np.round(j[0]).astype('int')+n,0] =-1
 
-# fltLength = np.linalg.norm(arrLinearVector,axis=0)
-# arrProjection = np.append(np.array([[0,0]]), arrProjection, axis=0)
-# arrProjection = np.append(arrProjection,np.array([arrProjectedEnd]), axis=0)
-
-# arrProjection = arrProjection/fltLength
-
-# plt.scatter(arrProjection[:,0],arrProjection[:,1])
-# #plt.axis('square')
-
-#def GrainCurve(t,a0,a1, a2,a3):
-#    return a0+ a1*t + a2*t**2 + a3*t**3 
-#def Length(t,a2,a3):
-#    return GrainCurve(t,*popt)/(np.sqrt((fltLength-a2-a3+2*a2*t+3*a3**2)**2+t**2))
-#popt, popv = sc.optimize.curve_fit(GrainCurve, arrProjection[0], arrProjection[1])
-t =np.linspace(0,1,20)
-arrWeights = np.ones(len(arrProjection))
-arrWeights[0] = 100
-arrWeights[-1] = 100
-cs = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=0.5)
-plt.plot(t, cs(t), label='Cubic Spline', c='r')
+plt.legend(objProcess.GetUniqueGrainBoundaryIDs())
+plt.matshow(CellArray[:,:,:], origin = 'lower')
 #plt.axis('square')
 plt.show()
-#t =np.linspace(0,1,25)
-arrPointsOut = np.zeros([len(t),2])
-counter = 0
-for tval in t:
-    arrPointsOut[counter]= arrStart[0:2]+ tval*arrLinearVector + fltLength*cs(tval)*np.cross(arrUnitVector, np.array([0,1])) 
-    counter +=1 
-plt.scatter(arrPointsOut[:,0], arrPointsOut[:,1])
-#plt.plot(t,GrainCurve(t,n))
-plt.show()
 
 
-objGrainBoundary = gl.GrainBoundaryCurve(arrStart,arrSecondTriple, [1,2], arrPoints)
-arrPlotPoints = objGrainBoundary.GetPoints(2*a2)
-plt.scatter(arrPlotPoints[:,0],arrPlotPoints[:,1])
-plt.show()
-#print(objProcess.MergePerodicGrainBoundaries(a2/2))
-# for j in range(objProcess.GetNumberOfTripleLines()):
-#     print(objProcess.FindTripleLineEnergy(j,a1/4,a1))
+
+
 # lstAtomsID = objProcess.FindCylindricalAtoms(objProcess.GetNonLatticeAtoms()[:,0:4],objProcess.GetTripleLines(intTripleLine),fltRadius,h)
 # arrCPoints =objProcess.GetAtomsByID(lstAtomsID)[:,0:4]
 # scDistanceMatrix = sc.spatial.distance_matrix(arrCPoints[:,1:4], arrCPoints[:,1:4])
@@ -106,7 +88,6 @@ plt.show()
 # ax.scatter(objProcess.GetTripleLines(intTripleLine)[0],objProcess.GetTripleLines(intTripleLine)[1],objProcess.GetTripleLines(intTripleLine)[2])
 #plt.axis('equal')
 #plt.show()
-# #objProcess.OptimiseTripleLinePosition(intTripleLine, a2/8,a2, 5*a2)
 # lstR,lstV,lstI = objProcess.FindThreeGrainStrips(intTripleLine,a2,a2/4, 'mean')
 # plt.scatter(lstR,lstV)
 # plt.title('Mean PE per atom in eV')

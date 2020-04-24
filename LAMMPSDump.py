@@ -307,6 +307,25 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         self.__TripleLines = dict()
     def __Reciprocal(self, r,a,b): 
         return a/(r+b)-a/b
+    def FindGBAtoms(self,strGBID: str, fltWidth: float,fltSeparation:float, blnRemoveTripleLines = True):
+        lstIndices = []
+        lstRemove = []
+        arrGB3d =  self.GetUniqueGrainBoundaries(strGBID).GetPoints(fltSeparation, True)
+        for k in range(1,len(arrGB3d)):
+            arrLength = arrGB3d[k]-arrGB3d[k-1]
+            arrWidth = fltWidth*gf.NormaliseVector(np.cross(arrLength,np.array([0,0,1])))
+            if k != len(arrGB3d):
+                lstIndices.extend(self.FindCylindricalAtoms(self.GetAtomData()[:,0:4], arrGB3d[k], 
+                                                    fltWidth/2,self.CellHeight))
+            lstIndices.extend(self.FindBoxAtoms(self.GetAtomData()[:,0:4], arrGB3d[k-1], 
+                                                    arrLength, arrWidth,self.GetCellVectors()[2,:]))
+        setIndices = set(lstIndices)
+        if blnRemoveTripleLines:
+            lstRemove.extend(self.GetUniqueTripleLines('UTJ3').GetAtomIDs())
+            lstRemove.extend(self.GetUniqueTripleLines('UTJ4').GetAtomIDs())
+            setIndices = setIndices.difference(lstRemove)
+        lstIndices = list(setIndices)
+        return lstIndices
     def FindTripleLineEnergy(self, strTripleLineID: str, fltIncrement: float, fltWidth: float):
         lstR = []
         lstV = []
@@ -344,7 +363,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return self.__UniqueTripleLines[strID]
     def FindTripleLines(self,fltGridLength: float, fltSearchRadius: float, intMinCount: int):
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],10,fltGridLength/2, intMinCount)
+        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],10,fltGridLength, intMinCount)
         arrTripleLines = objQPoints.GetTriplePoints()   
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         for i  in range(len(arrTripleLines)):
@@ -418,7 +437,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                     lstGBID.reverse()
                     objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints, self.CellHeight/2)
                 else:
-                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2)
+                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2, 0.4)
                 strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
                 self.__GrainBoundaries[strGBID] = objGrainBoundary
                 self.__TripleLines[strCurrentTJ].SetAdjacentGrainBoundaries(strGBID)
@@ -439,9 +458,9 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 lstGBID = [strCurrentTJ ,j]
                 if int(strCurrentTJ[3:]) > int(j[3:]): #this overwrites the same grainboundary and sorts ID with lowest UTJ number first
                     lstGBID.reverse()
-                    objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints,self.CellHeight/2)
+                    objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints,self.CellHeight/2, 0.4)
                 else:
-                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2)
+                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2, 0.4)
                 strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
                 self.__UniqueGrainBoundaries[strGBID] = objGrainBoundary
                 self.__UniqueTripleLines[strCurrentTJ].SetUniqueAdjacentGrainBoundaries(strGBID)

@@ -478,7 +478,7 @@ class DefectStructure(object):
 #         return zip(*arrPoints)
 #         #return arrPoints
 class GrainBoundaryCurve(object):
-    def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array, fltHeight: float):
+    def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array, fltHeight: float, fltSmoothness = 0.5):
         self.__StartPoint = arrTripleLineStart[0:2]
         self.__EndPoint = arrTripleLineEnd[0:2]
         self.__GBID = sorted(lstTripleLineIDs)
@@ -501,7 +501,7 @@ class GrainBoundaryCurve(object):
         arrWeights = np.ones(len(arrProjection))
         arrWeights[0] = 100 #fixes the two boundary conditions so the curve goes through both triple points
         arrWeights[-1] = 100
-        self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=0.5)
+        self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=fltSmoothness)
     def __ProjectPoint(self, in2DPoint)->np.array: #assumes position vector is measured from arrTripleLineStart
         return np.array([np.dot(in2DPoint,self.__AlongUnitVector), np.cross(self.__AlongUnitVector,in2DPoint)])
     def GetPoints(self, fltSeparation: float, bln3D = False)->np.array:
