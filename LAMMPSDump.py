@@ -321,8 +321,9 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                                                     arrLength, arrWidth,self.GetCellVectors()[2,:]))
         setIndices = set(lstIndices)
         if blnRemoveTripleLines:
-            lstRemove.extend(self.GetUniqueTripleLines('UTJ3').GetAtomIDs())
-            lstRemove.extend(self.GetUniqueTripleLines('UTJ4').GetAtomIDs())
+            lstTJs = self.GetUniqueGrainBoundaries(strGBID).GetID()
+            for j in lstTJs:
+                lstRemove.extend(self.GetUniqueTripleLines(j).GetAtomIDs())
             setIndices = setIndices.difference(lstRemove)
         lstIndices = list(setIndices)
         return lstIndices
@@ -334,6 +335,11 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstR,lstV,lstI = self.FindThreeGrainStrips(strTripleLineID,fltWidth,fltIncrement, 'mean')
         intStart = len(lstV) - np.argmax(lstV[-1:0:-1]) #find the max value position counting backwards as the first max is used
         fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
+        #fltClosest = self.FindClosestTripleLine(strTripleLineID)
+        #lstInnerI = self.FindCylindricalAtoms(self.GetLatticeAtoms()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltClosest/2,self.CellHeight)
+        #lstOuterI = self.FindCylindricalAtoms(self.GetLatticeAtoms()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltClosest,self.CellHeight)
+        #lstLatticeI = list(set(lstOuterI).difference(lstInnerI))
+        fltMeanLatticeValue = np.mean(self.GetNonLatticeAtoms()[:,self._intPE])
         if len(lstR[intStart:]) > 2 and len(lstV[intStart:]) >2:
             popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
            # while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.001 and intStart < len(lstR)-3): #check to see if the fit is good if not move along one increment
@@ -353,7 +359,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 fltEnergy = np.mean(arrTJValues)
             return fltEnergy,fltRadius, intTJAtoms
     def GetUniqueTripleLineIDs(self):
-        return sorted(list(self.__UniqueTripleLines.keys()))
+        return sorted(list(self.__UniqueTripleLines.keys()),key = lambda x: int(x[3:]))
     def GetUniqueGrainBoundaryIDs(self):
         return sorted(list(self.__UniqueGrainBoundaries.keys()))    
     def GetUniqueTripleLines(self, strID = None)->gl.TripleLine:
@@ -443,10 +449,12 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 self.__TripleLines[strCurrentTJ].SetAdjacentGrainBoundaries(strGBID)
                 self.__TripleLines[j].SetAdjacentGrainBoundaries(strGBID)
                 counter += 1
-        setTJIDs = set(self.GetUniqueTripleLineIDs())
+        self.MakeUniqueGrainBoundaries()
+    def MakeUniqueGrainBoundaries(self):
+        lstUTJIDs = self.GetUniqueTripleLineIDs()
         counter = 0
-        while len(setTJIDs) > 0:
-            strCurrentTJ = setTJIDs.pop()
+        while counter < len(lstUTJIDs):
+            strCurrentTJ = lstUTJIDs[counter]
             lstAdjacentTripleLines = self.GetUniqueTripleLines(strCurrentTJ).GetUniqueAdjacentTripleLines()
             for j in lstAdjacentTripleLines:
                 arrMovedTripleLine = self.PeriodicShiftCloser(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),self.GetUniqueTripleLines(j).GetCentre())
@@ -465,7 +473,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 self.__UniqueGrainBoundaries[strGBID] = objGrainBoundary
                 self.__UniqueTripleLines[strCurrentTJ].SetUniqueAdjacentGrainBoundaries(strGBID)
                 self.__UniqueTripleLines[j].SetUniqueAdjacentGrainBoundaries(strGBID)
-                counter += 1
+            counter += 1
     def TriangulateCentre(self, inPoints: np.array, fltRadius: float)->np.array:
         if len(inPoints) > 5: #here the convex hull normally consists of three line sections across GBS and a further three line segements that connect the GB line segments making an irregular hexagon
             arr2DPoints = inPoints[:,0:2]
@@ -522,17 +530,17 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             counter += 1 
             arrPoint = arrNextPoint
         return arrNextPoint
-    def GetGrainBoundaryVectors(self, intTripleLine: int)->np.array: #return unit vectors pointing inwards to the tripleline
-        arrVectors = np.ones([3,2])
-        lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
-        arrTripleLine = self.GetTripleLines(intTripleLine)
-        for j, intGB in enumerate(lstOfGBs):
-            arrGBMean = self.PeriodicShiftCloser(arrTripleLine,self.GetGrainBoundaries(intGB).GetMeanPoint())[0:2]
-            arrVector =  gf.NormaliseVector(arrGBMean - arrTripleLine[0:2])
-            arrVectors[j] = arrVector
-        return arrVectors
+    # def GetGrainBoundaryVectors(self, intTripleLine: int)->np.array: #return unit vectors pointing inwards to the tripleline
+    #     arrVectors = np.ones([3,2])
+    #     lstOfGBs = self.GetNeighbouringGrainBoundaries(intTripleLine)
+    #     arrTripleLine = self.GetTripleLines(intTripleLine)
+    #     for j, intGB in enumerate(lstOfGBs):
+    #         arrGBMean = self.PeriodicShiftCloser(arrTripleLine,self.GetGrainBoundaries(intGB).GetMeanPoint())[0:2]
+    #         arrVector =  gf.NormaliseVector(arrGBMean - arrTripleLine[0:2])
+    #         arrVectors[j] = arrVector
+    #     return arrVectors
     def GetGrainBoundaryIDs(self):
-        return list(self.__GrainBoundaries.keys())
+        return sorted(list(self.__GrainBoundaries.keys()))
     def GetGrainBoundaries(self, strID = None):
         if strID is None:
             return self.__GrainBoundaries
@@ -548,19 +556,19 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
     def GetNumberOfTripleLines(self)->int:
         return len(self.__TripleLines)
     def GetTripleLineIDs(self):
-        return list(self.__TripleLines.keys())
+        return sorted(list(self.__TripleLines.keys()),key = lambda x: int(x[2:]))
     def GetTripleLines(self, strID = None)->gl.TripleLine:
         if strID is None:
             return self.__TripleLines
         else:
             return self.__TripleLines[strID]
-    def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
-        fltStart = self.PeriodicMinimumDistance(self.__GrainBoundaries[intGrainBoundary].GetPoints(0), self.__TripleLines[intTripleLine])
-        fltEnd = self.PeriodicMinimumDistance(self.__GrainBoundaries[intGrainBoundary].GetPoints(-1), self.__TripleLines[intTripleLine])
-        vctDirection = self.__GrainBoundaries[intGrainBoundary].GetLinearDirection()
-        if fltEnd < fltStart:
-            vctDirection = -vctDirection
-        return vctDirection
+    # def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
+    #     fltStart = self.PeriodicMinimumDistance(self.__GrainBoundaries[intGrainBoundary].GetPoints(0), self.__TripleLines[intTripleLine])
+    #     fltEnd = self.PeriodicMinimumDistance(self.__GrainBoundaries[intGrainBoundary].GetPoints(-1), self.__TripleLines[intTripleLine])
+    #     vctDirection = self.__GrainBoundaries[intGrainBoundary].GetLinearDirection()
+    #     if fltEnd < fltStart:
+    #         vctDirection = -vctDirection
+    #     return vctDirection
     def FindGBStrip(self, intGrainBoundaryNumber: int, fltProportion: float,  fltLength: float,fltWidth: float, fltIncrement:float, strValue = 'sum'):
         lstLength = []
         lstValues = []
@@ -592,7 +600,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstValues = []
         lstIndices = []
         if fltLength is None:
-            fltClosest = np.sort(self.__TripleLineDistanceMatrix[intTripleLine])[1]/2
+            fltClosest = self.FindClosestTripleLine(intTripleLine)
         else:
             fltClosest = fltLength
         intMax = np.floor(fltClosest/(fltIncrement)).astype('int')
@@ -633,17 +641,13 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             fltClosest = fltLength
         intMax = np.floor(fltClosest/(fltIncrement)).astype('int')
         intMin = np.ceil((4.05/np.sqrt(2))/fltIncrement).astype('int')
-        # for intV in range(3):
-        #     #lstOfVectors.append(self.GetGrainBoundaryDirection(lstNeighbouringGB[intV],intTripleLine))
-        #     arrMeanVector = np.mean(self.PeriodicShiftAllCloser(self.__TripleLines[intTripleLine],self.GetGrainBoundaries(lstNeighbouringGB[intV]).GetPoints()),axis=0)
-        #     lstOfVectors.append(gf.NormaliseVector(arrMeanVector - self.__TripleLines[intTripleLine]))
         for strGB in self.__UniqueTripleLines[strTripleLineID].GetUniqueAdjacentGrainBoundaries():
-            lstGBLabels = self.__UniqueGrainBoundaries[strGB].GetID()
-            if lstGBLabels.index(strTripleLineID) == 0: #then the triple line is at the start of the GB
-                arrVector = self.PeriodicShiftCloser(self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[0],self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[1]) -self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[0] 
-            #1st none triple line point on GB
-            elif lstGBLabels.index(strTripleLineID) == 1:
-                arrVector = self.PeriodicShiftCloser(self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[-1],self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[-2]) -self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[-1]
+            arrVector = self.__UniqueGrainBoundaries[strGB].GetVectorDirection(strTripleLineID, 4.05, bln3D=True) 
+            # if lstGBLabels.index(strTripleLineID) == 0: #then the triple line is at the start of the GB
+            #     arrVector = self.PeriodicShiftCloser(self.__UniqueGrainBoundaries[strGB].GetPoints(2,bln3D= True)[0],self.__UniqueGrainBoundaries[strGB].GetPoints(2,bln3D= True)[1]) -self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[0] 
+            # #1st none triple line point on GB
+            # elif lstGBLabels.index(strTripleLineID) == 1:
+            #     arrVector = self.PeriodicShiftCloser(self.__UniqueGrainBoundaries[strGB].GetPoints(2,bln3D= True)[-1],self.__UniqueGrainBoundaries[strGB].GetPoints(2,bln3D= True)[-2]) -self.__UniqueGrainBoundaries[strGB].GetPoints(8.1,bln3D= True)[-1]
             lstOfVectors.append(gf.NormaliseVector(arrVector))
         for j in range(intMin,intMax+1):
             r = fltIncrement*j

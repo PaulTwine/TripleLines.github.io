@@ -481,7 +481,8 @@ class GrainBoundaryCurve(object):
     def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array, fltHeight: float, fltSmoothness = 0.5):
         self.__StartPoint = arrTripleLineStart[0:2]
         self.__EndPoint = arrTripleLineEnd[0:2]
-        self.__GBID = sorted(lstTripleLineIDs)
+        #self.__GBID = sorted(lstTripleLineIDs)
+        self.__GBID = lstTripleLineIDs #this must have the list in the correct order
         self.__AlongAxis = self.__EndPoint -self.__StartPoint
         self.__AlongAxisLength = np.linalg.norm(self.__AlongAxis, axis=0)
         self.__AlongUnitVector = self.__AlongAxis/self.__AlongAxisLength
@@ -517,6 +518,13 @@ class GrainBoundaryCurve(object):
         return arrPointsOut
     def GetID(self)->list:
         return self.__GBID
+    def GetVectorDirection(self,strTripleLineID:str, fltSeparation, bln3D = False)->np.array:      
+        if self.__GBID.index(strTripleLineID) == 0: #then the triple line is at the start
+            return self.GetPoints(fltSeparation,bln3D)[1] -self.GetPoints(fltSeparation,bln3D)[0] 
+        elif self.__GBID.index(strTripleLineID) == 1: #then the triple line is at the end
+            return self.GetPoints(fltSeparation,bln3D)[-2] -self.GetPoints(fltSeparation,bln3D)[-1] 
+        else:
+            raise("error invalid triple line ID")
 
 class TripleLine(object):
     def __init__(self, strID: str ,arrCentre: np.array, arrLine: np.array):
