@@ -67,22 +67,6 @@ def CheckLinearConstraint(inPoints: np.array, inConstraint: np.array)-> np.array
                if ((np.dot(inPoints[j],inConstraint[:-1]) > inConstraint[intDimensions])):
                    lstIndicesToDelete.append(j)
         return lstIndicesToDelete
-        # if len(lstDeletedPoints) != 0:                
-        #         arrInsidePoints = np.delete(inPoints, lstDeletedPoints, axis=0)
-        # else:
-        #         arrInsidePoints = inPoints
-        # return arrInsidePoints
-# def CheckLinearEquality(inPoints: np.array, inConstraint: np.array, fltTolerance: float)->np.array:
-#         lstDeletedPoints = []
-#         intDimensions = len(inConstraint)-1
-#         for j in range(len(inPoints)):
-#                if ((np.dot(inPoints[j],inConstraint[:-1]) == inConstraint[intDimensions])):
-#                    lstDeletedPoints.append(j)
-#         # if len(lstDeletedPoints) != 0:                
-#         #         arrOnPoints = np.delete(inPoints, lstDeletedPoints, axis=0)
-#         # else:
-#         #         arrOnPoints = inPoints
-#         return lstDeletedPoints
 
 def StandardBasisVectors(inDimensions: int): #generates standard basis vectors [1 0 0],[0 1 0] etc for any dimension
         arrBasisVectors = np.zeros([inDimensions, inDimensions])
@@ -225,13 +209,15 @@ def SortInDistanceOrder(inArray: np.array)->np.array:
                 return inArray[lstIndices], myMatrix[lstIndices,1]
         else:
                 return inArray, np.array([0])
-def ArcSegment(arrPoints: np.array, arrVector1: np.array, arrVector2: np.array, fltRadius: float)->list:
+def ArcSegment(arrPoints: np.array, arrCentre: np.array, arrVector1: np.array, arrVector2: np.array, fltRadius: float, fltHeight: float)->list:
         #sector of a cylinder bounded by the two vectors and part of a cylindrical curved surface
         #for semicircular sections use arrVector1 == arrVector2
+        arrMovedPoints = arrPoints[:,0:2] - arrCentre[0:2]
         arrUnit1 = NormaliseVector(arrVector1[0:2])
         arrUnit2 = NormaliseVector(arrVector2[0:2]) 
-        lstIndices = np.where((np.dot(arrPoints,arrUnit1) > 0)  & (np.dot(arrPoints,arrUnit2) > 0)  & 
-                                (np.linalg.norm(arrPoints[:,0:2],axis=1)  <fltRadius))[0]
+        lstIndices = np.where((np.dot(arrMovedPoints,arrUnit1) >= 0)  & (np.dot(arrMovedPoints,arrUnit2) >= 0)  & 
+                                (np.linalg.norm(arrMovedPoints[:,0:2],axis=1)  <= fltRadius)
+                                & (arrPoints[:,2] <= fltHeight))[0]
         return list(lstIndices)
 def CylindricalVolume(arrPoints: np.array, arrCentre: np.array, fltRadius: float, fltHeight: float)->list:
         arrPointsNew = arrPoints - arrCentre
