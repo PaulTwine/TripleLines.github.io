@@ -3,6 +3,7 @@ import GeometryFunctions as gf
 import LatticeShapes as ls
 import LatticeDefinitions as ld
 import scipy as sc
+from datetime import datetime
 
 class PureCell(object):
     def __init__(self,inCellNodes: np.array): 
@@ -199,6 +200,7 @@ class SimulationCell(object):
         self.GrainList = [] #list of RealGrain objects which form the simulation cell
         self.SetParallelpipedVectors(inBoxVectors)
         self.blnPointsAreWrapped = False
+        self.__FileHeader = ''
     def AddGrain(self,inGrain):
         self.GrainList.append(inGrain)
     def GetGrain(self, intGrainIndex: int):
@@ -238,6 +240,8 @@ class SimulationCell(object):
     def UseMinimumSimulationBox(self):
         arrSize = self.GetMinimumSimulationBox()
         self._Size = arrSize
+    def SetFileHeader(self, inString: str):
+        self.__FileHeader = inString
     def WrapVectorIntoSimulationBox(self, inVector: np.array)->np.array:
         #return gf.WrapVectorIntoSimulationCell(self.__BasisVectors, self.__InverseBasis, inVector)
         arrCoefficients = np.matmul(inVector, self.__InverseUnitBasis) #find the coordinates in the simulation cell basis
@@ -245,8 +249,10 @@ class SimulationCell(object):
         arrCoefficients = np.mod(arrCoefficients, arrVectorLengths) #move so that they lie inside cell 
         return np.matmul(arrCoefficients, self.__UnitBasisVectors) #return the wrapped vector in the standard basis
     def WriteLAMMPSDataFile(self,inFileName: str):        
+        now = datetime.now()
+        strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
         with open(inFileName, 'w') as fdata:
-            fdata.write('#Python Generated Data File\n')
+            fdata.write('## ' + strDateTime + ' ' + self.__FileHeader + '\n')
             fdata.write('{} natoms\n'.format(self.GetTotalNumberOfAtoms()))
             fdata.write('{} atom types\n'.format(self.GetNumberOfAtomTypes()))
             fdata.write('{} {} xlo xhi\n'.format(self.__xlo,self.__xhi))
@@ -256,8 +262,6 @@ class SimulationCell(object):
                 fdata.write('{}  {} {} xy xz yz \n'.format(self.__xy,self.__xz,self.__yz))
             elif self.Dimensions ==2:
                 fdata.write('{}  xy \n'.format(self.__xy))
-            #elif self.Dimensions ==3:
-            #fdata.write('{}  {} {} xy xz yz \n'.format(self.__xy,self.__xz,self.__yz))    
             fdata.write('\n')
             fdata.write('Atoms\n\n')
             if self.blnPointsAreWrapped:
@@ -329,154 +333,36 @@ class SimulationCell(object):
             return self.__UniqueRealPoints
         else:
             raise("Error: Points need to be wrapped into simulation cell")
-
-class GrainBoundary(object):
-    def __init__(self, arrPoints: np.array):
-        self.__Points = gf.SortInDistanceOrder(arrPoints)[0]
-        self.FindGrainBoundaryLength()
-        self.__Centre = np.mean(self.__Points, axis = 0)
-        self.__LinearDirection = []
-    def FindGrainBoundaryLength(self):
-        lstfltLength = []
-        for j in range(0, self.GetNumberOfPoints()-1):
-            lstfltLength.append(np.linalg.norm(self.__Points[j+1]-self.__Points[j]))
-        self.__Lengths = lstfltLength
-    def GetGrainBoundaryLength(self)->float:
-        return self.__Lengths
-    def GetNumberOfPoints(self)->int:
-        return len(self.__Points)
-    def GetVector(self, intVector: int)->np.array:
-        if intVector < self.GetNumberOfPoints() -1:
-            return self.__Points[intVector+1]-self.__Points[intVector]
-    def GetAcrossVector(self,intVector = None)->np.array:
-        if intVector is None:
-            return gf.NormaliseVector(np.cross(self.GetLinearDirection(), np.array([0,0,1])))
-        else:
-            return gf.NormaliseVector(np.cross(self.GetVector(intVector), np.array([0,0,1])))
-    def GetSegmentLength(self, intValue:int)->float:
-        return self.__Lengths[intValue]
-    def GetAccumulativeLength(self, intValue: int)->float:
-        if intValue == 0:
-            return 0
-        else:
-            return np.sum(self.__Lengths[:intValue])
-    def GetAccumulativeVector(self, intValue: int)->np.array:
-        arrVector = np.zeros([3])
-        for j in range(intValue):
-            arrVector += self.GetVector(j)
-        return arrVector
-    def GetPoints(self, intValue = None)->np.array:
-        if intValue is None:
-            return self.__Points
-        else:
-            return self.__Points[intValue]
-    def GetCentre(self, intValue = None)->np.array:
-        if intValue is None:
-            return self.__Centre
-        elif intValue < self.GetNumberOfPoints():
-            return (self.GetPoints(intValue+1) + self.GetPoints(intValue))/2 
-    def GetLinearDirection(self):
-        if len(self.__LinearDirection) ==0:
-            arrMatrix = np.cov(self.__Points[:,0:2], self.__Points[:,0:2])
-            eValues, eVectors = np.linalg.eig(arrMatrix)
-            intIndex = np.argmax(np.abs(eValues))
-            vctAxis = np.real(eVectors[:,intIndex])
-            self.__LinearDirection = gf.NormaliseVector(np.array([vctAxis[0], vctAxis[1], 0]))
-            if np.dot(self.__LinearDirection, self.__Centre-self.__Points[0]) < 0:
-                self.__LinearDirection = -1*self.__LinearDirection
-        return self.__LinearDirection
-    def AddPoints(self, inNewPoints: np.array):
-        self.__Points = np.append(self.__Points, inNewPoints, axis=0)
-        self.__Points =np.unique(self.__Points, axis=0)
-    def GetMeanPoint(self)->np.array:
-        return np.mean(self.__Points, axis = 0)
-    def GetClosestPoint(self, inPoint)->np.array: #returns closest GBPoint to inPoint
-        inPoint[2] = self.GetPoints(0)[2]
-        fltDistances = np.linalg.norm(self.__Points - inPoint, axis=1)
-        intMin = np.argmin(fltDistances)
-        return self.__Points[intMin]
-    def ShiftPoint(self, intPointIndex: int, inPoint: np.array):
-        self.__Points[intPointIndex,0] = self.__Points[intPointIndex,0] + inPoint[0]
-        self.__Points[intPointIndex,1] = self.__Points[intPointIndex,1] + inPoint[1]
         
 
 
 
-class DefectStructure(object):
-    def __init__(self, arrTripleLines: np.array, arrGrainBoundaries: np.array):
-        self.__TripleLines = arrTripleLines
-        self.__GrainBoundaryPoints = arrGrainBoundaries
-        lstOfGrainObjects = []
-        for j in arrGrainBoundaries:
-            lstOfGrainObjects.append(GrainBoundary(j))
-        self.__GrainBoundariesObjects = lstOfGrainObjects
-    def GetNeighbouringGrainBoundaries(self, intTripleLine: int):
-        lstDistances = [] #the closest distance 
-        lstPositions = []
-        arrTripleLine = self.__TripleLines[intTripleLine]
-        for j in self.__GrainBoundaryPoints:
-            lstDistances.append(np.linalg.norm(np.min(j-arrTripleLine,axis=0)))
-        for k in range(3):
-            lstPositions.append(gf.FindNthSmallestPosition(lstDistances,k))
-        return lstPositions
-    def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
-        arrDistances = np.linalg.norm(self.__GrainBoundaryPoints[intGrainBoundary]-self.__TripleLines[intTripleLine], axis=0)
-        intPosition = np.argmin(arrDistances)
-        vctDirection = self.__GrainBoundariesObjects[intGrainBoundary].GetLinearDirection()
-        if intPosition > len(arrDistances)/2:
-            vctDirection = -vctDirection
-        return vctDirection
+# class DefectStructure(object):
+#     def __init__(self, arrTripleLines: np.array, arrGrainBoundaries: np.array):
+#         self.__TripleLines = arrTripleLines
+#         self.__GrainBoundaryPoints = arrGrainBoundaries
+#         lstOfGrainObjects = []
+#         for j in arrGrainBoundaries:
+#             lstOfGrainObjects.append(GrainBoundary(j))
+#         self.__GrainBoundariesObjects = lstOfGrainObjects
+#     def GetNeighbouringGrainBoundaries(self, intTripleLine: int):
+#         lstDistances = [] #the closest distance 
+#         lstPositions = []
+#         arrTripleLine = self.__TripleLines[intTripleLine]
+#         for j in self.__GrainBoundaryPoints:
+#             lstDistances.append(np.linalg.norm(np.min(j-arrTripleLine,axis=0)))
+#         for k in range(3):
+#             lstPositions.append(gf.FindNthSmallestPosition(lstDistances,k))
+#         return lstPositions
+#     def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
+#         arrDistances = np.linalg.norm(self.__GrainBoundaryPoints[intGrainBoundary]-self.__TripleLines[intTripleLine], axis=0)
+#         intPosition = np.argmin(arrDistances)
+#         vctDirection = self.__GrainBoundariesObjects[intGrainBoundary].GetLinearDirection()
+#         if intPosition > len(arrDistances)/2:
+#             vctDirection = -vctDirection
+#         return vctDirection
 
-# class GrainBoundaryCurve(object):
-#     def __init__(self,arrTwoTripleLines: np.array, arrLatticePoints2D, lstTJIDs):
-#         self.__TripleLines = dict()
-#         self.__TripleLineIDs = lstTJIDs
-#         self.__XFit = np.zeros([4])
-#         self.__YFit = np.zeros([4])
-#         for j in range(2):
-#             self.__TripleLines[str(lstTJIDs[j])] =arrTwoTripleLines[j]
-#         self.CreateCurve(gf.SortInDistanceOrder(arrLatticePoints2D)[0])
-#     def GetTripleLine(self,strKey)->np.array:
-#         return self.__TripleLines[str(strKey)]
-#     def GetTripleLineNumbers(self)->list:
-#         return self.__TripleLineIDs
-#     def __CubicFitX(self,x,a1, a2,a3):
-#         x0 = self.GetTripleLine(self.__TripleLineIDs[0])[0]
-#         return x0 + a1*x + a2*x**2+a3*x**3 
-#     def __CubicFitY(self,y,a1, a2,a3):
-#         y0 = self.GetTripleLine(self.__TripleLineIDs[0])[1]
-#         return y0 + a1*y + a2*y**2 +a3*y**3
-#     def __CubicFit(self, t,a0,a1,a2,a3):
-#         return a0 +t*a1+t**2*a2+a3*t**3
-#     def CreateCurve(self, arrPoints: np.array):
-#         t =np.linspace(0,1,len(arrPoints))
-#         self.__XFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[0]
-#         self.__YFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[1]
-#         self.__XFit[1:4] = sc.optimize.curve_fit(self.__CubicFitX,t,arrPoints[:,0])[0]
-#         self.__YFit[1:4] = sc.optimize.curve_fit(self.__CubicFitY,t,arrPoints[:,1])[0]
-#         # self.__XFit[2:4] = sc.optimize.curve_fit(self.__CubicFitX,t,np.sort(arrPoints[:,0]))[0] 
-#         # self.__YFit[2:4] = sc.optimize.curve_fit(self.__CubicFitY,t,np.sort(arrPoints[:,1]))[0]
-#         # # self.__XFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[0]
-#         # self.__YFit[0] = self.GetTripleLine(self.__TripleLineIDs[0])[1]
-#         # self.__XFit[1] = self.GetTripleLine(self.__TripleLineIDs[1])[0] -self.__XFit[0] -self.__XFit[2]
-#         # -self.__XFit[3]
-#         # self.__YFit[1] = self.GetTripleLine(self.__TripleLineIDs[1])[1] -self.__YFit[0] -self.__YFit[2]
-#         # -self.__YFit[3]
-#         # #return self.__XFit, self.__YFit
-#     def Curve(self,fltTValue:float)->np.array:
-#         arrTValues = np.zeros([4])
-#         for j in range(len(arrTValues)):
-#             arrTValues[j] = fltTValue**j
-#         return np.array([np.dot(arrTValues, self.__XFit), np.dot(arrTValues, self.__YFit)])
-#     def PlotPoints(self, intNumberOfPoints)->np.array:
-#         t = np.linspace(0,1, intNumberOfPoints)
-#         arrPoints = np.zeros([intNumberOfPoints,2])
-#         counter = 0
-#         for fltTValue in t:
-#             arrPoints[counter] = self.Curve(fltTValue)
-#             counter +=1
-#         return zip(*arrPoints)
-#         #return arrPoints
+
 class GrainBoundaryCurve(object):
     def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array, fltHeight: float, fltSmoothness = 0.5):
         self.__StartPoint = arrTripleLineStart[0:2]

@@ -266,7 +266,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             lstPointsIndices = list(np.unique(lstPointsIndices))
             arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
             arrPoints = self.PeriodicShiftAllCloser(inPoint, arrPoints)
-            return np.mean(arrPoints, axis=0)  
+            return np.median(arrPoints, axis=0)  
         else:
             return inPoint         
     def FindCylindricalAtoms(self,arrPoints, arrCentre: np.array, fltRadius: float, fltHeight: float, blnPeriodic =True)->list: #arrPoints are [atomId, x,y,z]
