@@ -9,7 +9,7 @@ from skimage.filters import gaussian
 import copy
 
 class LAMMPSData(object):
-    def __init__(self,strFilename: str, intLatticeType: int):
+    def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter):
         self.__dctTimeSteps = dict()
         lstNumberOfAtoms = []
         lstTimeSteps = []
@@ -47,7 +47,7 @@ class LAMMPSData(object):
                     raise Exception("Unexpected "+repr(line))
                 lstColumnNames = line[11:].strip().split()
                 intNumberOfColumns = len(lstColumnNames)
-                objTimeStep = LAMMPSAnalysis(timestep, N,intNumberOfColumns,lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
+                objTimeStep = LAMMPSAnalysis(timestep, N,intNumberOfColumns,lstColumnNames, lstBoundaryType, lstBounds,intLatticeType, fltLatticeParameter)
                 objTimeStep.SetColumnNames(lstColumnNames)
                 for i in range(N):
                     line = next(Dfile).strip().split()
@@ -298,28 +298,30 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         lstIDs = self.FindCylindricalAtoms(arrPoints, arrCentre, fltRadius, fltHeight)
         return self.GetAtomsByID(lstIDs)[:, intColumn]
     def FindCylindricalSegmentAtoms(self, arrPoints: np.array, arrCentre: np.array, arrVector1: np.array,
-    arrVector2: np.array, fltRadius: float, blnPeriodic = True):
+    arrVector2: np.array, fltRadius: float,fltHeight = None, blnPeriodic = True):
+        if fltHeight is None:
+            fltHeight = self.CellHeight
         lstIndices = []
         if blnPeriodic:
             arrStarts = self.PeriodicEquivalents(arrCentre)
             for j in arrStarts:
-                lstIndices.extend(gf.ArcSegment(arrPoints[:,1:4],j, arrVector1, arrVector2, fltRadius))
+                lstIndices.extend(gf.ArcSegment(arrPoints[:,1:4],j, arrVector1, arrVector2, fltRadius, fltHeight))
         else:
-            lstIndices.extend(gf.ArcSegment(arrPoints[:,1:4], arrCentre, arrVector1, arrVector2, fltRadius))
+            lstIndices.extend(gf.ArcSegment(arrPoints[:,1:4], arrCentre, arrVector1, arrVector2, fltRadius,fltHeight))
         return list(arrPoints[lstIndices,0])
-
 class LAMMPSAnalysis(LAMMPSPostProcess):
-    def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
+    def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
         self.__GrainBoundaries = dict()
         self.__UniqueGrainBoundaries = dict()
         self.__MergedTripleLines = dict()
         self.__UniqueTripleLines = dict() #periodically equivalent triple lines are merged into a single point
         self.__TripleLines = dict()
+        self.__LatticeParameter = fltLatticeParameter
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
-    def __Reciprocal(self, r,a,b): 
-        return a/(r+b)-a/b
+    def __Reciprocal(self, r,a,b,c): 
+        return a/(r+b)+c
     def FindGBAtoms(self,strGBID: str, fltWidth: float,fltSeparation:float, blnRemoveTripleLines = True):
         lstIndices = []
         lstRemove = []
@@ -327,11 +329,14 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         for k in range(1,len(arrGB3d)):
             arrLength = arrGB3d[k]-arrGB3d[k-1]
             arrWidth = fltWidth*gf.NormaliseVector(np.cross(arrLength,np.array([0,0,1])))
-            if k != len(arrGB3d):
-                lstIndices.extend(self.FindCylindricalAtoms(self.GetAtomData()[:,0:4], arrGB3d[k], 
-                                                    fltWidth/2,self.CellHeight))
+            if k != 1:
+                lstIndices.extend(self.FindCylindricalSegmentAtoms(self.GetAtomData()[:,0:4], arrGB3d[k], 
+                                                    arrPreviousWidth, arrWidth,fltWidth/2,self.CellHeight))
+                lstIndices.extend(self.FindCylindricalSegmentAtoms(self.GetAtomData()[:,0:4], arrGB3d[k], 
+                                                    -arrPreviousWidth, -arrWidth,fltWidth/2,self.CellHeight))
             lstIndices.extend(self.FindBoxAtoms(self.GetAtomData()[:,0:4], arrGB3d[k-1], 
-                                                    arrLength, arrWidth,self.GetCellVectors()[2,:]))
+                                                               arrLength, arrWidth,self.GetCellVectors()[2,:]))
+            arrPreviousWidth = arrWidth                                                               
         setIndices = set(lstIndices)
         if blnRemoveTripleLines:
             lstTJs = self.GetUniqueGrainBoundaries(strGBID).GetID()
@@ -348,15 +353,10 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstR,lstV,lstI = self.FindThreeGrainStrips(strTripleLineID,fltWidth,fltIncrement, 'mean')
         intStart = len(lstV) - np.argmax(lstV[-1:0:-1]) #find the max value position counting backwards as the first max is used
         fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
-        #fltClosest = self.FindClosestTripleLine(strTripleLineID)
-        #lstInnerI = self.FindCylindricalAtoms(self.GetLatticeAtoms()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltClosest/2,self.CellHeight)
-        #lstOuterI = self.FindCylindricalAtoms(self.GetLatticeAtoms()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltClosest,self.CellHeight)
-        #lstLatticeI = list(set(lstOuterI).difference(lstInnerI))
-        fltMeanLatticeValue = np.mean(self.GetNonLatticeAtoms()[:,self._intPE])
         if len(lstR[intStart:]) > 2 and len(lstV[intStart:]) >2:
             popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
            # while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.001 and intStart < len(lstR)-3): #check to see if the fit is good if not move along one increment
-            while ((-popt[0]/popt[1] > fltMeanLatticeValue) and (intStart < len(lstR)-3)):
+            while ((popt[2] > fltMeanLatticeValue) and (intStart < len(lstR)-3)):
                 intStart += 1
                 popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
         if intStart >= len(lstR):

@@ -232,11 +232,6 @@ def ParallelopipedVolume(arrPoints: np.array, arrStartPoint: np.array, arrAlong:
         lstIndices = np.where((np.dot(arrPointsNew, NormaliseVector(arrUp)) <= fltHeight) &  (np.abs(np.dot(arrPointsNew, NormaliseVector(arrAcross))) <= fltWidth/2) & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) <= fltLength)
         & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) >= 0) & (np.dot(arrPointsNew, NormaliseVector(arrUp)) >= 0))[0]
         return list(lstIndices)
-# def AngleGenerator(intCounter: int, fltIncrement: float, fltLimit: float, blnAllowDuplices = True): #assumes job array entry which is 1 based so use intCounter-1. Returns angles in pairs excluding zero angles and pairs of equal angle
-#         fltAngle1, fltAngle2 = np.divmod((intCounter-1)*fltIncrement, fltLimit-2*fltIncrement)
-#         fltAngle1 = (fltAngle1+1)*fltIncrement
-#         fltAngle2 = np.mod(fltAngle1+fltAngle2, fltLimit-fltIncrement)
-#         return (fltAngle1, fltAngle2+fltIncrement)
 def AngleGenerator(intJobArray: int, fltIncrement: float, fltSymmetry: float): #updated to keep the angles in
     intN = int(fltSymmetry/fltIncrement -1) #ascending numerical order. intJobArray starts at 1 but Python is zero based 
     lstOfValues = []
