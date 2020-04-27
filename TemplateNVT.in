@@ -9,7 +9,7 @@ read_data new.data
 log logfile
 
 pair_style eam/alloy
-pair_coeff * * Al03.eam.alloy Al 
+pair_coeff * * ../Al03.eam.alloy Al 
 
 neighbor	0.3 bin
 neigh_modify	delay 10
@@ -23,9 +23,9 @@ dump 1 all custom 100 dump.eam id x y z vx vy vz c_pe1
 
 minimize 1.0e-25 1.0e-25 1000 1000
 
-velocity all create 350 12345
+velocity all create 300 12345
 
-fix 1 all nvt temp 350 350 $(100.0*dt)
+fix 1 all nvt temp 300 300 $(100.0*dt)
 
 thermo 50
 
