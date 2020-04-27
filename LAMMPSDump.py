@@ -438,7 +438,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         for strID in lstSortedUniqueIDs:
             arrUniqueTripleLines[int(strID[3:])] = self.GetUniqueTripleLines(strID).GetCentre()
         self.__PeriodicTripleLineDistanceMatrix = self.MakePeriodicDistanceMatrix(arrUniqueTripleLines, arrUniqueTripleLines)
-    def MakeGrainBoundaries(self, blnUnique = True):
+    def MakeGrainBoundaries(self, fltSmoothness = 0.5, blnUnique = True):
         setTJIDs = set(self.GetTripleLineIDs())
         counter = 0
         while len(setTJIDs) > 0:
@@ -456,14 +456,14 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                     lstGBID.reverse()
                     objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints, self.CellHeight/2)
                 else:
-                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2, 0.4)
+                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2, fltSmoothness)
                 strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
                 self.__GrainBoundaries[strGBID] = objGrainBoundary
                 self.__TripleLines[strCurrentTJ].SetAdjacentGrainBoundaries(strGBID)
                 self.__TripleLines[j].SetAdjacentGrainBoundaries(strGBID)
                 counter += 1
-        self.MakeUniqueGrainBoundaries()
-    def MakeUniqueGrainBoundaries(self):
+        self.MakeUniqueGrainBoundaries(fltSmoothness = 0.5)
+    def MakeUniqueGrainBoundaries(self, fltSmoothness):
         lstUTJIDs = self.GetUniqueTripleLineIDs()
         counter = 0
         while counter < len(lstUTJIDs):
@@ -472,16 +472,16 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             for j in lstAdjacentTripleLines:
                 arrMovedTripleLine = self.PeriodicShiftCloser(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),self.GetUniqueTripleLines(j).GetCentre())
                 arrLength = arrMovedTripleLine - self.GetUniqueTripleLines(strCurrentTJ).GetCentre()
-                arrWidth = 25*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
+                arrWidth = 5*self.__LatticeParameter*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
                 arrPoints = self.FindValuesInBox(self.GetNonLatticeAtoms()[:,0:4], 
                 self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrLength,arrWidth,self.GetCellVectors()[:,2],[1,2,3])
                 arrPoints = self.PeriodicShiftAllCloser(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), arrPoints)
                 lstGBID = [strCurrentTJ ,j]
                 if int(strCurrentTJ[3:]) > int(j[3:]): #this overwrites the same grainboundary and sorts ID with lowest UTJ number first
                     lstGBID.reverse()
-                    objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints,self.CellHeight/2, 0.4)
+                    objGrainBoundary = gl.GrainBoundaryCurve(arrMovedTripleLine,self.GetUniqueTripleLines(strCurrentTJ).GetCentre(), lstGBID, arrPoints,self.CellHeight/2, fltSmoothness)
                 else:
-                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2, 0.4)
+                    objGrainBoundary = gl.GrainBoundaryCurve(self.GetUniqueTripleLines(strCurrentTJ).GetCentre(),arrMovedTripleLine, lstGBID, arrPoints,self.CellHeight/2, fltSmoothness)
                 strGBID = str(lstGBID[0]) + ',' + str(lstGBID[1])
                 self.__UniqueGrainBoundaries[strGBID] = objGrainBoundary
                 self.__UniqueTripleLines[strCurrentTJ].SetUniqueAdjacentGrainBoundaries(strGBID)
