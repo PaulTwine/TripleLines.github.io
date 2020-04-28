@@ -388,7 +388,8 @@ class GrainBoundaryCurve(object):
         arrWeights = np.ones(len(arrProjection))
         arrWeights[0] = 100 #fixes the two boundary conditions so the curve goes through both triple points
         arrWeights[-1] = 100
-        self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=fltSmoothness)
+        #self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=fltSmoothness)
+        self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights)
     def __ProjectPoint(self, in2DPoint)->np.array: #assumes position vector is measured from arrTripleLineStart
         return np.array([np.dot(in2DPoint,self.__AlongUnitVector), np.cross(self.__AlongUnitVector,in2DPoint)])
     def GetPoints(self, fltSeparation: float, bln3D = False)->np.array:
@@ -407,8 +408,8 @@ class GrainBoundaryCurve(object):
     def GetVectorDirection(self,strTripleLineID:str, fltSeparation, bln3D = False)->np.array:      
         if self.__GBID.index(strTripleLineID) == 0: #then the triple line is at the start
             return self.GetPoints(fltSeparation,bln3D)[1] -self.GetPoints(fltSeparation,bln3D)[0] 
-        elif self.__GBID.index(strTripleLineID) == 1: #then the triple line is at the end
-            return self.GetPoints(fltSeparation,bln3D)[-2] -self.GetPoints(fltSeparation,bln3D)[-1] 
+        elif self.__GBID.index(strTripleLineID) == 1: #then the triple line is at the end 
+            return self.GetPoints(fltSeparation,bln3D)[-2] -self.GetPoints(fltSeparation,bln3D)[-1]
         else:
             raise("error invalid triple line ID")
 
