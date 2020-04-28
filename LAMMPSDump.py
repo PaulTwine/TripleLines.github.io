@@ -347,7 +347,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 fltLength -= self.GetUniqueTripleLines(j).GetRadius()
             setIndices = setIndices.difference(lstRemove)
         lstIndices = list(setIndices)
-        return lstIndices
+        return lstIndices, fltLength
     def FindTripleLineEnergy(self, strTripleLineID: str, fltIncrement: float, fltWidth: float):
         lstR = []
         lstV = []
