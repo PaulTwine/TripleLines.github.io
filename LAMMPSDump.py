@@ -355,12 +355,12 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         fltEnergy = 0
         lstR,lstV,lstI = self.FindThreeGrainStrips(strTripleLineID,fltWidth,fltIncrement, 'mean')
         intStart = len(lstV) - np.argmax(lstV[-1:0:-1]) #find the max value position counting backwards as the first max is used
-        #fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
-        fltMeanLatticeValue = -3.3600000286 
+        fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
+        #fltMeanLatticeValue = -3.3600000286 
         if len(lstR[intStart:]) > 2 and len(lstV[intStart:]) >2:
             popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
            # while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.001 and intStart < len(lstR)-3): #check to see if the fit is good if not move along one increment
-            while ((np.abs((popt[2] - fltMeanLatticeValue)/fltMeanLatticeValue)< 10**(-5)) and (intStart < len(lstR)-3)):
+            while ((np.abs((popt[2] - fltMeanLatticeValue)/fltMeanLatticeValue)< 10**(-3)) and (intStart < len(lstR)-3)):
                 intStart += 1
                 popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
         if intStart >= len(lstR):

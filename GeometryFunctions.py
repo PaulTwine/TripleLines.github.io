@@ -238,7 +238,7 @@ def AngleGenerator(intJobArray: int, fltIncrement: float, fltSymmetry: float): #
     arrOfValues = np.zeros([intN*(intN-1),2])
     for i in range(intN):
         lstOfValues.append(fltIncrement*(i+1))
-    counter = 0
+    counter = 0 
     for j in lstOfValues:
         for k in lstOfValues:
             if j!=k:
