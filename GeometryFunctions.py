@@ -259,3 +259,16 @@ def FindNthLargestPosition(inArray: np.array, intN: int)->list:
         fltValue = np.sort(inArray)[len(inArray)-intN-1]
         lstPosition = np.where(inArray == fltValue)[0]
         return list(lstPosition)
+def FindRotationVectorAndAngle(arrStartVector: np.array, arrEndVector: np.array):
+        arrUnitStart  = NormaliseVector(arrStartVector)
+        arrUnitEnd  = NormaliseVector(arrEndVector)
+        fltDot = np.dot(arrUnitStart,arrUnitEnd)
+        if np.abs(fltDot) != 1:
+                arrAxis = NormaliseVector(np.cross(arrUnitStart, arrUnitEnd))
+                fltAngle = np.arccos(fltDot)
+                return fltAngle, arrAxis
+        else:
+                raise("Two vectors are paralell")
+
+
+        
