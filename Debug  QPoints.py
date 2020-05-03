@@ -25,12 +25,12 @@ from IPython.core.debugger import set_trace
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 #strDumpFile = '../../PythonLAMMPS/VolumeTest/dump.eamPM'
-strDumpFile = '/home/paul/csf3_scratch/TripleLines/data7/dump.eam7PM'
-objData = LD.LAMMPSData(strDumpFile,1)
+strDumpFile = '/home/paul/csf3_scratch/TripleLines/data19/dump.eam19PM'
+objData = LD.LAMMPSData(strDumpFile,1, 4.05)
 objProcess = objData.GetTimeStepByIndex(-1)
 objProcess.CategoriseAtoms()         
 #objQPoints = LD.Quantised2DPoints(objProcess.GetOtherAtoms()[:,1:3], a1, objProcess.GetCellVectors()[0:2,0:2],11) 
-objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],10,a1, 3, blnDebug = True)
+objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],10,a1, 1,5, blnDebug = True)
 fig,ax = plt.subplots(1,4)
 ax[0].imshow(objQPoints.GetArrayGrid())
 
@@ -47,7 +47,7 @@ ax[3].imshow(objQPoints.GetExtendedSkeletonPoints())
 #print(objQPoints.ClearWrapperValues())
 #print(objQPoints.GetGrainBoundaries())
 print(objQPoints.MakeAdjacencyMatrix())
-print(objQPoints.GetAdjacentTriplePoints(5))
+#print(objQPoints.GetAdjacentTriplePoints(5))
 
 
 

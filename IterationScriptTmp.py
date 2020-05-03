@@ -31,6 +31,7 @@ MySimulationCell.AddGrain(objHex2)
 MySimulationCell.AddGrain(objHex3)
 MySimulationCell.WrapAllPointsIntoSimulationCell()
 MySimulationCell.RemovePlaneOfAtoms(np.array([[0,0,1,z[2]]]),0.1)
+MySimulationCell.SetFileHeader('Angle1 = ' + str(fltAngle1) + ' Angle2 = ' + str(fltAngle2) + 'Axis = [100]')
 MySimulationCell.WriteLAMMPSDataFile(strDirectory + '/' + strDataFile)
 
 # fIn = open(strDirectory + '/' + 'TemplateNVT.in', 'rt')
