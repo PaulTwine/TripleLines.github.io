@@ -114,7 +114,7 @@ a review of theory and applications" This includes a discussion of how accuratel
 
 There author could find little work that connects the theory of line dislocations with the triple line junction. Yet atomistic simulation of a variety of grain configurations shows that there is a long range effect of a triple line which can be modelled by adapting the mathematical approach used to describe the triple line.  
 
-The paper is structured as follows:
+The paper is structured as follows: the molecular dynamics simulation is described in section . A description of the image analysis techniques for triple line and grain boundary detection are then described in the section . The analysis methods and interpretation of the data is then discussed in section. Finally a  discussion of future work is present in section .
 
  
 
@@ -122,10 +122,14 @@ The paper is structured as follows:
 \chapter{Molecular Dynamics}
 The triple junction can be investigated using molecular dynamics simulation in the LAMMPS package. The periodic hexagonal configuration is constructed for a variety of misorientation angles which affect the excess interfacial energy at each grain boundary. The potential energy of grain boundaries and triple lines can also be estimated using an emperical potential by associating regions inside the simulation cell with the triple lines and grain boundaries.
 
-The simulations cell is periodic and a plan view of the repeating hexagonal grid is shown in Figure $\ref{fig:PerCell}$. The black rectangle is the boundary of the simulation cell. 
+The simulations cell is periodic and a plan view of the repeating hexagonal grid is shown in Figure $\ref{fig:PerCell}$. The black rectangle is the boundary of the simulation cell. The atoms are colour according to the Polyhedral Template Matching algorithm implemented in Ovito. Atoms shown in green are identified as having an FCC structure based upon a root mean square deviation (RMSD) from an ideal FCC template. The identification is based upon and specified tolerance value for the RMSD value. 
+
+All the simulations in this paper have used an RMSD value of $0.05$ which is lower than widely used value of $0.1$. This will tend to categorise more atoms as not belonging to a standard crystallographic strucure and hence there will be a relatively large number of white atoms. Atoms that are matched as an FCC structure will be referred to as polyhedral template matched atoms and abbreviated as PTM atoms. Any atom that isn't identified as an FCC atom will be a non-PTM atom. The non-PTM atoms include any atoms that have been identified as BCC or HCP by the polyhedral template matching algorithm 
+ 
 \begin{figure}[H] \label{fig:PerCell}
 	\includegraphics[scale=0.75]{GrainConfigurationPeriodic.png} 
 \end{figure}
+
 All the grain boundaries are tilts boundaries as the rotation axis is parallel to the simulation cell $\mathbf{k}$ vector which points vertically upwards and hence perpendicular to the normal vector of the vertical planar grain boundaries. The simulation cell consists of three hexgonal grains in a periodic configuration as shown below.
 
 Although there are only three grains this produces six periodically distinct triple lines and nine periodically distinct grain boundaries. The grain boundary plane as well as the misorientation between the adjacent grains both contribute to the excess interfacial energy of the grain boundary and so in general each grain boundary will have a different excess energy.

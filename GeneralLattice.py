@@ -381,9 +381,10 @@ class GrainBoundaryCurve(object):
             arrProjection[intPosition] = self.__ProjectPoint(arrVector)
         arrProjection = arrProjection[np.where((arrProjection[:,0] >0) 
                               & (arrProjection[:,0] < self.__AlongAxisLength))]
-        arrProjection = arrProjection[np.unique(arrProjection[:,0], return_index=True)[1]]
+        #arrProjection = arrProjection[np.unique(arrProjection[:,0], return_index=True)[1]]
         arrProjection = np.append(np.array([[0,0]]), arrProjection, axis=0)
         arrProjection = np.append(arrProjection,np.array([self.__ProjectPoint(self.__AlongAxis)]), axis=0)
+        arrProjection = arrProjection[np.unique(arrProjection[:,0], return_index=True)[1]]
         arrProjection = arrProjection/self.__AlongAxisLength
         arrWeights = np.ones(len(arrProjection))
         arrWeights[0] = 100 #fixes the two boundary conditions so the curve goes through both triple points
