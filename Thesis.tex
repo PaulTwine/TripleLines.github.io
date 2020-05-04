@@ -41,15 +41,15 @@ To identify the excess energy associated with a triple line is more complicated 
 Figure \ref{fig:1}
  shows the analogous situation to the excess energy grain boundary derivation using two different configurations. This is a plan view of initial configuration of three grains separated by three grain boundaries. The grains are labelled $1, 2$ and $3$ and the grain boundaries are coloured red, green and blue. This is a periodic cell which is repeated in the vertical and horizonal directions. Each grain is also extruded out of the page and so the system is pseudo two dimensional.
  
-In the periodic cell on the left there already exists one periodically unique triple line which is formed at the four corners of the rectangle. The grain boundaries shown in blue and green do not intersect near the middle of the cell. 
+In the periodic cell on the left there already exists one periodically unique triple line which is formed at the four corners of the rectangle. The grain boundaries shown in blue and green do not intersect near the middle of the cell. The initial configuration is then a set of three grains and three grain boundaries.
 
-The periodic cell shown on the right is a modification of the cell on the left and contains an indentical number of atoms. The only change is that grain boundary in blue has move upwards so that the green and blue boundaries intersect. This movement does not affect  normal of the blue grain boundary or the orientations of grains $B$ and $C$ and so it is assumed that the interfacial energy of the blue grain boundary is also unchanged.  
+The periodic cell shown on the right is a modification of the cell on the left and contains an indentical number of atoms. The only change is that grain boundary in blue has move upwards so that the green and blue boundaries intersect. This now a system of three grains and four grain boundaries as the blue grain boundary has now been bisected. The junction in the middle is now a quad line.
+
+The movement of the blue grain boundary does not affect its normal  or the orientations of grains $B$ and $C$ and so it is reasonable to expect that the interfacial energy of the blue grain boundary does not change significantly. There is also an implicit assumption that the shape of the grain boundaries do not distort as a result of forming the quad line. A lower bound for the formation energy of a quad line can now be estimated by considering the blue, red, green and yellow regions of defective atoms.
 
 The intersecting region of the blue and green grain boundaries is shown in yellow. The total number of atoms is fixed and this overlapping region reduces the number of defective of atoms in the grain boundaries. Therefore it also increases the number of lattice atoms in the bulk. Provided that the energy increase in the yellow region is less than the enery reduction due to the atoms migrating from the grain boundary to the lattice the triple line will have a negative formation energy. 
  
-The shaded region shows where the grain boundaries overlap forming two triple lines. However this region means the total number of defect atoms in the grain boundaries and triple lines is less than the number of defect atoms in the original diagram. Hence the energy of the system has been reduced. Therefore there is negative virtual work done on the system and so the formation energy of the triple line is negative. 
-
-The energy of formation can be estimated by comparing the two periodic cells. Firstly using a mass balance gives the following
+The lower bound for energy of formation of the quad line can be estimated by comparing the two periodic cells. Firstly using a mass balance gives the following
 equation
 
 \[ n_1 + n_2 + n_3 + n_B + n_G + n_R = n_1^{\prime} + n_2^{\prime} + n_3^{\prime} + n_B^{\prime} + n_G^{\prime} + n_R^{\prime} +
@@ -61,10 +61,10 @@ The equation can be simplified by assuming that $n_G^{\prime} = n_G-n_Y^{\prime}
 
 \[ n_1 + n_2 + n_3   = n_1^{\prime} + n_2^{\prime} + n_3^{\prime}- n_Y^{\prime} \]
 
-A key result here is that the the final number of lattice atoms is larger by an amount $n_Y^{\prime}$ than the inital number of lattice atoms. The difference in energy between the two periodic cells gives an estimate of the formation energy $E_f$ of the quad line.
+A key result here is that the the final number of lattice atoms is larger by an amount $n_Y^{\prime}$ than the inital number of lattice atoms. The difference in energy between the two periodic cells gives an lower bound estimate of the formation energy $E_f$ of the quad line.
 
 \begin{align*}
- E_f &= U_L(n_1+n_2+n_3+n_Y^{\prime}) + U_G(n_G - n_Y^{\prime})
+ E_{fl} &= U_L(n_1+n_2+n_3+n_Y^{\prime}) + U_G(n_G - n_Y^{\prime})
 + U_B(n_B - n_Y^{\prime}) \\ 
 &+ U_R n_R + U_Q n_Y^{\prime}
 - U_L(n_1+n_2+n_3) - U_G n_G - U_B n_B - U_R n_R  
@@ -76,7 +76,14 @@ where $U_L, U_G$, $U_B$ and $U_Q$ are the mean potential energies per atom in th
 and quad line respectively. Note that the final factorisation shows that provided that $U_L < U_G$ and $U_Q > U_B$ the formation energy will be negative.
 
 Defining $U_M = (U_B + U_G)/2$ as the mean grain boundary energy per atom averaged over the blue and green grain boundaries then
-\[E_f =  n_Y^{\prime}(U_L + U_Q - 2U_M)\]
+\[E_{fl} =  n_Y^{\prime}(U_L + U_Q - 2U_M)\]
+
+An upper bound for the energy of formation of the quad line can also be estimated by considering a slight modification to the above argument. If it is assumed that the total number of defective atoms remains constant and hence so does the number of lattice atoms then the energy of formation of the quad line can
+be written as
+
+\[E_{fu} =  n_Y^{\prime}(U_Q - U_M) = E_{fl} + n_Y^{\prime}(U_M - U_L) \]
+
+
  
 Triple lines have been investigated as purely mathematical objects and a good summary of the key points can be found in \cite{Taylor1999}. The discussion includes scenarios where the triple line can have positive and negative formation energies. A key feature here is whether a triple line is considered to be a purely geometric line or whether it has a non-zero volume and consists of atoms. Taylor discusses different scenarios and specifically addresses potential issues with negative triple lines. Taylor argues that extra cylindrical sections could be added to a planar grain boundary so that the axis of symmetry is perpendicular to the grain boundary normal. In this way extra triple lines could be added and if they had a negative excess energy then the energy of the system could be made increasingly more negative. However such a process necessarily also required extra grain boundary to be created which has a positive excess energy and so this process does not seem physically plausible when viewed from an atomistic perspective.
 
@@ -115,6 +122,10 @@ The paper is structured as follows:
 \chapter{Molecular Dynamics}
 The triple junction can be investigated using molecular dynamics simulation in the LAMMPS package. The periodic hexagonal configuration is constructed for a variety of misorientation angles which affect the excess interfacial energy at each grain boundary. The potential energy of grain boundaries and triple lines can also be estimated using an emperical potential by associating regions inside the simulation cell with the triple lines and grain boundaries.
 
+The simulations cell is periodic and a plan view of the repeating hexagonal grid is shown in Figure $\ref{fig:PerCell}$. The black rectangle is the boundary of the simulation cell. 
+\begin{figure}[H] \label{fig:PerCell}
+	\includegraphics[scale=0.75]{GrainConfigurationPeriodic.png} 
+\end{figure}
 All the grain boundaries are tilts boundaries as the rotation axis is parallel to the simulation cell $\mathbf{k}$ vector which points vertically upwards and hence perpendicular to the normal vector of the vertical planar grain boundaries. The simulation cell consists of three hexgonal grains in a periodic configuration as shown below.
 
 Although there are only three grains this produces six periodically distinct triple lines and nine periodically distinct grain boundaries. The grain boundary plane as well as the misorientation between the adjacent grains both contribute to the excess interfacial energy of the grain boundary and so in general each grain boundary will have a different excess energy.
@@ -123,24 +134,37 @@ The simulation in LAMMPS begins with a conjugate gradient energy minimisation to
 
 \includegraphics[scale=1]{CellWithMelting.png} 
 
-It is also apparent that even with a very low choice of RMSD as $0.05$ there non-PTM atoms do not continuously connect the triple lines. 
+It is also apparent that even with a very low choice of RMSD as $0.05$ the non-PTM atoms do not from continuously connected grain boundaries between the triple lines. 
 
 
 \subsection{Grain Boundary and Triple Line Descriptors}
 
 The constituent parts of a simulation cell comprise of the grains, grain boundaries and triple lines. The use of an emperical potential allows for different regions of space to be assigned a proportion of the supercell's potential energy. In order to do this an algorithm is required to identify regions that correspond to grain boundaries, triple lines and grain atoms.
 
-As an initial first step the polyhedral template matching alogrithm (PTM) is used to make a binary choice as to whether an atom is a PTM or non-PTM atom. The atoms are matched to an FCC structure with a lattice parameter of $a=4.05$. If an atom is indentified was belonging to a different crystallographic structure . The majority of the PTM atoms will reside in the bulk and similarly the majority of non-PTM atoms will be considered grain boundary or triple line atoms. The 
+As an initial first step the polyhedral template matching alogrithm (PTM) is used to make a binary choice as to whether an atom is a PTM or non-PTM atom. The atoms are matched to an FCC structure with a lattice parameter of $a=4.05$. If an atom is indentified as belonging to a different crystallographic structure then this is also designated as a non-PTM atom. The majority of the PTM atoms will reside in the bulk and similarly the majority of non-PTM atoms will be considered grain boundary or triple line atoms. 
 
-It is important to emphasise that PTM atoms \emph{do not} define whether an atom is part of a grain or in the grain boundary. In fact it is desirable to define grain boundaries with different widths as discussed in section LABEL here. The PTM atoms are used as a starting point for defining triple line positions and grain boundaries.
+It is important to emphasise that PTM atoms \emph{do not} define whether an atom is part of a grain or in the grain boundary. In fact it is desirable to define grain boundaries with different widths as discussed in section LABEL here. The PTM atoms are only used as a starting point for defining triple line positions and grain boundaries.
 
-The polyhedral template matching algorithm categorises atoms based upon the root mean square deviations of atomic positions from a set of perfect lattice templates. The atom is matched to one of the possible templates or labelled as ``other''. For the purpose of this paper  
+The process of triple line detection uses an image analysis technique based upon the positions of the non-PTM atoms. The process begins by projecting all the non-PTM atoms onto the $xy$ plane of the simulation cell. The $xy$ plane is then partioned into a grid consisting of parallelograms. The side lengths of each parallelograms are chosen to be equal to the lattice parameter. Each paralleogram is then shaded if there are more than a specified number of non-PTM atoms whose projected co-ordinates lie inside the parallelogram. This minimum number is parameter that can be chosen and depends upon the height of the simulation cell.
 
-The process of triple line detection uses an image analysis technique based upon non-PTM atoms. The process begins by projecting all the non-PTM atoms onto the $xy$ plane of the simulation cell. The $xy$ plane is then partioned into a grid consisting of parallelograms. The side lengths of each parallelograms are chosen to be equal to the lattice parameter. Each paralleogram is then shaded if there are more than a specified number of non-PTM atoms whose projected co-ordinates lie inside the parallelogram. This minimum number is parameter that can be chosen and depends upon the height of the simulation cell.
+The shading of the parallelograms is to give an indication of where the grain boundaries lies and their intersections will also give the approximate position of the triple lines. In general the base of the simulation cell will be a parallelogram however it is easier to deal with the periodicity of the simulation cell by transforming the points into a rectangular parameter space. 
 
-The shading of the parallelograms is to give an indication of where the grain boundaries lies and their intersections will also give the approximate position of the triple lines.
+In order to achieve a continuous shape several image processing techniques are used. Firstly the small holes within the image are filled with a default setting of an area of less than or equal to four pixels. Then the image is also dilated so that each yellow point also has its neighbouring points with in a fixed distance coloured yellow. This has the effect of filling in and broading the pixelated represention of the grain boundaries and is shown in the first diagram on the left of Figure $\ref{fig:ImSt}$. 
 
- simulation cell height of approximately $80 \AA$ this parameter was chosen to be 4. If the parameter is too low then a few non-PTM atoms in the bulk can cause parallelograms to be shaded   
+The value chosen for the dilation is a compromise between ensuring their are now gaps in the grain boundaries and trying to retain as much of the detail as possbible in the grain boundary shapes and positions. Small objects with an area of 4 pixels or less are also removed. This is to remove small groups of defective atoms that may appear in the bulk but are not part of a grain boundary or triple line. At this stage the edges of the yellow shaded regions are not generally smooth.
+
+ 
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.4]{ImageSteps.png}   
+\end{figure}
+\label{fig:ImSt}
+
+The periodicity in the plane of the base of the simulation cell is included by extending the shape so that each triple line that lies near the boundary of the simulation cell can also be detected. The yellow region has also been smoothed using a Gaussian filter. The results are shown in the middel diagram of Figure $\ref{fig:ImSt}$. The scale of the vertical and horizontal axes have changed and . 
+
+Finally the image is then reduced to a skeleton of points. The skeleton preserves the same connectivity of the original image but reduces the image to a series of lines each with a width of one pixel. The skeleton image is then used to detect triple lines and also form an adjacency matrix for the triple lines. The third image on the right of Figure $\ref{fig:ImSt}$ shows the skeleton image and the triple lines are now yellow dots. The grain boundaries and grain boundary fragments are now approximated by the light blue lines.
+
+The diagram on the right Figure $\ref{fig:ImSt}$ also includes green dots  where a grain boundary appears to terminate in the bulk. These points are \emph{not} triple lines and a blue line connecting a yellow triple line to a green dot is \emph{not} considered a grain boundary. In fact these are periodic repeat of part of an grain boundary that has already been included inside the periodic cell and can be discarded from the remaining analysis.
 
 \begin{itemize}
 
