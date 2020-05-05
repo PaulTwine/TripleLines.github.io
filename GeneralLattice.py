@@ -467,7 +467,7 @@ class TripleLine(object):
             if isinstance(inList, str):
                 inList = [inList]
             self.__AdjacentTripleLines = inList
-        self.__AdjacentTripleLines = list(np.unique(self.__AdjacentTripleLines))
+        self.__AdjacentTripleLines = sorted(list(np.unique(self.__AdjacentTripleLines)),key = lambda x: int(x[2:]))
     def GetAdjacentTripleLines(self):
         return self.__AdjacentTripleLines
     def SetEquivalentTripleLines(self, inList, blnAppend = True):
@@ -477,7 +477,7 @@ class TripleLine(object):
             if isinstance(inList, str):
                 inList = [inList]
             self.__EquivalentTripleLines = inList
-        self.__EquivalentTripleLines = list(np.unique(self.__EquivalentTripleLines))
+        self.__EquivalentTripleLines = sorted(list(np.unique(self.__EquivalentTripleLines)),key = lambda x: int(x[2:]))
     def GetEquivalentTripleLines(self):
         return self.__EquivalentTripleLines
 
@@ -496,7 +496,7 @@ class UniqueTripleLine(TripleLine):
             if isinstance(inList, str):
                 inList = [inList]
             self.__UniqueAdjacentTripleLines = inList
-        self.__UniqueAdjacentTripleLines = list(np.unique(self.__UniqueAdjacentTripleLines))
+        self.__UniqueAdjacentTripleLines = sorted(list(np.unique(self.__UniqueAdjacentTripleLines)),key = lambda x: int(x[3:]))
     def GetUniqueAdjacentTripleLines(self):
         return self.__UniqueAdjacentTripleLines
     def SetUniqueAdjacentGrainBoundaries(self, inList, blnAppend = True):

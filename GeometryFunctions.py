@@ -273,6 +273,7 @@ def FindGeometricMediod(inPoints: np.array,bln2D = False)-> np.array:
         if bln2D:
                 inPoints = inPoints[:,0:2]
         arrDistanceMatrix = sc.spatial.distance_matrix(inPoints, inPoints)
+        arrDistanceMatrix  = np.vectorize(lambda x: x**2)(arrDistanceMatrix)
         arrRowSums = np.sum(arrDistanceMatrix, axis = 0)
         intPosition = np.argmin(arrRowSums)
         return inPoints[intPosition]
