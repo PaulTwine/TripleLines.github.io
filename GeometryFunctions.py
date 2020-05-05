@@ -269,6 +269,14 @@ def FindRotationVectorAndAngle(arrStartVector: np.array, arrEndVector: np.array)
                 return fltAngle, arrAxis
         else:
                 raise("Two vectors are paralell")
+def FindGeometricMediod(inPoints: np.array,bln2D = False)-> np.array:
+        if bln2D:
+                inPoints = inPoints[:,0:2]
+        arrDistanceMatrix = sc.spatial.distance_matrix(inPoints, inPoints)
+        arrRowSums = np.sum(arrDistanceMatrix, axis = 0)
+        intPosition = np.argmin(arrRowSums)
+        return inPoints[intPosition]
+
 
 
         

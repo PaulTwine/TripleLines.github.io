@@ -246,6 +246,23 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         #arrVectorPeriodic = self.PeriodicEquivalents(np.abs(inVector1-inVector2))
         inVector2 = self.PeriodicShiftCloser(inVector1, inVector2)
         return np.linalg.norm(inVector2-inVector1, axis=0)
+    def FindNonGrainMediod(self, inPoint: np.array, fltRadius: float, bln2D= True):
+        arrReturn = np.ones(3)*self.CellHeight/2
+        lstPointsIndices = []
+        lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
+        if len(lstPointsIndices) > 0:
+            lstPointsIndices = list(np.unique(lstPointsIndices))
+        #arrPoints = self.GetRows(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
+            arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
+        #for j in range(len(arrPoints)):
+        #    arrPoints[j] = self.PeriodicShiftCloser(inPoint, arrPoints[j])
+            arrPoints = self.PeriodicShiftAllCloser(inPoint, arrPoints)
+            arrPoint = gf.FindGeometricMediod(arrPoints, bln2D)
+            arrReturn[0:2] = arrPoint
+            return arrReturn  
+        else:
+            return None
+
     def FindNonGrainMean(self, inPoint: np.array, fltRadius: float): 
         lstPointsIndices = []
         lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
@@ -399,7 +416,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         arrTripleLines = objQPoints.GetTriplePoints()   
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         for i  in range(len(arrTripleLines)):
-            arrPoint = self.FindNonGrainMean(arrTripleLines[i], fltSearchRadius)
+            #arrPoint = self.FindNonGrainMean(arrTripleLines[i], fltSearchRadius)
+            arrPoint = self.FindNonGrainMediod(arrTripleLines[i], fltSearchRadius)
             if arrPoint is not None:
                 arrTripleLines[i] = arrPoint 
             arrTripleLines[i] = self.MoveTripleLine(arrTripleLines[i],fltSearchRadius)
@@ -514,12 +532,15 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             for j in range(intLength):
                     arrDistances[j] = np.linalg.norm(arr2DPoints[arrConvexHull[np.mod(j+1,intLength)]]-arr2DPoints[arrConvexHull[j]])
             arrVectors =np.ones([3,3])
-            for k in range(3):
-                intGreatest = gf.FindNthLargestPosition(arrDistances, k)[0]
-                arrVectors[k,0:2] = (arr2DPoints[arrConvexHull[intGreatest]]+arr2DPoints[arrConvexHull[intGreatest-1]])/2
-            arrPoint = gf.EquidistantPoint(*arrVectors)
-            arrPoint[2] = self.CellHeight/2
-            return arrPoint
+            if np.sort(arrDistances)[-2] > 2*self.__LatticeParameter:
+                for k in range(3):
+                    intGreatest = gf.FindNthLargestPosition(arrDistances, k)[0]
+                    arrVectors[k,0:2] = (arr2DPoints[arrConvexHull[intGreatest]]+arr2DPoints[arrConvexHull[intGreatest-1]])/2
+                arrPoint = gf.EquidistantPoint(*arrVectors)
+                arrPoint[2] = self.CellHeight/2
+                return arrPoint
+            else:
+                return None
       #  elif len(inPoints) > 0:
       #      return np.mean(inPoints, axis=0)
         else:
@@ -540,108 +561,25 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         arrPoint = self.FindClosestGrainPoint(arrTripleLine, fltRadius)
         arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrPoint, fltRadius,self.CellHeight,[1,2,3])
         arrMovedPoints = self.PeriodicShiftAllCloser(arrPoint, arrPoints)
-        arrPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)
-        if arrPoint is None:
-             arrPoint = arrTripleLine 
-        # if self.FindNonGrainMean(arrPoint, self.__LatticeParameter/2) is None: 
-        #     blnStop = True
-        #     arrPoint = arrTripleLine
-        # arrNextPoint = np.zeros([3])
-        # fltTolerance = 1
-        # counter = 0
-        # while (fltTolerance > 0 and counter < 10 and not(blnStop)):
-        #     arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrPoint, fltRadius,self.CellHeight,[1,2,3])
-        #     if len(arrPoints) > 0 and fltTolerance > 0:
-        #         arrMovedPoints = self.PeriodicShiftAllCloser(arrPoint, arrPoints)
-        #         arrNextPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)
-        #         if arrNextPoint is None:
-        #             arrNextPoint = arrPoint
-        #             blnStop = True        
-        #         fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-        #         arrPoint = arrNextPoint
-        #         counter += 1
-        #     else:
-        #         blnStop = True
-        # counter = 0
-        # fltTolerance = 1
-        arrNextPoint = self.FindClosestGrainPoint(arrPoint, fltRadius)
-        arrNextPoint[2] = self.CellHeight/2
-        arrPoints = self.FindValuesInCylinder(self.GetLatticeAtoms()[:,0:4],arrNextPoint, fltRadius,self.CellHeight,[1,2,3])
-        fltRadius = 2*self.__LatticeParameter
-        if len(arrPoints) > 0:
-                 arrMovedPoints = self.PeriodicShiftAllCloser(arrNextPoint, arrPoints)
-                 arrNextPoint = self.ConvexCentre(arrMovedPoints, fltRadius)
+        arrNextPoint = self.TriangulateCentre(arrMovedPoints,fltRadius)
+        if arrNextPoint is None:
+             arrNextPoint = arrPoint 
+        #arrNextPoint = self.FindClosestGrainPoint(arrPoint, fltRadius)
+        arrNextPoint = self.FindNonGrainMediod(arrPoint, fltRadius)
         if arrNextPoint is not None:
-                    arrNextPoint = self.FindClosestGrainPoint(arrPoint, fltRadius)
-                    arrNextPoint[2] = self.CellHeight/2             
-        #         
-        #     
-
-        # while (fltRadius > self.__LatticeParameter/2 and not(blnStop)):
-        #     fltRadius = fltRadius/2 
-        #     arrPoints = self.FindValuesInCylinder(self.GetLatticeAtoms()[:,0:4],arrNextPoint, fltRadius,self.CellHeight,[1,2,3])
-        #     if len(arrPoints) > 0:
-        #         arrMovedPoints = self.PeriodicShiftAllCloser(arrNextPoint, arrPoints)
-        #         arrNextPoint = self.ConvexCentre(arrMovedPoints, fltRadius)
-        #         arrNextPoint = self.FindClosestGrainPoint(arrPoint, fltRadius)
-        #         if arrNextPoint is not None:
-        #             arrNextPoint[2] = self.CellHeight/2
-        #         else:
-        #             blnStop = True
-        #     else:
-        #         blnStop = True
-        #     arrPoint = arrNextPoint
-       # if arrNextPoint is not None:
-       #     arrNextPoint = self.FindClosestGrainPoint(arrNextPoint, fltRadius)
-        
-        # while fltTolerance > 0 and counter < 10:
-        #     fltRadius = 0.5*fltRadius
-        #     arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrNextPoint, fltRadius,self.CellHeight,[1,2,3])
-        #     if len(arrPoints)> 0:
-        #         arrMovedPoints = self.PeriodicShiftAllCloser(arrNextPoint, arrPoints)
-        #         arrNextPoint = self.ConvexCentre(arrMovedPoints, fltRadius)
-        #         if arrNextPoint is not None:
-        #             arrNextPoint = self.FindClosestGrainPoint(arrNextPoint, fltRadius)  
-        #             if arrNextPoint is not None:
-        #                 fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-        #                 arrPoint = arrNextPoint
-        #             else:
-        #                 fltTolerance = 0
-        #         else:
-        #             arrNextPoint = arrPoint
-        #     else:
-        #         fltTolerance = 0
-
-        #     counter +=1
-        # #     
-        #     arrMovedPoints = self.PeriodicShiftAllCloser(arrNextPoint, arrPoints)
-        #     arrNextPoint = self.ConvexCentre(arrMovedPoints, fltRadius)
-        #     
-        # while (counter < 10 and fltRadius > self.__LatticeParameter/2):
-        #     #arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius)
-        #     arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrNextPoint, fltRadius,self.CellHeight,[1,2,3])
-        #     arrMovedPoints = self.PeriodicShiftAllCloser(arrNextPoint, arrPoints)
-        #     arrNextPoint = self.ConvexCentre(arrMovedPoints, fltRadius)
-        #     if arrNextPoint is not None:
-        #         fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-        #     else:
-        #         fltTolerance = 0
-        #     # if fltTolerance == 0:
-        #     #     fltRadius = 0.9*fltRadius
-        #     #     arrNextPoint = self.FindNonGrainMean(arrPoint, fltRadius) #finally tweak in a smaller radius     
-        #     #     if arrNextPoint is not None: 
-        #     #         fltTolerance = np.linalg.norm(arrNextPoint - arrPoint, axis = 0)
-        #     #     else:
-        #     #         fltTolerance = 0
-        #     counter += 1
-        #     fltRadius = 0.9*fltRadius 
-        #     if arrNextPoint is not None:
-        #         arrPoint = arrNextPoint
-        #     else:
-        #         arrNextPoint = arrPoint
+            arrNextPoint[2] = self.CellHeight/2
+            fltRadius = 2*self.__LatticeParameter
+            arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],arrNextPoint, fltRadius,self.CellHeight,[1,2,3])
+            if len(arrPoints) > 0:
+                arrMovedPoints = self.PeriodicShiftAllCloser(arrNextPoint, arrPoints)
+                arrNextPoint = self.ConvexCentre(arrMovedPoints, fltRadius)
+                arrNextPoint = self.FindNonGrainMediod(arrNextPoint,fltRadius)
+            # if arrNextPoint is not None:
+            #     arrNextPoint = self.FindClosestGrainPoint(arrPoint, fltRadius)
         if arrNextPoint is None:
             return arrPoint
         else:
+            arrNextPoint[2] = self.CellHeight/2
             return arrNextPoint
     def FindClosestGrainPoint(self, inPoint: np.array, fltRadius: float)->np.array:
         lstDistances = []
