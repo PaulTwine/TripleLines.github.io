@@ -7,6 +7,8 @@ Created on Fri May 31 10:38:14 2019
 import numpy as np
 import itertools as it
 import scipy as sc
+import shapely as sp
+import geopandas as gpd
 #All angles are assumed to be in radians
 def DegreesToRadians(inDegrees: float)->float:
         return inDegrees/180*np.pi
@@ -217,7 +219,7 @@ def ArcSegment(arrPoints: np.array, arrCentre: np.array, arrVector1: np.array, a
         arrUnit2 = NormaliseVector(arrVector2[0:2]) 
         lstIndices = np.where((np.dot(arrMovedPoints,arrUnit1) >= 0)  & (np.dot(arrMovedPoints,arrUnit2) >= 0)  & 
                                 (np.linalg.norm(arrMovedPoints[:,0:2],axis=1)  <= fltRadius)
-                                & (arrPoints[:,2] <= fltHeight))[0]
+                                & (np.abs(arrPoints[:,2]) <= fltHeight/2))[0]
         return list(lstIndices)
 def CylindricalVolume(arrPoints: np.array, arrCentre: np.array, fltRadius: float, fltHeight: float)->list:
         arrPointsNew = arrPoints - arrCentre
@@ -229,8 +231,8 @@ def ParallelopipedVolume(arrPoints: np.array, arrStartPoint: np.array, arrAlong:
         fltHeight = np.linalg.norm(arrUp, axis = 0)
         fltLength = np.linalg.norm(arrAlong, axis = 0)
         fltWidth = np.linalg.norm(arrAcross, axis = 0)
-        lstIndices = np.where((np.dot(arrPointsNew, NormaliseVector(arrUp)) <= fltHeight) &  (np.abs(np.dot(arrPointsNew, NormaliseVector(arrAcross))) <= fltWidth/2) & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) <= fltLength)
-        & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) >= 0) & (np.dot(arrPointsNew, NormaliseVector(arrUp)) >= 0))[0]
+        lstIndices = np.where((np.abs(np.dot(arrPointsNew, NormaliseVector(arrUp))) <= fltHeight/2) &  (np.abs(np.dot(arrPointsNew, NormaliseVector(arrAcross))) <= fltWidth/2) & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) <= fltLength)
+        & (np.dot(arrPointsNew, NormaliseVector(arrAlong)) >= 0))[0]
         return list(lstIndices)
 def AngleGenerator(intJobArray: int, fltIncrement: float, fltSymmetry: float): #updated to keep the angles in
     intN = int(fltSymmetry/fltIncrement -1) #ascending numerical order. intJobArray starts at 1 but Python is zero based 
@@ -269,14 +271,17 @@ def FindRotationVectorAndAngle(arrStartVector: np.array, arrEndVector: np.array)
                 return fltAngle, arrAxis
         else:
                 raise("Two vectors are paralell")
-def FindGeometricMediod(inPoints: np.array,bln2D = False)-> np.array:
+def FindGeometricMediod(inPoints: np.array,bln2D = False, blnSquaring = True)-> np.array:
         if bln2D:
                 inPoints = inPoints[:,0:2]
         arrDistanceMatrix = sc.spatial.distance_matrix(inPoints, inPoints)
-        arrDistanceMatrix  = np.vectorize(lambda x: x**2)(arrDistanceMatrix)
+        if blnSquaring:
+                arrDistanceMatrix  = np.vectorize(lambda x: x**2)(arrDistanceMatrix)
         arrRowSums = np.sum(arrDistanceMatrix, axis = 0)
         intPosition = np.argmin(arrRowSums)
         return inPoints[intPosition]
+
+
 
 
 
