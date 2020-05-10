@@ -575,8 +575,11 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 self.__TripleLines[j].SetAdjacentGrainBoundaries(strGBID)
                 counter += 1
         self.MakeUniqueGrainBoundaries()
-    def MakeUniqueGrainBoundaries(self):
-        lstUTJIDs = self.GetUniqueTripleLineIDs()
+    def MakeUniqueGrainBoundaries(self, lstTripleLineID = None):
+        if lstTripleLineID is None:
+            lstUTJIDs = self.GetUniqueTripleLineIDs()
+        else: 
+            lstUTJIDs = lstTripleLineID
         counter = 0
         while counter < len(lstUTJIDs):
             strCurrentTJ = lstUTJIDs[counter]
@@ -699,34 +702,6 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             elif strValue =='sum':
                 lstValues.append(np.sum(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
         return lstLength, lstValues,lstIndices
-    def FindGrainStrip(self, intTripleLine: int,intGrainIndex1:int, intGrainIndex2: int, fltWidth: float,fltIncrement:float,strValue = 'mean',strAtoms = 'All',fltLength = None):
-        lstRadii = []
-        lstValues = []
-        lstIndices = []
-        if fltLength is None:
-            fltClosest = self.FindClosestTripleLine(intTripleLine)
-        else:
-            fltClosest = fltLength
-        intMax = np.floor(fltClosest/(fltIncrement)).astype('int')
-        arrVector = self.GetBisectingVectorDirection(intTripleLine, intGrainIndex1, intGrainIndex2)
-        for j in range(1,intMax):
-            r = fltIncrement*j
-            lstRadii.append(r)
-            if strAtoms == 'All':
-                lstIndices.extend(self.FindBoxAtoms(self.GetAtomData()[:,0:4],
-                                                           self.__TripleLines[intTripleLine],r*arrVector, 
-                                                           fltWidth*np.cross(arrVector,np.array([0,0,1])),np.array([0,0,self.CellHeight])))
-            elif strAtoms == 'Lattice':
-                lstIndices.extend(self.FindBoxAtoms(self.GetLatticeAtoms()[:,0:4],
-                                                           self.__TripleLines[intTripleLine],r*arrVector, 
-                                                           fltWidth*np.cross(arrVector,np.array([0,0,1])),np.array([0,0,self.CellHeight])))
-            lstIndices = list(np.unique(lstIndices))
-            if len(lstIndices) > 0:
-                if strValue == 'mean':
-                    lstValues.append(np.mean(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
-                elif strValue =='sum':
-                    lstValues.append(np.sum(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
-        return lstRadii, lstValues,lstIndices 
     def FindClosestTripleLine(self, strTripleLineID: str)->float:
         if strTripleLineID[:1] == 'U':
             intTripleLine = int(strTripleLineID[3:])
@@ -735,13 +710,10 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         fltDistance = np.sort(self.__PeriodicTripleLineDistanceMatrix[intTripleLine])[1]
         return fltDistance
     def FindStrip(self, arrStart: np.array, arrVector: np.array,fltWidth: float, fltIncrement: float, fltLength: float):
-        lstOfVectors = [] #unit vectors that bisect the grain boundary directions
-        lstValues = []
         lstLength = []
         lstIndices  = []
         lstI = []
-        lstVolume = []
-        lstN = []
+        lstValues = []
         intMax = np.floor(fltLength/(fltIncrement)).astype('int')
         intMin = 1
         for j in range(intMin,intMax+1):
