@@ -237,15 +237,10 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def MakePeriodicDistanceMatrix(self, inVector1: np.array, inVector2: np.array)->np.array:
         arrPeriodicDistance = np.zeros([len(inVector1), len(inVector2)])
         for j in range(len(inVector1)):
-         #   for k in range(j,len(inVector2)):
             for k in range(len(inVector2)):
                 arrPeriodicDistance[j,k] = self.PeriodicMinimumDistance(inVector1[j],inVector2[k])
-        #if np.shape(arrPeriodicDistance)[0] == np.shape(arrPeriodicDistance)[1]:
-        #    return arrPeriodicDistance + arrPeriodicDistance.T - np.diag(arrPeriodicDistance.diagonal())
-        #else:
         return arrPeriodicDistance
     def PeriodicMinimumDistance(self, inVector1: np.array, inVector2: np.array)->float:
-        #arrVectorPeriodic = self.PeriodicEquivalents(np.abs(inVector1-inVector2))
         inVector2 = self.PeriodicShiftCloser(inVector1, inVector2)
         return np.linalg.norm(inVector2-inVector1, axis=0)
     def FindNonGrainMediod(self, inPoint: np.array, fltRadius: float, bln2D= True):
@@ -254,17 +249,13 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
         if len(lstPointsIndices) > 0:
             lstPointsIndices = list(np.unique(lstPointsIndices))
-        #arrPoints = self.GetRows(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
             arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
-        #for j in range(len(arrPoints)):
-        #    arrPoints[j] = self.PeriodicShiftCloser(inPoint, arrPoints[j])
             arrPoints = self.PeriodicShiftAllCloser(inPoint, arrPoints)
             arrPoint = gf.FindGeometricMediod(arrPoints, bln2D)
             arrReturn[0:2] = arrPoint
             return arrReturn  
         else:
             return None
-
     def FindNonGrainMean(self, inPoint: np.array, fltRadius: float): 
         lstPointsIndices = []
         lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
@@ -400,7 +391,10 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                             blnValueError = True
                     fltDistance = lstL[intStart]
                     arrDisplacements[k] = arrCentre + fltDistance*v 
-        arrCentre = gf.EquidistantPoint(*arrDisplacements)
+        if len(arrDisplacements) == 3:
+            arrCentre = gf.EquidistantPoint(*arrDisplacements)
+        else:
+            arrCentre = np.mean(arrDisplacements, axis = 0)
         fltRadius = np.linalg.norm(arrDisplacements[0]-arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetCentre(arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetRadius(fltRadius)
@@ -497,7 +491,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return self.__UniqueTripleLines[strID]
     def FindTripleLines(self,fltGridLength: float, fltSearchRadius: float, intMinCount: int, intDilation = 2):
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],10,fltGridLength, intMinCount, intDilation)
+        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],20,fltGridLength, intMinCount, intDilation)
         arrTripleLines = objQPoints.GetTriplePoints()   
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         for i  in range(len(arrTripleLines)):
@@ -816,7 +810,7 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__ExtendedArrayGrid[-n:, n:-n] = self.__ArrayGrid[:n,:]
         self.__ExtendedArrayGrid[:,0:n] = self.__ExtendedArrayGrid[:,-2*n:-n]
         self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
-        self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=intDilation/2)
+        self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=intDilation)
         self.__ExtendedArrayGrid = np.round(self.__ExtendedArrayGrid,0).astype('int')
         self.__ExtendedArrayGrid = (self.__ExtendedArrayGrid.astype('bool')).astype('int')
         self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
