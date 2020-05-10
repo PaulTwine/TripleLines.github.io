@@ -728,6 +728,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 lstIndices.extend(lstI)
                 lstIndices = list(np.unique(lstIndices))
                 lstValues.append(np.mean(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
+            else:
+                lstValues.append(0)
         return lstLength, lstValues, lstIndices   
     def FindThreeGrainStrips(self, strTripleLineID: int,fltWidth: float, fltIncrement: float, strValue = 'mean',fltLength = None, blnReturnNumbers = False):
         lstOfVectors = [] #unit vectors that bisect the grain boundary directions
@@ -808,18 +810,16 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__ArrayGrid = (self.__ArrayGrid >= intMinCount).astype('int')
         self.__ArrayGrid = ndimage.binary_dilation(self.__ArrayGrid, np.ones([intDilation,intDilation]))
         self.__ArrayGrid = remove_small_holes(self.__ArrayGrid, 4)
-        #self.__ArrayGrid = gaussian(self.__ArrayGrid, sigma=0.5)
         self.__ExtendedArrayGrid = np.zeros([np.shape(self.__ArrayGrid)[0]+2*n,np.shape(self.__ArrayGrid)[1]+2*n])
         self.__ExtendedArrayGrid[n:-n, n:-n] = self.__ArrayGrid
         self.__ExtendedArrayGrid[0:n, n:-n] = self.__ArrayGrid[-n:,:]
         self.__ExtendedArrayGrid[-n:, n:-n] = self.__ArrayGrid[:n,:]
         self.__ExtendedArrayGrid[:,0:n] = self.__ExtendedArrayGrid[:,-2*n:-n]
         self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
-        self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=intDilation)
+        self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=intDilation/2)
         self.__ExtendedArrayGrid = np.round(self.__ExtendedArrayGrid,0).astype('int')
         self.__ExtendedArrayGrid = (self.__ExtendedArrayGrid.astype('bool')).astype('int')
         self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
-        #self.__ExtendedSkeletonGrid = medial_axis(self.__ExtendedArrayGrid).astype('int')
         self.__GrainValue = 0
         self.__GBValue = 1 #just fixed constants used in the array 
         self.__DislocationValue = 2
