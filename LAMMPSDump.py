@@ -395,6 +395,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             arrCentre = gf.EquidistantPoint(*arrDisplacements)
         else:
             arrCentre = np.mean(arrDisplacements, axis = 0)
+            raise Exception("Error triple line " + str(strTripleLineID) + " has only " + str(len(arrDisplacements)) + " adjacent triple lines")
         fltRadius = np.linalg.norm(arrDisplacements[0]-arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetCentre(arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetRadius(fltRadius)
@@ -810,7 +811,7 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__ExtendedArrayGrid[-n:, n:-n] = self.__ArrayGrid[:n,:]
         self.__ExtendedArrayGrid[:,0:n] = self.__ExtendedArrayGrid[:,-2*n:-n]
         self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
-        self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=intDilation)
+        self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=3)
         self.__ExtendedArrayGrid = np.round(self.__ExtendedArrayGrid,0).astype('int')
         self.__ExtendedArrayGrid = (self.__ExtendedArrayGrid.astype('bool')).astype('int')
         self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
