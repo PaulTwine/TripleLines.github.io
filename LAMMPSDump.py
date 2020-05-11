@@ -632,6 +632,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         arrPoint = self.FindNonGrainMediod(arrTripleLine, fltRadius)
         if arrPoint is None:
             arrPoint = arrTripleLine
+            arrNextPoint = arrPoint
         else:
             arrNextPoint = arrPoint
             arrNextPoint[2] = self.CellHeight/2
