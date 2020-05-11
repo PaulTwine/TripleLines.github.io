@@ -262,29 +262,16 @@ This reciprocal relationship describes some useful features that can be used to 
 The intercept on the vertical axis is a free boundary condition. Although the total potential energy must shrink to zero as the volume of the cylindrical region shrinks to zero the energy per volume may approach a non-zero limit. There potential energy per atom is a discrete quantity and so the formal notion of a limit does not apply. 
 
 
-The simulation data can be analysed by selecting a thin cuboid strip of atoms beginning at the triple line. The cuboid regions extends the full height of the simulation cell and the width is set to be $a =4.05 \AA$. The cuboid extends in a direction that bisects two of the grain boundaries extending from the triple line. The objective here is to select a region of atoms whilst selecting the least amount of the neighbouring grain boundaries. 
+The simulation data can be analysed by selecting a thin cuboid strip of atoms beginning at the triple line. The cuboid regions extends the full height of the simulation cell and the width is set to be $a =4.05 \AA$. The cuboid extends in a direction that bisects the tangents vectors of two of the grain boundaries extending from the triple line. The objective here is to select a region of atoms whilst selecting the least amount of the neighbouring grain boundaries. 
 
 The critical distance from the triple line in the direction in which the cuboid is extended is defined to be the length beyond which the accumulative sum of potential energy follows a reciprocal relationship with length $l$ and asymptotically approaches the theoretical minimum lattice energy per atom of the emperical potential given by \cite{Zope2003}. In this way the behaviour of the theoretical scenario is represented well by the actual simulation data.
 
-Each triple line has three adjacent grain boundaries any so there are three possible grain strips. Each grain strip produces its own critical length and these can be used to reposition the triple line. Three points can then be defined by extending from the original triple line position in the three critical length vectors. The new triple line position is then defined to be the unique point that is equidistant from these three points. This also gives a critical radius which is the distance from the new triple line position from any of the three equidistant points.
+Each triple line has three adjacent grain boundaries any so there are three possible grain strips. Each grain strip produces its own critical length and these can be used to reposition the triple line. Three points can then be defined by extending from the original triple line position in the three critical length vectors. The new triple line position is then defined to be the unique point that is equidistant from these three points. This now gives a critical radius which is the distance from the new triple line position from any of the three equidistant points.
 
-The position, axis and radius of the triple line can now be used to calculate the potential energy associated with the triple line. The potential energy of the triple line is defined by the sum of all the individual atomistic contributions that lie inside the cylinder with the given radius and axis position.
+The position, axis and radius of the triple line can now be used to calculate the potential energy associated with the triple line. The potential energy of the triple line is defined by the sum of all the individual atomistic contributions that lie inside the cylinder with the given radius and axis position.Equation $\ref{eq:L1}$ can be approximated by a summation and also offers a possible definition for the radius of a cylindrical triple line.
 
+The critical radius is the distance from the triple line axis such that if a cuboid strip began at this distance and extended radially out from the triple line into the grain the summation of potential energy per atom would follow a reciprocal relationship.   It is therefore an emperical approximation to the theoretical triple line contribution given by $\delta(l) l U_{T/L}$. It is assumed that the cuboid region does not include any contributions from the grain boundaries adjacent to the triple line.
 
-
-Equation $\ref{eq:L1}$ can be approximated by a summation and also offers a possible definition for the radius of a cylindrical triple line.
-
- 
-
-
-The complete potential energy contained with a cylindrical volume of height $h$ and radius $r$ can then be modelled using the following equation
-
-\[ V(r) = 2 \pi h P_{L} r^2 + 3(P_G-P_L)h w r + T_0  
-\]
-
-for radius $r_c < r < r_L$ where $r_c$ is a postive critical radius.
-
-The first term represents the total potential energy present if there were no grain boundaries or triple lines but the grains were still strained. The second term is then the excess energy due to the three grain boundaries measured above the strained grains potential energy. Finally the last term is the contribution from the triple line. Here is has been assumed that the triple line has a volume given by $\pi r_c h$ and for $r > r_c$ the triple line energy is effectively constant.
 
 
 
