@@ -9,6 +9,7 @@ from skimage.filters import gaussian
 import shapely as sp
 import geopandas as gpd
 import copy
+import warnings
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter):
@@ -358,7 +359,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             setIndices = setIndices.difference(lstRemove)
         lstIndices = list(setIndices)
         return lstIndices, fltLength    
-    def FindTripleLineEnergy(self, strTripleLineID: str, fltIncrement: float, fltWidth: float,fltMinimumLatticeValue = -3.3600000286, fltTolerance = 0.005):
+    def FindTripleLineEnergy(self, strTripleLineID: str, fltIncrement: float, fltWidth: float,fltMinimumLatticeValue = -3.3600000286, fltTolerance = 0.005, fltRadius = None):
         lstL = []
         lstV = []
         lstI = []
@@ -383,20 +384,23 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                         popt = optimize.curve_fit(self.__Reciprocal, lstL[intStart:],lstV[intStart:])[0]
                     except RuntimeError:
                         blnValueError = True
+                        warnings.warn("Optimisation error with intStart = " + str(intStart))
                     while ((np.abs((popt[2] - fltMinimumLatticeValue)/fltMinimumLatticeValue) > fltTolerance) and (intStart < len(lstL)-3) and not(blnValueError)):
                         intStart += 1
                         try:
                             popt = optimize.curve_fit(self.__Reciprocal, lstL[intStart:],lstV[intStart:])[0]
                         except RuntimeError:
                             blnValueError = True
+                            warnings.warn("Optimisation error with intStart = " + str(intStart))
                     fltDistance = lstL[intStart]
                     arrDisplacements[k] = arrCentre + fltDistance*v 
         if len(arrDisplacements) == 3:
             arrCentre = gf.EquidistantPoint(*arrDisplacements)
         else:
             arrCentre = np.mean(arrDisplacements, axis = 0)
-            raise Exception("Error triple line " + str(strTripleLineID) + " has only " + str(len(arrDisplacements)) + " adjacent triple lines")
-        fltRadius = np.linalg.norm(arrDisplacements[0]-arrCentre)
+            warnings.warn("Error triple line " + str(strTripleLineID) + " has " + str(len(arrDisplacements)) + " adjacent triple lines")
+        if fltRadius is None:
+            fltRadius = np.linalg.norm(arrDisplacements[0]-arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetCentre(arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetRadius(fltRadius)
         lstTJIDs = self.FindCylindricalAtoms(self.GetAtomData()[:,0:4],arrCentre,fltRadius,self.CellHeight)
@@ -408,77 +412,6 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return fltEnergy, fltRadius, intTJAtoms
         else:
             return 0,0,0
-
-    def FindTripleLineEnergyPerVolume(self, strTripleLineID: str, fltIncrement: float, fltWidth: float,fltMinimumLatticeValue = -3.3600000286, fltTolerance = 0.01):
-        fltMinimumLatticeValue = fltMinimumLatticeValue*4/(self.__LatticeParameter**3) 
-        lstR = []
-        lstV = []
-        lstI = []
-        fltEnergy = 0
-        lstR,lstV,lstI = self.FindThreeGrainStrips(strTripleLineID,fltWidth,fltIncrement, 'vnolume')
-        intStart = 1
-        #fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE]) 
-        blnValueError = False
-        popt = np.zeros([3]) #this is set incase the next step raises an error
-        if len(lstR[intStart:]) > 2 and len(lstV[intStart:]) >2:
-            try:
-                popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
-            except RuntimeError:
-                blnValueError = True
-           # while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.001 and intStart < len(lstR)-3): #check to see if the fit is good if not move along one increment
-            while ((np.abs((popt[2] - fltMinimumLatticeValue)/fltMinimumLatticeValue) > fltTolerance) and (intStart < len(lstR)-3) and not(blnValueError)):
-                intStart += 1
-                try:
-                    popt = optimize.curve_fit(self.__Reciprocal, lstR[intStart:],lstV[intStart:])[0]
-                except RuntimeError:
-                    blnValueError = True
-        if intStart >= len(lstR):
-            return 0,0,0
-        else:
-            fltRadius = lstR[intStart]
-            lstTJIDs = self.FindCylindricalAtoms(self.GetAtomData()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltRadius,self.CellHeight)
-            arrTJValues = self.GetAtomsByID(lstTJIDs)[:, self._intPE]
-            intTJAtoms = len(lstTJIDs)
-            self.__UniqueTripleLines[strTripleLineID].SetAtomIDs(lstTJIDs)
-            self.__UniqueTripleLines[strTripleLineID].SetRadius(fltRadius)
-            if intTJAtoms > 0: 
-                fltEnergy = np.sum(arrTJValues)/(np.pi*lstR[intStart]**2*self.CellHeight)
-            return fltEnergy,fltRadius, intTJAtoms
-    def FindTripleLineEnergyPerAtom(self, strTripleLineID: str, fltIncrement: float, fltWidth: float,fltMinimumLatticeValue = -3.3600000286, fltTolerance = 0.01):
-        lstR = []
-        lstV = []
-        lstI = []
-        lstN = []
-        fltEnergy = 0
-        lstR,lstV,lstI, lstN = self.FindThreeGrainStrips(strTripleLineID,fltWidth,fltIncrement, 'mean', blnReturnNumbers=True)
-        intStart = len(lstV) - np.argmax(lstV[-1:0:-1]) #find the max value position counting backwards as the first max is used
-        #fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE]) 
-        blnValueError = False
-        popt = np.zeros([3]) #this is set incase the next step raises an error
-        if len(lstR[intStart:]) > 2 and len(lstV[intStart:]) >2:
-            try:
-                popt = optimize.curve_fit(self.__Reciprocal, lstN[intStart:],lstV[intStart:])[0]
-            except RuntimeError:
-                blnValueError = True
-           # while (np.abs((popt[0]/popt[1] +fltMeanLatticeValue)/fltMeanLatticeValue) > 0.001 and intStart < len(lstR)-3): #check to see if the fit is good if not move along one increment
-            while ((np.abs((popt[2] - fltMinimumLatticeValue)/fltMinimumLatticeValue) > fltTolerance) and (intStart < len(lstR)-3) and not(blnValueError)):
-                intStart += 1
-                try:
-                    popt = optimize.curve_fit(self.__Reciprocal, lstN[intStart:],lstV[intStart:])[0]
-                except RuntimeError:
-                    blnValueError = True
-        if intStart >= len(lstR):
-            return 0,0,0
-        else:
-            fltRadius = lstR[intStart]
-            lstTJIDs = self.FindCylindricalAtoms(self.GetAtomData()[:,0:4],self.GetUniqueTripleLines(strTripleLineID).GetCentre(),fltRadius,self.CellHeight)
-            arrTJValues = self.GetAtomsByID(lstTJIDs)[:, self._intPE]
-            intTJAtoms = len(lstTJIDs)
-            self.__UniqueTripleLines[strTripleLineID].SetAtomIDs(lstTJIDs)
-            self.__UniqueTripleLines[strTripleLineID].SetRadius(fltRadius)
-            if intTJAtoms > 0: 
-                fltEnergy = np.mean(arrTJValues)
-            return fltEnergy,fltRadius, intTJAtoms
     def GetUniqueTripleLineIDs(self):
         return sorted(list(self.__UniqueTripleLines.keys()),key = lambda x: int(x[3:]))
     def GetUniqueGrainBoundaryIDs(self):
@@ -787,7 +720,23 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 return lstRadii, lstValues,lstIndices
         elif strValue =='volume':
             return lstRadii, lstValues, lstIndices, lstN  
- 
+    def FindHerringVector(self, strTripleLineID, fltLength = None)->np.array:
+        if fltLength is None:
+            fltLength = 3*self.GetUniqueTripleLines(strTripleLineID).GetRadius()
+        arrGBVectors = np.zeros([3,3])
+        lstGBIDs = []
+        lstTJIDs = self.GetUniqueTripleLines(strTripleLineID).GetAtomIDs()
+        fltTJMeanValue = np.mean(self.GetAtomsByID(lstTJIDs)[:,self._intPE])
+        objTripleLine = self.GetUniqueTripleLines(strTripleLineID)
+        for j, strGB in enumerate(objTripleLine.GetUniqueAdjacentGrainBoundaries()):
+            objGB = self.GetUniqueGrainBoundaries(strGB)
+            arrGBVectors[j,0:2] = objGB.GetVectorDirection(strTripleLineID, fltLength,False)
+            setGBIDs = set(self.FindGBAtoms(strGB, 2*objTripleLine.GetRadius(),fltLength, False)[0])
+            lstGBIDs = list(setGBIDs.difference(lstTJIDs))
+            fltValue = np.mean(self.GetAtomsByID(lstGBIDs)[:,self._intPE])-fltTJMeanValue
+            arrGBVectors[j,0:2] = fltValue*gf.NormaliseVector(arrGBVectors[j,0:2])
+        arrHerring = np.sum(arrGBVectors, axis = 0) 
+        return arrHerring, np.linalg.norm(arrHerring)
 
 class QuantisedRectangularPoints(object): #linear transform parallelograms into a rectangular parameter space
     def __init__(self, in2DPoints: np.array, inUnitBasisVectors: np.array, n: int, fltGridSize: float, intMinCount: int, intDilation = 2, blnDebug = False):
