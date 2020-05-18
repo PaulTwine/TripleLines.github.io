@@ -392,6 +392,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                         except RuntimeError:
                             blnValueError = True
                             warnings.warn("Optimisation error with intStart = " + str(intStart))
+                    self.GetUniqueTripleLines(strTripleLineID).SetFitParameters(popt)
                     fltDistance = lstL[intStart]
                     arrDisplacements[k] = arrCentre + fltDistance*v 
         if len(arrDisplacements) == 3:

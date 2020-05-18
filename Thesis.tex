@@ -17,11 +17,11 @@
 
 A fundamental question in material science is how to find relationships between the microstructure and the macroscopic properties of a material. Polycrystalline materials comprise of grains, grain boundaries and triple junctions and their properties are essential to understanding the microstructure. The grain boundary is a two dimensional interface between two misorientated grains. A junction line occurs where three or more grain boundaries meet. The most common junction line is a triple line which has three adjacent grains and is where three grain boundaries meet. 
 
-This paper will focus primarily on triple line junctions although other higher order stable junction types do exist. The penta-twin is an example of a metastable higher order junction which generally exists in a nano-crystalline material and has been investigated in detail by \cite{Thomas2016}. A quad line is also investigated analytically in this section although the motivation for this was to present a physically plausbile mechanism for junction formation and to use this as a basis for calculating the formation energy. 
+This paper will focus primarily on triple line junctions although other higher order stable junction types do exist. The penta-twin is an example of a metastable higher order junction which generally exists in a nano-crystalline material and has been investigated in detail by \cite{Thomas2016}. A quad line is also investigated analytically in this section. The motivation for this was to present a physically plausbile mechanism for junction formation and to use this as a basis for calculating the formation energy of the triple line. 
 
 Grain boundaries always have a positive excess energy compared to a pristine crystal at zero kelvin. In general the excess energy of a planar grain boundary depends upon the relative misorientation between the two adjacent crystals and also the normal direction of the planer grain boundary. The macroscopic relationship between two planar grain boundaries can be described by five degrees of freedom. 
 
-The five degrees of freedom can be clearly demonstrated by considering the relative orientations of the two crystals and the normal direction of the planar grain boundary. Firstly the misorientation between two crystals can be defined by an axis of rotation and an angle of rotation about that axis.  The axis only defines a direction and can be completely specified by two degrees of freedom. A third degree of freedom is then the angle of rotation about that axis. Finally the grain boundary itself is a plane which can be defined by a normal unit vector which requires a further two degrees of freedom.
+The five degrees of freedom can be clearly demonstrated by considering the relative orientations of the two crystals and the normal direction of adjoining planar grain boundary. Firstly the misorientation between two crystals can be defined by an axis of rotation and an angle of rotation about that axis.  The axis only defines a direction and can be completely specified by two degrees of freedom. A third degree of freedom is then the angle of rotation about that axis. Finally the grain boundary itself is a plane which can be defined by a normal unit vector which requires a further two degrees of freedom.
 
 
 For non-planar grain boundaries an increase curvature also generally increases the excess energy. Grain growth and evolution of grain boundaries using a curvature model  The excess energy in a grain boundary can be lowered considerably if they two lattices of the neighbouring grains form a coincident site lattice. As some atoms within the grain boundary retain some of their atomic bonding they have a lower overall potential energy due to a higher cohesive energy. Whilst grains and grain boundaries have been studied extensively there has been relatively little work on triple lines.
@@ -93,9 +93,9 @@ It should be mentioned here that it appears that the majority of quad junctions 
 	\caption{Quad line deforming into a pair of triple lines}
 \end{figure}
 
-Figure \ref{fig:QuadToTriple} shows a quad line with four equal length grain boundaries meeting at a central point each making an angle of $90^{\circ}$. If the side length of the square is $l$ then the total grain boundary length is $2\sqrt{2}l$. The configuration where the quad line splits into two triple lines has a smaller total grain boundary length of $(1/2t+4/\sqrt{3})l < 2\sqrt{2}l$. If the assumption is made that the total grain boundary length dominates the difference in energy between the two configurations then the two triple line configuration has lower energy and is more stable. 
+Figure \ref{fig:QuadToTriple} shows a quad line with four equal length grain boundaries meeting at a central point each making an equilbrium angle of $90^{\circ}$. If the side length of the enclosing square is $l$ then the total grain boundary length is $2\sqrt{2}l$. The configuration where the quad line splits into two triple lines has a smaller total grain boundary length of $(1 + \sqrt{3})l < 2\sqrt{2}l$. The triple lines each form a new equilibrium angle of $120^{\circ}$. If the assumption is made that the total grain boundary length dominates the difference in energy between the two configurations then the two triple line configuration has lower energy than the quadline and is more stable. 
 
-This paper will focus on atomistic simulation of periodic hexagonal grain configurations  using LAMMPS. The results of the simulations are processed to detect the triple lines and grain boundaries and numerically determine their potential energy using an emperical potential. The results are then analysed to compare the atomic density, potential energies and to find an upper and lower bound for the triple line formation energies. The paper is structured as follows: There is a review of the current research in Chaper \ref{ch:1}. Chapter 2 then discusses the simulation approach using molecular dynamics and the processing of the resulting data.   
+This paper will focus on atomistic simulation of periodic hexagonal grain configurations using molecular dynamics in LAMMPS. The study will be restricted to Alumininum in a solid state using an emperical embedded atom potential given in \cite{Zope2003}. The results of the simulations are processed to detect the triple lines and grain boundaries and numerically determine their potential energy using an emperical potential. The data is then analysed to compare the atomic density, potential energies and to find an upper and lower bound for the triple line formation energies. The paper is structured as follows: There is a review of the current research in Chaper \ref{ch:1}. Chapter 2 then discusses the simulation approach using molecular dynamics and the processing of the resulting data.   
 
 
 \chapter{Literature Review} \label{ch:1}
@@ -107,7 +107,7 @@ This paper will focus on atomistic simulation of periodic hexagonal grain config
 Triple lines have been investigated as purely mathematical objects and a good summary of the key points can be found in \cite{Taylor1999}. The discussion includes scenarios where the triple line can have positive and negative formation energies. A key feature here is whether a triple line is considered to be a purely geometric line or whether it has a non-zero volume and consists of atoms. Taylor discusses different scenarios and specifically addresses potential issues with negative triple lines. Taylor argues that extra cylindrical sections could be added to a planar grain boundary so that the axis of symmetry is perpendicular to the grain boundary normal. In this way extra triple lines could be added and if they had a negative excess energy then the energy of the system could be made increasingly more negative. However such a process necessarily also required extra grain boundary to be created which has a positive excess energy and so this process does not seem physically plausible when viewed from an atomistic perspective.
 
 
-The energy content of triple lines has been investigated by Srinivasan et al in \cite{Srinivasan1999} using atomistic simulation. Here there is an interesting discussion of the apparent paradox of the high potential energy expected in a triple line and a possible negative formation energy. The results later in this paper indicate that it is possible to define a triple line volume to have a positive excess potential energy and also a negative formation energy. 
+The energy content of triple lines has been investigated by Srinivasan et al in \cite{Srinivasan1999} using atomistic simulation. Here there is an interesting discussion of the apparent paradox of the high potential energy expected in a triple line and a possible negative formation energy. The results in section \ref{sec:SimulationResults} of this paper indicate that it is possible to define a triple line volume to have a positive excess potential energy and also a negative formation energy. 
 
 Srinivasan also mentions that the triple line can be described using eleven degrees of freedom assuming it can be approximated by the intersection of three planar grain boundaries. By assigning a coordinate system to be aligned with one of the three grains there are three degrees of freedom for each of the other two grains which can be orientated independently of each other. Two of the grain boundaries can then be orientated independently of each other giving a further two degrees of freedom each. However these two grain boundaries will in general intersect along a line if the pathological cases of identical grain boundary planes and parallel grain boundary planes are excluded. Therefore the final grain boundary has only one degree of freedom which can be interpreted as an angle of rotation of the grain boundary around the triple line.
 
@@ -118,7 +118,7 @@ The results of the research in \citep{Srinivasan1999} appeared to showed a negat
 Triple lines restricted in two dimensions in graphene were  investigated in \citep{Hirvonen2017} and showed that some triple lines had negative formation energies. The paper acknowledges this result was somewhat controversial and also refers to several papers which found positive formation energies fo copper and negative for iron. The analysis is limited to highly symmetric grain configurations and there is an implicit assumption that all the triple line energies in each scenario were equal.
 
 
-Theoretical work by Schvindlerman looked at the effect that triplelines could have on the mobility of the adjacent grain boundaries. A key result from the paper suggests that there is a critical grain radius below which that the driving force due to the excess energy of the triple line is more significant than the driving force due to the excess energy from the grain boundaries. This is a substantial finding which demonstrates that in smaller grains the effect of the triple line cannot be ignored. It is also significant that the paper suggest their is effective range of a triple line.  "Thermodynamics and kinetics of grain boundary triple junctions in metals: Recent developments"
+Theoretical work by Gottstein et al in \cite{GOTTSTEIN2010914} looked at the effect that triplelines could have on the mobility of the adjacent grain boundaries. A key result from the paper suggests that there is a critical grain radius below which that the driving force due to the excess energy of the triple line is more significant than the driving force due to the excess energy from the grain boundaries. This is a substantial finding which demonstrates that in smaller grains the effect of the triple line cannot be ignored. It is also significant that the paper suggest their is effective range of a triple line. 
 
 A key feature of triples lines is described by the Herring relationship. The angles between three planar grain boundaries that meet at a triple line is interpreted using an energy minimisation. The analysis focusses on a small region surrounding
 the triple line and is a first order approximation. As such the curvature of the grain boundaries is ignored and the triple line itself has zero volume.
@@ -292,7 +292,16 @@ The position, axis and radius of the triple line can now be used to calculate th
 
 The critical radius is the distance from the triple line axis such that if a cuboid strip began at this distance and extended radially out from the triple line into the grain the summation of potential energy per atom would follow a reciprocal relationship.   It is therefore an emperical approximation to the theoretical triple line contribution given by $\delta(l) l U_{T/L}$. It is assumed that the cuboid region does not include any contributions from the grain boundaries adjacent to the triple line.
 
-\subsection{Simulation Results}
+\begin{figure}
+	\includegraphics[scale=1]{images/StarAtoms.png} 
+	\label{fig:StarAtoms}
+	\caption{Three cuboid strips from the triple line into the
+	neighbouring grains.}
+\end{figure}
+
+\includegraphics[scale=1]{images/GBsAnd3Stars.png} 
+
+\subsection{Simulation Results} \label{sec:SimulationResults}
 
 The periodic hexagonal configuration of grains was tested using a variety of misorientation angles between the grains.  The simulations form three distinct groups based upon each grain in the group having a common lattice direction parallel to the simulation cell $\mathbf{k}$ vector. The three sets had either common $[0 0 1]$, $[1 1 0]$ or $[1 1 1]$ parallel to the simulation cell $\mathbf{k}$ vector. The lattices had different rotational symmetries about the simulation cell $\mathbf{k}$ vector depending upon the common lattice direction.
 
@@ -304,8 +313,28 @@ Finally the $[1 1 1]$ direction has rotational symmetry of order 6. The angles u
 
 \subsection{Triple Line Potential Energy}
 
-The potential energy stored per atom in the triple lines
+The potential energy per atom associated with 276 triple lines investigated in this paper is shown as a normalised histrogam. The simulation cell was chosen with a height of approximately $80\AA$ as the region with a small radial distance from the triple line was of interest. 
 
+The smoothing technique allowed the potential energy to be approximated by a continuous function which reduced the issues of large discrete jumps in potential energy. The radial function for the potential energy per atom using the method outlined in section LABEL. Each of the three grain strips produced a reciprocal function and the final function was constructed using the mean values of these parameters. 
+
+
+A useful comparison is to compare the mean potential energy per atom inside the triple line with the mean potential energy per atom in the three adjacent grain boundaries. This is one possible measure of the excess energy in the triple line and is shown in Figure \ref{ExcessPE}. The significance of this measure of excess energy is that the mean potential energy per atom within the triple line is usually higher than the mean potential energy per atom in the adjoining grain boundaries.
+
+\begin{figure}[H]
+	\includegraphics[scale=1]{images/ExcessPEAtom.png} 
+	\label{fig:ExcessPE}
+	\caption{A normalised histrogram of the excess potential energy per atom in the 276 triple lines compared with the potential energy per atom in their adjoining grain boundaries.}
+\end{figure}
+
+The correlation between the potential energy in the triple lines and their adjoining grain boundaries can also be investigated using the Pearson correlation coefficient which provides a measure of the linear correlation between the two quanitites.
+
+\begin{figure}[H]
+	\includegraphics[scale=1]{images/ScatterTJvsGB.png} 
+	\label{fig:ScatterTJvsGB}
+	\caption{Scatter plot of mean potential energy per atom in the tripleline against mean potential energy per atom in the adjoining grain boundaries.}
+\end{figure}
+
+The scatter plot shows a weak positive correlation between the potential energies per atom and the Pearson correlation coefficient was $0.75$ to $2$ significant figures. There appear to be some points where the tripleline potential energy per atom did not closely follow the pattern shown in the rest of the data and in fact had a less negative value. 
 
 The potential energy stored per per unit volume in the triple lines.
 

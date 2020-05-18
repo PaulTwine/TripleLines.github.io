@@ -424,6 +424,7 @@ class TripleLine(object):
         self.__AdjacentGrainBoundaries = []
         self.__AdjacentTripleLines = []
         self.__EquivalentTripleLines = []
+        self.__FitParameters = []
     def GetID(self)->str:
         return self.__ID
     def SetID(self, strID):
@@ -480,6 +481,14 @@ class TripleLine(object):
         self.__EquivalentTripleLines = sorted(list(np.unique(self.__EquivalentTripleLines)),key = lambda x: int(x[2:]))
     def GetEquivalentTripleLines(self):
         return self.__EquivalentTripleLines
+    def SetFitParameters(self, inArray: np.array):
+        self.__FitParameters.append(inArray)
+    def GetFitParameters(self, blnMean = True)->np.array:
+        if blnMean:
+            return np.mean(np.vstack(self.__FitParameters), axis =0)
+    def GetTheoreticalEnergyPerAtom(self)->float:
+        arrParameters = self.GetFitParameters(blnMean=True)
+        return arrParameters[0]/(self.__Radius+arrParameters[1])+arrParameters[2]
 
 class UniqueTripleLine(TripleLine):
     def __init__(self, strID: str, arrCentre: np.array, arrLine: np.array):
