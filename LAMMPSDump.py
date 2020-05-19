@@ -10,6 +10,7 @@ import shapely as sp
 import geopandas as gpd
 import copy
 import warnings
+from sklearn.metrics import mean_squared_error
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter):
@@ -363,12 +364,15 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstL = []
         lstV = []
         lstI = []
+        lstPredicted = []
         lstOfVectors = []
         fltEnergy = 0
-        if blnByVolume: #hard coded for FCC at the minute
-            fltMinimumLatticeValue = fltMinimumLatticeValue*4/(self.__LatticeParameter**3)
         arrCentre = self.GetUniqueTripleLines(strTripleLineID).GetCentre()
         fltLength = self.FindClosestTripleLine(strTripleLineID)
+        fltMinimumLatticeValue = np.mean(self.FindValuesInCylinder(self.GetLatticeAtoms()[:,0:4],arrCentre,fltLength,self.CellHeight,self._intPE))
+        if blnByVolume: #hard coded for FCC at the minute
+            fltMinimumLatticeValue = fltMinimumLatticeValue*4/(self.__LatticeParameter**3)
+        
         for strGB in self.GetUniqueTripleLines(strTripleLineID).GetUniqueAdjacentGrainBoundaries():
             arrVector = self.__UniqueGrainBoundaries[strGB].GetVectorDirection(strTripleLineID, self.__LatticeParameter, bln3D=True) 
             lstOfVectors.append(gf.NormaliseVector(arrVector))
@@ -378,7 +382,8 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         for k in range(n):
                 v = gf.NormaliseVector(arrVectors[np.mod(k,n)] + arrVectors[np.mod(k+1,n)])
                 lstL, lstV, lstI = self.FindStrip(arrCentre, v, fltWidth, fltIncrement, fltLength, blnByVolume)
-                intStart = len(lstV) - np.argmax(lstV[-1:0:-1])
+                #intStart = len(lstV) - np.argmax(lstV[-1:0:-1])
+                intStart = np.floor(self.__LatticeParameter/(2*fltIncrement)).astype('int')
                 blnValueError = False
                 popt = np.zeros([3]) #this is set incase the next step raises an error
                 if len(lstL[intStart:]) > 2:
@@ -388,6 +393,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                         blnValueError = True
                         warnings.warn("Optimisation error with intStart = " + str(intStart))
                     while ((np.abs((popt[2] - fltMinimumLatticeValue)/fltMinimumLatticeValue) > fltTolerance) and (intStart < len(lstL)-3) and not(blnValueError)):
+                    #while ((fltError > fltTolerance) and (intStart < len(lstL)-3) and not(blnValueError)):
                         intStart += 1
                         try:
                             popt = optimize.curve_fit(self.__Reciprocal, lstL[intStart:],lstV[intStart:])[0]
@@ -726,23 +732,26 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 return lstRadii, lstValues,lstIndices
         elif strValue =='volume':
             return lstRadii, lstValues, lstIndices, lstN  
-    def FindHerringVector(self, strTripleLineID, fltLength = None)->np.array:
+    def FindHerringVector(self, strTripleLineID, fltLength = None, blnRemoveTripleLines = False)->np.array:
         if fltLength is None:
             fltLength = 3*self.GetUniqueTripleLines(strTripleLineID).GetRadius()
         arrGBVectors = np.zeros([3,3])
         lstGBIDs = []
         lstTJIDs = self.GetUniqueTripleLines(strTripleLineID).GetAtomIDs()
-        fltTJMeanValue = np.mean(self.GetAtomsByID(lstTJIDs)[:,self._intPE])
+        fltTJMeanValue = np.sum(self.GetAtomsByID(lstTJIDs)[:,self._intPE])
         objTripleLine = self.GetUniqueTripleLines(strTripleLineID)
         for j, strGB in enumerate(objTripleLine.GetUniqueAdjacentGrainBoundaries()):
             objGB = self.GetUniqueGrainBoundaries(strGB)
             arrGBVectors[j,0:2] = objGB.GetVectorDirection(strTripleLineID, fltLength,False)
             setGBIDs = set(self.FindGBAtoms(strGB, 2*objTripleLine.GetRadius(),fltLength, False)[0])
-            lstGBIDs = list(setGBIDs.difference(lstTJIDs))
-            fltValue = np.mean(self.GetAtomsByID(lstGBIDs)[:,self._intPE])-fltTJMeanValue
+            if blnRemoveTripleLines:
+                lstGBIDs = list(setGBIDs.difference(lstTJIDs))
+            else: 
+                lstGBIDs = list(setGBIDs)
+            fltValue = (np.sum(self.GetAtomsByID(lstGBIDs)[:,self._intPE])-fltTJMeanValue)/self.CellHeight
             arrGBVectors[j,0:2] = fltValue*gf.NormaliseVector(arrGBVectors[j,0:2])
         arrHerring = np.sum(arrGBVectors, axis = 0) 
-        return arrHerring, np.linalg.norm(arrHerring)
+        return gf.NormaliseVector(arrHerring), np.linalg.norm(arrHerring)
 
 class QuantisedRectangularPoints(object): #linear transform parallelograms into a rectangular parameter space
     def __init__(self, in2DPoints: np.array, inUnitBasisVectors: np.array, n: int, fltGridSize: float, intMinCount: int, intDilation = 2, blnDebug = False):
