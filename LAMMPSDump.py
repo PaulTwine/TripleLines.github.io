@@ -359,12 +359,14 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             setIndices = setIndices.difference(lstRemove)
         lstIndices = list(setIndices)
         return lstIndices, fltLength    
-    def FindTripleLineEnergy(self, strTripleLineID: str, fltIncrement: float, fltWidth: float,fltMinimumLatticeValue = -3.3600000286, fltTolerance = 0.005, fltRadius = None):
+    def FindTripleLineEnergy(self, strTripleLineID: str, fltIncrement: float, fltWidth: float,fltMinimumLatticeValue = -3.3600000286, fltTolerance = 0.005, fltRadius = None, blnByVolume = False):
         lstL = []
         lstV = []
         lstI = []
         lstOfVectors = []
         fltEnergy = 0
+        if blnByVolume: #hard coded for FCC at the minute
+            fltMinimumLatticeValue = fltMinimumLatticeValue*4/(self.__LatticeParameter**3)
         arrCentre = self.GetUniqueTripleLines(strTripleLineID).GetCentre()
         fltLength = self.FindClosestTripleLine(strTripleLineID)
         for strGB in self.GetUniqueTripleLines(strTripleLineID).GetUniqueAdjacentGrainBoundaries():
@@ -375,7 +377,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         arrDisplacements = np.zeros([n,3])
         for k in range(n):
                 v = gf.NormaliseVector(arrVectors[np.mod(k,n)] + arrVectors[np.mod(k+1,n)])
-                lstL, lstV, lstI = self.FindStrip(arrCentre, v, fltWidth, fltIncrement, fltLength)
+                lstL, lstV, lstI = self.FindStrip(arrCentre, v, fltWidth, fltIncrement, fltLength, blnByVolume)
                 intStart = len(lstV) - np.argmax(lstV[-1:0:-1])
                 blnValueError = False
                 popt = np.zeros([3]) #this is set incase the next step raises an error
@@ -639,7 +641,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             intTripleLine = int(strTripleLineID[2:])
         fltDistance = np.sort(self.__PeriodicTripleLineDistanceMatrix[intTripleLine])[1]
         return fltDistance
-    def FindStrip(self, arrStart: np.array, arrVector: np.array,fltWidth: float, fltIncrement: float, fltLength: float):
+    def FindStrip(self, arrStart: np.array, arrVector: np.array,fltWidth: float, fltIncrement: float, fltLength: float, blnByVolume = False):
         lstLength = []
         lstIndices  = []
         lstI = []
@@ -657,7 +659,10 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             if len(lstI) >0:
                 lstIndices.extend(lstI)
                 lstIndices = list(np.unique(lstIndices))
-                lstValues.append(np.mean(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
+                if blnByVolume:
+                    lstValues.append(np.sum(self.GetAtomsByID(lstIndices)[:,self._intPE])/(l*fltWidth*self.CellHeight))
+                else:
+                    lstValues.append(np.mean(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
             else:
                 lstValues.append(0)
         return lstLength, lstValues, lstIndices   
