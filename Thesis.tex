@@ -290,7 +290,7 @@ Each triple line has three adjacent grain boundaries any so there are three poss
 
 The position, axis and radius of the triple line can now be used to calculate the potential energy associated with the triple line. The potential energy of the triple line is defined by the sum of all the individual atomistic contributions that lie inside the cylinder with the given radius and axis position.Equation $\ref{eq:L1}$ can be approximated by a summation and also offers a possible definition for the radius of a cylindrical triple line.
 
-The critical radius is the distance from the triple line axis such that if a cuboid strip began at this distance and extended radially out from the triple line into the grain the summation of potential energy per atom would follow a reciprocal relationship.   It is therefore an emperical approximation to the theoretical triple line contribution given by $\delta(l) l U_{T/L}$. It is assumed that the cuboid region does not include any contributions from the grain boundaries adjacent to the triple line.
+The critical radius is the distance from the triple line axis such that if a cuboid strip began at this distance and extended radially out from the triple line into the grain the summation of potential energy per atom would follow a reciprocal relationship.   It is therefore an emperical approximation to the theoretical triple line contribution given by $\delta(l) l U_{T/L}$. It is assumed that the cuboid region does not include any contributions from the grain boundaries adjoining the triple line.
 
 \begin{figure}
 	\includegraphics[scale=1]{images/StarAtoms.png} 
@@ -300,6 +300,8 @@ The critical radius is the distance from the triple line axis such that if a cub
 \end{figure}
 
 \includegraphics[scale=1]{images/GBsAnd3Stars.png} 
+
+The calculations based upon selecting atoms are sensitive to the direction of the cuboid strip as a small change in the direction can remove or add atoms significantly altering the total potential energy. This effect can be mitigated by calculating the potential energy per atom within the region. Within the lattice the atomic density is constant and so this is linearly dependent upon the potential energy per unit volume. 
 
 \subsection{Simulation Results} \label{sec:SimulationResults}
 
