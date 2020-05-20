@@ -376,8 +376,9 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             lstOfVectors.append(gf.NormaliseVector(arrVector))
         arrVectors  = np.vstack(lstOfVectors)
         n = len(arrVectors)
-        arrDisplacements = np.zeros([n,3])
+        lstDisplacements = []
         for k in range(n):
+                popt = np.zeros(3)
                 v = gf.NormaliseVector(arrVectors[np.mod(k,n)] + arrVectors[np.mod(k+1,n)])
                 lstL, lstV, lstI = self.FindStrip(arrCentre, v, fltWidth, fltIncrement, fltLength, blnAccumulative=False)
                 #intStart = len(lstV) - np.argmax(lstV[-1:0:-1])
@@ -407,15 +408,17 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 try:
                     popt = optimize.curve_fit(self.__Reciprocal, lstL[intStart:],lstV[intStart:])[0]
                 except RuntimeError:
-                    warnings.warn("Optimisation error with intStart = " + str(intStart))
-                self.GetUniqueTripleLines(strTripleLineID).SetFitParameters(popt)
-                fltDistance = lstL[intStart]
-                arrDisplacements[k] = arrCentre + fltDistance*v 
+                    warnings.warn("Optimisation error triple line " +  str(strTripleLineID) + " in FindTripleLineEnergy with intStart = " + str(intStart))
+                if popt.any() != 0:
+                    self.GetUniqueTripleLines(strTripleLineID).SetFitParameters(popt)
+                    fltDistance = lstL[intStart]
+                    lstDisplacements.append(arrCentre + fltDistance*v)
+        arrDisplacements = np.vstack(lstDisplacements) 
         if len(arrDisplacements) == 3:
             arrCentre = gf.EquidistantPoint(*arrDisplacements)
         else:
             arrCentre = np.mean(arrDisplacements, axis = 0)
-            warnings.warn("Error triple line " + str(strTripleLineID) + " has " + str(len(arrDisplacements)) + " adjacent triple lines")
+            warnings.warn("Error triple line " + str(strTripleLineID) + " has been tested in only " + str(len(arrDisplacements)) + " direction(s).")
         if fltRadius is None:
             fltRadius = np.linalg.norm(arrDisplacements[0]-arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetCentre(arrCentre)
@@ -645,7 +648,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                                                            fltWidth*arrCrossVector,np.array([0,0,self.CellHeight]))
                                                            )
             else:
-                lstIndices = self.FindBoxAtoms(self.GetAtomData()[:,0:4],arrCentre + l*arrGBDirection+fltWidth*arrGBDirection, fltWidth*arrCrossVector,np.array([0,0,self.CellHeight]))                                                                                             
+                lstIndices = self.FindBoxAtoms(self.GetAtomData()[:,0:4],arrCentre + l*arrGBDirection,fltWidth*arrGBDirection, fltWidth*arrCrossVector,np.array([0,0,self.CellHeight]))                                                                                             
             lstIndices = list(np.unique(lstIndices))
             if strValue == 'mean':
                 lstValues.append(np.mean(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
