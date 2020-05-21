@@ -32,7 +32,7 @@ There is currently no universally agreed method to define excess energy associat
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[scale=0.5]{QuadConfigurations.png} 
+	\includegraphics[scale=0.5]{images/QuadConfigurations.png} 
 \label{fig:1}
 \caption{Two periodic cells showing a simplified formation process of a quad line.}
 \end{figure}
@@ -153,7 +153,7 @@ The simulations cell is periodic and a plan view of the repeating hexagonal grid
 All the simulations in this paper have used an RMSD value of $0.05$ which is lower than widely used value of $0.1$. This will tend to categorise more atoms as not belonging to a standard crystallographic strucure and hence there will be a relatively large number of white atoms. Atoms that are matched as an FCC structure will be referred to as polyhedral template matched atoms and abbreviated as PTM atoms. Any atom that isn't identified as an FCC atom will be a non-PTM atom. The non-PTM atoms include any atoms that have been identified as BCC or HCP by the polyhedral template matching algorithm 
  
 \begin{figure}[H] \label{fig:PerCell}
-	\includegraphics[scale=0.75]{GrainConfigurationPeriodic.png} 
+	\includegraphics[scale=0.75]{images/GrainConfigurationPeriodic.png} 
 	\label{fig:GrainCP}
 	\caption{Periodic Configuration of Hexagonal Grains}
 \end{figure}
@@ -166,7 +166,7 @@ The simulation in LAMMPS begins with a conjugate gradient energy minimisation to
 
 \begin{figure}
 	\centering
-	\includegraphics[scale=1]{CellWithMelting.png} 
+	\includegraphics[scale=1]{images/CellWithMelting.png} 
 	\label{fig:CellMelt}
 	\caption{Simulation cell with some melting in the bulk shown
 	as isolated white dots}
@@ -194,9 +194,11 @@ The value chosen for the dilation is a compromise between ensuring their are now
  
 \begin{figure}[H]
 	\centering
-	\includegraphics[scale=0.4]{ImageSteps.png}   
+	\includegraphics[scale=0.4]{images/ImageSteps.png} 
+	\caption{Diagram showing three steps of the image analysis. The left image is a shear transformation of the original atomic positions. The middle image has been extended periodically and then smoothed using a Gaussian filter. The image on the right is a skeletonized transformation of the middle image.}  
+	\label{fig:ImSt}
 \end{figure}
-\label{fig:ImSt}
+
 
 The periodicity in the plane of the base of the simulation cell is included by extending the shape so that each triple line that lies near the boundary of the simulation cell can also be detected. The yellow region has also been smoothed using a Gaussian filter. The results are shown in the middel diagram of Figure $\ref{fig:ImSt}$. The scale of the vertical and horizontal axes have changed and . 
 
@@ -221,7 +223,20 @@ In addition to triple line equivalency the rectangular parameter space also iden
 
 \end{itemize} 
 
+\section{Tripleline Location}
 
+The position of the tripleline is further refined by considering a cylindrical volume whose axis is parallel to the simulation cell $\mathbf{k}$ vector going through the first estimate of the tripleline location given by the image analysis of the previous section. The mediod of the projection of the non-PTM atoms onto the base of the simulation cell is then used as a refined estimate. 
+
+The medioid is preferred to a simple mean of the atomic positions as this prevents the tripleline being positioned within the PTM atoms which are predominantly lie inside the lattice. The tripleline location is also refined one more time as part of the analysis of the potential energy of the surrounding region.
+
+\begin{figure}
+	\includegraphics[scale=0.75]{images/GoodTJFit.png} 
+	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
+\end{figure}
+\begin{figure}
+	\includegraphics[scale=0.75]{images/BadTJFit.png} 
+	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
+\end{figure}
 \section{Statistical Analysis of Potential Energy}
 
 A statistical analysis of the spatial variation of potential energy can show how the potential energy is partioned. Consider an axially symmetric region with the triple line as the axis of symmetry. For a small radius the potential energy inside the cylinder does not contain any bulk atoms. As the radius increases the potential energy will include contributions from the three neighbouring grain boundaries and also the lattice atoms. The potential energy of an atom in the perfect lattice is defined as part of the emperical potential. Furthermore the potential energy contribution from each grain boundary is expected to increase approximately linearly with grain boundary length.
