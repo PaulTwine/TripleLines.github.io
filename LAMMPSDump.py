@@ -380,7 +380,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         for k in range(n):
                 popt = np.zeros(3)
                 v = gf.NormaliseVector(arrVectors[np.mod(k,n)] + arrVectors[np.mod(k+1,n)])
-                if np.dot(v,gf.NormaliseVector(arrVectors[np.mod(k+2,n)])) > 0:
+                if np.dot(v,gf.NormaliseVector(arrVectors[np.mod(k+2,n)])) > 0: 
                     v = -v
                 arrWidth  = fltWidth*np.cross(v,np.array([0,0,1]))
                 intStart = np.floor(self.__LatticeParameter/(2*fltIncrement)).astype('int')
@@ -415,8 +415,9 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         self.__UniqueTripleLines[strTripleLineID].SetCentre(arrCentre)
         self.__UniqueTripleLines[strTripleLineID].SetRadius(fltRadius)
         lstL, lstV, lstI = self.FindThreeGrainStrips(strTripleLineID,fltWidth, fltIncrement, strValue = 'mean')
+        intRadius = np.floor(fltRadius/fltIncrement).astype('int')
         try:
-            popt = optimize.curve_fit(self.__Reciprocal, lstL[intStart:],lstV[intStart:])[0]
+            popt = optimize.curve_fit(self.__Reciprocal, lstL[intRadius:],lstV[intRadius:])[0]
         except RuntimeError:
             warnings.warn("Optimisation error triple line " +  str(strTripleLineID) + " in FindTripleLineEnergy with intStart = " + str(intStart))
         self.GetUniqueTripleLines(strTripleLineID).SetFitParameters(popt)
@@ -578,17 +579,18 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
     def MoveTripleLine(self, arrTripleLine, fltRadius)->np.array:
         arrPoint = self.FindNonGrainMediod(arrTripleLine, fltRadius)
         if arrPoint is None:
-            arrNextPoint = arrTripleLine
+            arrPoint = arrTripleLine
+            arrNextPoint = arrPoint
         else:
             arrNextPoint = arrPoint
             arrNextPoint[2] = self.CellHeight/2
-       #     fltRadius = 2*self.__LatticeParameter
-       #     arrNextPoint = self.FindNonGrainMediod(arrNextPoint,fltRadius)
-        # if arrNextPoint is None:
-        #     return arrPoint
-        # else:
-        #     arrNextPoint[2] = self.CellHeight/2
-        return arrNextPoint
+            fltRadius = self.__LatticeParameter
+            arrNextPoint = self.FindNonGrainMediod(arrNextPoint,fltRadius)
+        if arrNextPoint is None:
+            return arrPoint
+        else:
+            arrNextPoint[2] = self.CellHeight/2
+            return arrNextPoint
     def FindClosestGrainPoint(self, inPoint: np.array, fltRadius: float)->np.array:
         lstDistances = []
         arrPoints = self.FindValuesInCylinder(self.GetNonLatticeAtoms()[:,0:4],inPoint, fltRadius,self.CellHeight,[1,2,3])
