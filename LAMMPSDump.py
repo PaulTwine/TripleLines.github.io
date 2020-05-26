@@ -385,14 +385,14 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 arrWidth  = fltWidth*np.cross(v,np.array([0,0,1]))
                 intStart = np.floor(self.__LatticeParameter/(2*fltIncrement)).astype('int')
                 intEnd = np.floor(fltLength/fltIncrement).astype('int')
-                fltDifference = fltTolerance + 1 #just added to pass the criteria in the while loopA
+                fltDifference = fltTolerance + 1 #just added to pass the criteria first time in the while loop
                 while fltDifference > fltTolerance and intStart < intEnd:
                     lstI = self.FindBoxAtoms(self.GetAtomData()[:,0:4],
                                                            arrCentre+intStart*fltIncrement*v,fltWidth*v, 
                                                            arrWidth,np.array([0,0,self.CellHeight]))
                     if len(lstI) > 0:
                         fltValues = np.mean(self.GetAtomsByID(lstI)[:,self._intPE])
-                    fltDifference = np.abs((fltValues -fltMeanLatticeValue)/fltMeanLatticeValue)
+                        fltDifference = np.abs((fltValues -fltMeanLatticeValue)/fltMeanLatticeValue)
                     intStart += 1
                 fltDistance = intStart*fltIncrement
                 # lstL, lstV, lstI = self.FindStrip(arrCentre, v, fltWidth, fltIncrement, fltLength, blnAccumulative=True)
