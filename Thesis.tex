@@ -171,11 +171,11 @@ The simulations cell is periodic and a plan view of the repeating hexagonal grid
 
 All the simulations in this paper have used an RMSD value of $0.05$ which is lower than widely used value of $0.1$. This will tend to categorise more atoms as not belonging to a standard crystallographic strucure and hence there will be a relatively large number of white atoms. Atoms that are matched as an FCC structure will be referred to as polyhedral template matched atoms and abbreviated as PTM atoms. Any atom that isn't identified as an FCC atom will be a non-PTM atom. The non-PTM atoms include any atoms that have been identified as a non-FCC crystallographic structure by the polyhedral template matching algorithm. For example some grain configurations produced stacking faults and as a result atoms in the grain boundaries are identified as having a HCP structure. These HCP atoms are still considered to be non-PTM atoms.
  
-All the grain boundaries are tilts boundaries as the rotation axis is parallel to the simulation cell $\mathbf{k}$ vector which points vertically upwards and hence perpendicular to the normal vector of the vertical planar grain boundaries. The lattice within each grain is rotated so that there is a misorientation between the grains. As it is only the relative misorientation that matters only two grains need to be rotated and these two angles cannot by equivalent.
+All the grain boundaries are tilts boundaries as the rotation axis is parallel to the simulation cell $\mathbf{k}$ vector which points vertically upwards and hence perpendicular to the normal vector of the vertical planar grain boundaries. The lattice within each grain is rotated so that there is a misorientation between the grains. As it is only the relative misorientation that matters only two grains need to be rotated. The two rotation angles must not be equivalent once the symmetries of the lattices have been considered. 
 
 Although there are only three grains this produces six periodically distinct triple lines and nine periodically distinct grain boundaries. The grain boundary plane as well as the misorientation between the adjacent grains both contribute to the excess interfacial energy of the grain boundary and so in general each grain boundary will have a different excess energy. In fact atomistic simulations by \cite{HOLM2010905} showed a relatively large variation in grain boundary energies for Al which was largely attributed to a high stacking fault energy. 
 
-The simulation in LAMMPS begins with a conjugate gradient energy minimisation to relax the initial grain structure. This is followed by a $300$ Kelvin thermal annealing using a canonical ensemble. This ensures that the number of particles, the volume of the simulation cell and the temperature are all conserved. After a short annealing there is a second energy minimisation using a conjugate gradient approach. At $300$ Kelvin there was still a small amount of melting shown by some non-PTM atoms appearing in the bulk. 
+The simulation in LAMMPS begins with the conjugate gradient energy minimisation to relax the initial grain structure. This is followed by a $300$ Kelvin thermal annealing using a canonical ensemble. This ensures that the number of particles, the volume of the simulation cell and the temperature are all conserved. After a short annealing there is a second energy minimisation using the conjugate gradient approach. At $300$ Kelvin there was still a small amount of melting shown by some non-PTM atoms appearing in the bulk. 
 
 \begin{figure}[H]
 	\centering
@@ -190,7 +190,7 @@ It is also apparent that even with a very low choice of RMSD as $0.05$ the non-P
 The simulation cell dimensions were chosen so the the cell was extended to approximatly $80 \AA$ in the $\mathbf{k}$ direction as the feature of interest was behaviour near the triple line. This value changed slightly due to different crystallographic directions were oriented parallel to the $\mathbf{k}$ direction. Similarly the number of atoms involved in each simulation was approximately 250,000.  
 
 
-\subsection{Grain Boundary and Triple Line Descriptors}
+\section{Triple line Detection}
 
 The constituent parts of a simulation cell comprise of the grains, grain boundaries and triple lines. The use of an emperical potential allows for different regions of space to be assigned a proportion of the simulation cell's potential energy. In order to do this an algorithm is required to identify regions that correspond to grain boundaries, triple lines and grain atoms.
 
@@ -232,20 +232,13 @@ This grain boundaries can then be represented by considering pairs of adjacent t
 The position of the tripleline is further refined by considering a cylindrical volume whose axis is parallel to the simulation cell $\mathbf{k}$ vector going through the first estimate of the tripleline location given by the image analysis of the previous section. The non-PTM atoms positions that lie inside the small cylinder of radius are projected onto the base of the simulation cell. The mediod of these points is then used as a refined estimate of the triple line position. The medioid is preferred to a simple mean of the atomic positions as this prevents the tripleline being positioned within the PTM atoms which are predominantly lie inside the lattice. A full description of the medioid and its implementation in Python is given in \cite{Bauckhage2015}. 
 
 
-\begin{figure}
-	\includegraphics[scale=0.75]{images/GoodTJFit.png} 
-	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
-\end{figure}
-\begin{figure}
-	\includegraphics[scale=0.75]{images/BadTJFit.png} 
-	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
-\end{figure}
+
 \section{Statistical Analysis of Potential Energy}
 
 
 Ideally the excess potential energy of the triple line should be decoupled from the the excess potential energies of the neighbourning grain boundaries. To minimise the effect of the grain boundaries three thin cuboid strips of atoms are selected from the triple line. An example of the selected atoms is shown in Figure \ref{fig:StarAtoms}. Each strip goes out from the triple line bisecting the two neighbouring grain boundaries. A plan view of the grain boundaries, triple lines and selected region is shown in Figure \ref{fig:GBsandStar}. Each periodically unique triple junction is labelled $UTJi$ where $i$ is in an integer from 0 to 5. Each grain boundary is labelled using the two triple junctions labels that lie at each end of the grain boundary.
 
-The radius of the cylindrical region of atoms that define the triple line can now be calculated by using the black selected region of atoms shown in Figure \ref{fig:GBsandStar}. Along each cuboid strip the potential energy per atom decreases and approaches the potential energy per atom of the lattice as the radial distance from the triple line increases. The critical radial distance is defined to be when the relative difference  between the sampled potential energy per atom in a small subset of the cuboid strip and the lattice potential energy per atom is less than $0.01$. 
+The radius of the cylindrical region of atoms that define the triple line can now be calculated by using the black selected region of atoms shown in Figure \ref{fig:GBsandStar}. Along each cuboid strip the potential energy per atom decreases and approaches the potential energy per atom of the lattice as the radial distance from the triple line increases. The critical radial distance is defined to be when the relative difference  between the sampled potential energy per atom in a small subset of the cuboid strip and the lattice potential energy per atom is less than $0.01$. The lattice potential energy was estimated by taking the mean potential energy per atom over a cylindrical volume of the PTM atoms centred at the triple line. The radius was taken to be half the distance from this triple line to the closest triple line. In general this estimate of the lattice potential per atom was slightly higher than the theoretical value given in \cite{Zope2003}.
 
 There are three critical distances from the triple line each associated to one of the three cuboid directions shown in Figure \ref{fig:StarAtoms}. The triple line is then repositioned at the point equidistance from the three critical distances. The critical radius is then radial distance from this new triple line position to any of the three critical points.       
 
@@ -268,10 +261,10 @@ The intercept  of the function $U_V(L)$ on the vertical axis is a free boundary 
 In reality the three grain strips have a small constant width of $4.05 \AA$. The three directions help to mitigate any sensitivity due to small changes in the position of the triple line. However the summation of the individual atoms over the volume still shows some considerable fluctuations. This effect can be mitigated by averaging the potential energy per atom rather than per unit volume. Within the lattice the atomic density is almost constant and so this is linearly dependent upon the potential energy per unit volume.  
 
 
-The potential energy per atom for a triple line is then estimated by using a reciprocal function fitted to the potential energy per atom data found in the three cuboid strips. The triple line radius is used to calculate the potential energy per atom inside the cylindrical region. The contributions of the three cuboid strips was chosen to avoid grain boundaries and hence only calculate the excess energy due to the triple line.  
+The potential energy per atom for a triple line is then estimated by using a reciprocal function fitted to the potential energy per atom data found in the three cuboid strips. The triple line radius is then used to calculate the potential energy per atom inside the cylindrical region. The contributions of the three cuboid strips was chosen to avoid grain boundaries and hence only calculate the excess energy due to the triple line.  
 
 \begin{figure}
-	\includegraphics[scale=1]{images/StarAtoms.png} 
+	\includegraphics[scale=0.75]{images/StarAtoms.png} 
 	\label{fig:StarAtoms}
 	\caption{Three cuboid strips from the triple line into the
 	neighbouring grains.}
@@ -279,47 +272,108 @@ The potential energy per atom for a triple line is then estimated by using a rec
 
 
 \begin{figure}
-	\includegraphics[scale=1]{images/GBsAnd3Stars.png} 
+	\includegraphics[scale=0.75]{images/GBsAnd3Stars.png} 
 	\label{fig:GBsandStar}
-	\caption{Nine grain boundaries shown in different colours and a selected region of atoms from UTJ3 shown as a three pointed star.}
+	\caption{Nine grain boundaries shown in different colours and a selected region of atoms shown as a three pointed star with periodically unique triple junction UTJ3 at its centre.}
 	   
 \end{figure}
 
 
 \chapter{Simulation Results} \label{sec:SimulationResults}
 
-The periodic hexagonal configuration of grains was tested using a variety of misorientation angles between the grains.  The simulations form three distinct groups based upon each grain in the group having a common lattice direction parallel to the simulation cell $\mathbf{k}$ vector. The three sets had either a common $[0 0 1]$, $[1 1 0]$ or $[1 1 1]$ parallel to the simulation cell $\mathbf{k}$ vector. The lattices had different rotational symmetries about the simulation cell $\mathbf{k}$ vector depending upon the common lattice direction.
+The periodic hexagonal configuration of grains was tested using a variety of misorientation angles between the grains.  The simulations form three distinct groups based upon each grain in the group having a common lattice direction parallel to the simulation cell $\mathbf{k}$ vector. The three groups had either a common $[0 0 1]$, $[1 1 0]$ or $[1 1 1]$ parallel to the simulation cell $\mathbf{k}$ vector. The lattices of a particular group shared the same rotational symmetries about the simulation cell $\mathbf{k}$ vector depending upon the common lattice direction.
 
-When the $[0 0 1]$ direction of the lattices is parallel to $\mathbf{k}$ the lattices have rotational symmetry of order 4 about $\mathbf{k}$.  The grains were rotated by different angles about $\mathbf{k}$ to produce grain boundaries with different interfacial energies. One grain was not rotated and the other two grains were rotated by different angles. The simulation uses of rotation angles of $15^{\circ},30^{\circ},45^{\circ},60^{\circ}$ and $75^{\circ}$ and since no two grains can be rotated by the same angle this gives 20 different configurations.
+When the $[0 0 1]$ direction of the lattices is parallel to $\mathbf{k}$ the lattices have rotational symmetry of order 4 about $\mathbf{k}$.  Different angles of rotation about $\mathbf{k}$ to produce grain boundaries with different interfacial energies. One grain was not rotated and the other two grains were rotated by angles that were distinct modulo $90$. The simulation uses of rotation angles of $15^{\circ},30^{\circ},45^{\circ},60^{\circ}$ and $75^{\circ}$ and since no two grains can be rotated by the same angle this gives 20 different configurations.
 
 For the $[1 1 0]$ direction the lattices have rotation symmetry of order 2. Applying the same approach as the previous paragraph using angle increments of $15^{\circ}$ would produce 110 distinct configurations. However the parameter space can be reduced by assuming that the interfacial energy of a grain boundary is unchanged if one of the lattice orientations is reflected in the grain boundary plane. In this way the effective rotational symmetry is now order 4 as with the $[0 0 1]$ direction and there are again 20 distinct configurations.  
 
-Finally the $[1 1 1]$ direction has rotational symmetry of order 6. The angles used are therefore $15^{\circ},30^{\circ}$  and $45^{\circ}$ giving only 6 distinct configurations. In total the data consists of 46 different simulations producing 276 distinct triple lines and 414 grain boundaries. The results are presented in the next section as normalised histograms fitted with probability distributions.  
+Finally the $[1 1 1]$ direction has rotational symmetry of order 6. The angles used are therefore $15^{\circ},30^{\circ}$  and $45^{\circ}$ giving only 6 distinct configurations. In total the data consists of 46 different simulations producing 276 distinct triple lines and 414 grain boundaries. The results are presented in the next section as normalised histograms and where possible they were approximated with continuous probability distributions.  
 
-\subsection{Method Results}
+\section{Triple line Accuracy}
 
-Figure \ref{fig:ErrorStacking} shows one example of where the method was inaccurate and the triple line was placed incorrectly. This produced a probably outlier with the an unrealistically large triple line radius of . As can be seen from the diagram one of the grain boundaries only appears to one atom thick and this is effectively a stacking fault 
+In general the triple line detection method appeared to be accurate and the predicted radii seemed plausible. Figures  
+\ref{fig:GoodTJFit} and \ref{fig:GreatTJFit} show typical placements of the triple line.
 
-\begin{figure}
-	\includegraphics[scale=1]{images/WorstTJFit.png} 
-	\label{fig:ErrorStacking}
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.5]{images/GoodTJFit.png} 
+	\label{fig:TJGoodFit}
+	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.5]{images/GreatFitTJ.png} 
+	\label{fig:GreatTJFit}
+	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
+\end{figure}
+
+The algorithm was still reasonable successful when there were unusual variations in the defects around the triple line. However the positioning of figures \ref{fig:WorstTJFit} and  \ref{fig:BadTJFit} are not as accurate. In particular Figure \ref{fig:WorstTJFit} produced the largest triple line radius which appears to be an possible outlier.  
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.5]{images/WorstTJFit.png} 
+	\label{fig:WorstTJFit}
+	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
 \end{figure}
 
 
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.5]{images/BadTJFit.png} 
+	\label{fig:BadTJFit}
+	\caption{Plan view of a cylindrical region containing PTM atoms shown in green, non-PTM atoms shown in grey and the tripleline shown in red.}
+\end{figure}
 
-\includegraphics[scale=1]{images/BadTJFit.png} 
+\newpage
+\section{Triple Line Dimensions}
 
-\subsection{Triple Line Potential Energy}
+Figure \ref{fig:TJRadii} shows a histrogram of the distribution of all 276 triple line radii detected using the method described in Section \ref{sec:TJLocation}. The largest radius which corresponds to Figure \ref{fig:WorstTJFit} is clearly visible on the far right. The distribution shows postive skew with a clear peak at about $3.2 \AA$. All the triple lines are assumed to be cylindrical with length equal to the height of the simulation cell
 
-The potential energy per atom associated with 276 triple lines investigated in this paper is shown as a normalised histrogam. The simulation cell was chosen with a height of approximately $80\AA$ as the region with a small radial distance from the triple line was of interest. 
+\begin{figure}[H]
+	\includegraphics[scale=0.75]{images/Triplelineradii.png}  
+	\caption{Normalised histogram of 276 triple line radii in Anstroms.}	
+	\label{fig:TJRadii}
+\end{figure}	
 
-The data collected from the simulations was processed in two different ways. The first method calculated the energies based upon the individual radii found for each triple line. The second method used a constant fixed radius of $r = 4.05 \AA$ which is the lattice parameter for Al.
+The atomic densities of all 276 triple lines are shown in Figure \ref{fig:AtomicDensityVR} in the orange histogram. In the same figure is a blue histrogram showing the mean atomic density averaged over the three adjoining grain boundaries. The width of the adjoining grain boundaries is taken to be twice the radius of the triple line. 
 
-The graph in Figure \ref{fig:ExcessPEVR} shows the excess potential energy in the triple line compared to the adjoing grain boundaries for triple lines of variable radii. The calculation found the potential energy per atom inside the triple line and then subtracted the potential energy per atom averaged over the three adjoing grain boundaries with a width of twice the triple line radius.
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.5]{images/AtomicDensityAllVR.png}
+	\label{fig:AtomicDensityVR} 
+	\caption{A comparison of the atomic density in triple lines of different radii shown in orange compared to the atomic density of the adjoining grain boundaries.}
+\end{figure}
+
+The Gaussians distribution of Figure \ref{fig:AtomicDensityVR}  showed that the triple lines had $\mu = 0.58 \AA, \sigma = 0.0065 \AA $ and a $95\%$ confidence interval of $[0.045, 0.070]$ Anstroms. The grain boundaries had $\mu = 0.60 \AA, \sigma = 0.0016 \AA $ and a $95\%$ confidence interval of $[0.056, 0.063]$ Anstroms. As a comparison the theoretical value for the atomic density within the lattice is
+$0.060 \AA$. The triple lines had a lower mean atomic density but also a larger spread of values. At an atomic level a small width or radii can lead to a large scatter in the densities as discussed in \cite{Kamachali2019}.  
+ 
+
+
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.5]{images/AtomicDensityAllFR.png} 
+	\label{fig:AtomicDensityFR}	
+	\caption{A comparison of the atomic density in triple lines of constant radii shown in orange compared to the atomic density of the adjoining grain boundaries.}
+\end{figure}
+
+Figure \ref{fig:AtomicDensityFR} shows the results of an alternative approach to estimating the atomic density using a fixed radii of $4.05 \AA$. However this approach produced a trimodal distribution in the triple line radius histogram making it unsuitable to be modelled as a Gaussian distribution. A further investigation of this showed that peaks were only prominent in the data with the $[110]$ direction parallel to $\mathbf{k}$ and this is discussed further in section \ref{sec:FutureWork}. 
+
+
+
+\newpage
+\section{Triple Line Potential Energy}
+
+The potential energy associated with the 276 triple lines investigated in this paper are analysed in this section. The parameters and confidence intervals are all given to two significant figures. The simulation cell was chosen with a height of approximately $80\AA$ as the region with a small radial distance from the triple line was of interest. 
+
+The data collected from the simulations was processed in two different ways. The first method calculated the energies based upon the individual radii found for each triple line shown in Figure \ref{fig:TJRadii}. The second method used a constant fixed radius of $r = 4.05 \AA$ which is the lattice parameter for Al. 
+
+The graph in Figure \ref{fig:ExcessPEVR} shows the excess potential energy in the triple line compared to the adjoining grain boundaries for triple lines of variable radii. The calculation found the potential energy per atom inside the triple line and then subtracted the potential energy per atom averaged over the three adjoing grain boundaries with a width of twice the triple line radius. 
  
 
 \begin{figure}[H]
-	\includegraphics[scale=1]{images/AxisAllExcessFit.png}
+	\includegraphics[scale=0.75]{images/AxisAllExcessFit.png}
 	\label{fig:ExcessPEVR}
 	\caption{The excess potential energy per atom in the triple lines of variable radii above the potential energy per atom in the adjoining grain boundaries.} 
 \end{figure}
@@ -330,53 +384,54 @@ $[-0.013, 0.057]$.
 The corresponding graph for triple lines with a constant fixed radius of $4.05 \AA$ is shown in Figure \ref{fig:ExcessPEFR}
 
 \begin{figure}[H]
-	\includegraphics[scale=1]{images/AllExcessFitFR.png} 
+	\includegraphics[scale=0.75]{images/AllExcessFitFR.png} 
 	\label{fig:ExcessPEFR}
 	\caption{The excess potential energy per atom in the triple lines of fixed radii above the potential energy per atom in the adjoining grain boundaries.}
 \end{figure}
 
-This data was also fitted to a Gaussian distribution with $\mu = 0.019$ and $\sigma = 0.016$. The majority of the triple lines had still a positive excess energy per atom compared to their adjoining grain boundaries although the mean was a little lower and the spread of data was smaller. There appears to be one outlier in the data. The $95\%$ confidence interval for the excess potential energy per atom was $[-0.013, 0.051]$.
+This data was also fitted to a Gaussian distribution with $\mu = 0.019$ and $\sigma = 0.016$. The majority of the triple lines had  a positive excess energy per atom compared to their adjoining grain boundaries although the mean was a little lower and the spread of data was smaller. There appears to be one outlier in the data. The $95\%$ confidence interval for the excess potential energy per atom was $[-0.013, 0.051]$.
 
-
-The correlation between the potential energy in the triple lines and their adjoining grain boundaries can also be investigated using the Pearson correlation coefficient which provides a measure of the linear correlation between the two quanitites.
+The values calculated in figures \ref{fig:ExcessPEVR} and \ref{fig:ExcessPEFR} are equivalent to the upper bound for the formation energy discussed in Chapter \ref{ch:Intro}. The correlation between the potential energy in the triple lines and their adjoining grain boundaries can also be investigated using the Pearson correlation coefficient which provides a measure of the linear correlation between the two quanitites.
 
 \begin{figure}[H]
-	\includegraphics[scale=1]{images/ScatterTJvsGB.png} 
+	\includegraphics[scale=0.75]{images/ScatterTJvsGB.png} 
 	\label{fig:ScatterTJvsGB}
 	\caption{Scatter plot of mean potential energy per atom in the triple line of different radii against mean potential energy per atom in the adjoining grain boundaries.}
 \end{figure}
 
-The scatter plot shows a weak positive correlation between the potential energies per atom of the triple line and the adjoining grain boundaries. The Pearson correlation coefficient was $0.75$ to $2$ significant figures. There appear to be some points where the tripleline potential energy per atom did not closely follow the pattern shown in the rest of the data and in fact had a less negative value. 
+The scatter plot in Figure \ref{fig:ScatterTJvsGB} shows a weak positive correlation between the potential energies per atom of the triple line and the adjoining grain boundaries as the Pearson correlation coefficient was $0.75$. There appears to be some points where the triple line potential energy per atom did not closely follow the trend shown in the rest of the data and in fact had a less negative value. 
 
-The corresponding scatter plot for triple lines of fixed radii is shown below. The correlation appears to be weaker and the Perason correlation coefficient was $0.58$ to $2$ significant figures. 
-
+The corresponding scatter plot for triple lines of fixed radii is shown in Figure \ref{fig:ScatterTJvsGBFR}. The correlation appears to be weaker, although still postive, with a Perason correlation coefficient of $0.58 < 0.75$. 
 
 \begin{figure}
-	\includegraphics[scale=1]{images/ScatterTJvsGBFR.png} 
-	\label{fig:ScatterTJvcGB}
+	\includegraphics[scale=0.75]{images/ScatterTJvsGBFR.png} 
+	\label{fig:ScatterTJvsGBFR}
 	\caption{Scatter plot of mean potential energy per atom in the triple line of fixed radii against mean potential energy per atom in the adjoining grain boundaries.}
 \end{figure}
 
-The potential energy stored per per unit volume in the triple lines.
+The data suggests that the majority of triple lines have a positive excess energy per atom compared to their adjoining grain boundaries. For the triple lines with different radii there was a weak positive correlation between the two variables. The correlation was much weaker when all triple lines were assumed to have a fixed radii of $4.05 \AA$ 
 
-The variable radii of triple lines is shown in the following plot. There is one possible outlier showing a larger than expected radius of more than $6.5 \AA$. 
+The potential energy stored per per unit volume in the triple lines is also of interest as this takes into account the atomic density of the grain boundaries and triple lines. The variable radii of triple lines is shown in Figure \ref{fig:PEPerVol}. There is one possible outlier showing a larger than expected radius of more than $6.5 \AA$. 
+
+
+
+
+The graph of potential energy per volume with differing triple line radii
 
 \begin{figure}
-	\includegraphics[scale=1]{images/Triplelineradii.png}  
-	\caption{Normalised histogram of 276 triple line radii in Anstroms.}	
-	\label{fig:TJRadii}
-\end{figure}	
+	\includegraphics[scale=0.75]{images/TJPEPerVolume.png} 
+	\label{fig:PEPerVol}
+\end{figure}
+$\mu = -0.19, \sigma = 0.021$ confidence interval $[-0.23, -0.15]$
 
-The atomic densities of the triple lines and grain boundaries.
-At an atomic level a small width and radii can lead to a large scatter in the densities as discussed in \cite{Kamachali2019}.  
+The corresponding graph for fixed radii
 
+\includegraphics[scale=1]{images/TJPEPerVolumeFR.png} 
 
-Differences in the atomic densities of triple line and its neighbouring grain boundaries.
+has ide
+$\mu = -0.19, \sigma = 0.021$ confidence interval $[-0.23, -0.15]$
 
-The excess energy in the triple line compared to the mean potential energy of the adjacent grain boundaries.
-
-The excess energy in the triple line compared to the mean potential energy per unit volume in the adjacent grain boundaries. 
-
+atomic density variable radii
 
 
 \subsection{Triple Line Formation Energy}
@@ -387,7 +442,19 @@ The formation energy of the triple line is formally defined as the difference in
 
 The theoretical possibility of negative formation energies for defects were discussed in \cite{KIRCHHEIM20075129} and it was argued using free energy that this does not necessary lead to an perpetual increase in the number of defects if there are solute atoms.  
 
-\subsubsection{Lower Bound for Formation Energy}
+variable radii
+
+\includegraphics[scale=0.75]{images/TjFormationEnergyVR.png} 
+
+$\mu = -0.10, \sigma = 0.031$ $[-0.16,  -0.036]$
+
+
+fixed radii
+
+\includegraphics[scale=0.75]{images/TJFormationEnergyFR.png} 
+$\mu = -0.090 , \sigma =  0.023 [-0.13, -0.043]$
+
+\section{Lower Bound for Formation Energy}
 
 Let $n_{TJ}$ be the number of triple line atoms and $U_{TJ}$ be the mean potential energy per atom. Furthermore if $U_{L}$ and $U_{GB}$ are the mean potential energies per atom for the lattice and grain boundary atoms the following expression defines the energy of formation of the triple line $E_{fl}$
 
@@ -399,7 +466,7 @@ The term $U_{GB}$ is the averaged potential energy per atom where the summation 
 
     
 
-\subsubsection{Upper Bound for Formation Energy}
+\section{Upper Bound for Formation Energy}
 
 An upper bound for the formation energy for the triple line can be estimated by assuming that the only change in energy is that the  $n_{TJ}$ atoms formed in the triple line all come from the grain boundaries and there are is no increase in the number of lattice atoms. This means that there is no increase in the number of low energy lattice atoms. In general this will be a positive quantity as the triple line atoms are higher energy than the grain boundaries. 
 
@@ -428,7 +495,7 @@ The pre-existing grains shown in the following image have clearly developed some
 The following image was taken from an $[1 1 0]$ image from folder $data1$ with angles 15 and 30 degrees.
 
 
-\subsection{Future Work}
+\section{Future Work} \label{sec:FutureWork}
 
 
 Many of the triple lines studied had a positive mean excess potential energy per atom compared to the mean potential energy per atom of the three adjacent grain boundaries. This suggests that a triple line could be a good candidate for nucleating new grains. If a new grain was formed at producing three lower energy triple lines and three low energy grain boundaries then this could achieve a reduction in the overall potential energy of the system.

@@ -664,14 +664,13 @@ url={https://doi.org/10.1038/srep08692}
 }
 
 @Article{Upmanyu1999,
-  author        = {Upmanyu, Moneesh and Srolovitz, D.J. and Shvindlerman, L.S. and Gottstein, G.},
-  title         = {Triple Junction Mobility: A Molecular Dynamics Study},
-  journal       = {Interface Science},
-  year          = {1999},
-  volume        = {7},
-  month         = {11},
-  __markedentry = {[paul:]},
-  doi           = {10.1023/A:1008781611991},
+  author  = {Upmanyu, Moneesh and Srolovitz, D.J. and Shvindlerman, L.S. and Gottstein, G.},
+  title   = {Triple Junction Mobility: A Molecular Dynamics Study},
+  journal = {Interface Science},
+  year    = {1999},
+  volume  = {7},
+  month   = {11},
+  doi     = {10.1023/A:1008781611991},
 }
 
 @Article{Costantini2000,
@@ -682,12 +681,24 @@ url={https://doi.org/10.1038/srep08692}
   volume        = {63},
   pages         = {045302},
   month         = {Dec},
-  __markedentry = {[paul:6]},
+  __markedentry = {[paul:]},
   doi           = {10.1103/PhysRevB.63.045302},
   issue         = {4},
   numpages      = {4},
   publisher     = {American Physical Society},
   url           = {https://link.aps.org/doi/10.1103/PhysRevB.63.045302},
+}
+
+@Article{ZHANG1997,
+  author        = {ZHANG, T. Y.},
+  title         = {A fast parallel algorithm for thinning digital patterns},
+  journal       = {Commun. ACM},
+  year          = {1997},
+  volume        = {27},
+  number        = {3},
+  pages         = {337-343},
+  __markedentry = {[paul:6]},
+  url           = {https://ci.nii.ac.jp/naid/10011817031/en/},
 }
 
 @Comment{jabref-meta: databaseType:bibtex;}
