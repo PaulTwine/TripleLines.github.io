@@ -3,6 +3,9 @@ import GeometryFunctions as gf
 import LatticeShapes as ls
 import LatticeDefinitions as ld
 import scipy as sc
+from sympy.parsing.sympy_parser import parse_expr
+from sympy import lambdify
+from sympy.abc import x,y,z
 from datetime import datetime
 
 class PureCell(object):
@@ -46,6 +49,7 @@ class PureCell(object):
         else:
             raise Exception('Cell co-ordinates must range from 0 to 1 inclusive')
         return self.__CellNodes[intMinIndex] 
+
 class RealCell(PureCell):
     def __init__(self, inBasisVectors: np.array,inCellNodes: np.array, inLatticeParameters: np.array, inNumericalAccuracy = None):
         PureCell.__init__(self, inCellNodes)
@@ -76,12 +80,15 @@ class GeneralLattice(RealCell):
         self.__AtomType = 1
         self.__Origin = np.zeros(self.Dimensions())
         self.__LatticeParameters = inLatticeParameters
+    def __DeletePoints(self,lstDeletedIndices: list):
+        self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
+        self.__LatticePoints  = np.delete(self.__LatticePoints, lstDeletedIndices, axis=0) 
     def GetRealPoints(self)->np.array:
         return self.__RealPoints
     def MakeRealPoints(self, inConstraints):
         self.__LinearConstraints = inConstraints
         self.GenerateLatticeConstraints(inConstraints)
-        arrBounds = self.FindBoundingBox(self.__LatticeConstraints)
+        arrBounds = self.FindBoxConstraints(self.__LatticeConstraints)
         arrBounds[:,0] = np.floor(arrBounds[:,0])
         arrBounds[:,1] = np.ceil(arrBounds[:,1])
         arrCellPoints = np.array(gf.CreateCuboidPoints(arrBounds))
@@ -126,14 +133,16 @@ class GeneralLattice(RealCell):
         return zip(*self.GetRealPoints())
     def LinearConstrainRealPoints(self, inConstraint: np.array):
         lstDeletedIndices = gf.CheckLinearConstraint(self.__RealPoints, inConstraint)
-        self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
-        self.__LatticePoints  = np.delete(self.__LatticePoints, lstDeletedIndices, axis=0)  
+        # self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
+        # self.__LatticePoints  = np.delete(self.__LatticePoints, lstDeletedIndices, axis=0)  
+        self.__DeletePoints(lstDeletedIndices)
     def RemovePlaneOfAtoms(self, inPlane: np.array):
         lstDeletedIndices = gf.CheckLinearEquality(self.__RealPoints, inPlane, 0.01)
-        self.__RealPoints = np.delete(self.__RealPoints,lstDeletedIndices, axis = 0)
-        self.__LatticePoints = np.delete(self.__LatticePoints, lstDeletedIndices, axis = 0)
-    #FindBoundingBox only works for linear constraints. Searches for all the vertices where three constraints #simultaneously apply and then finds the points furthest from the origin.
-    def FindBoundingBox(self,inConstraints: np.array)->np.array:
+        #self.__RealPoints = np.delete(self.__RealPoints,lstDeletedIndices, axis = 0)
+        #self.__LatticePoints = np.delete(self.__LatticePoints, lstDeletedIndices, axis = 0)
+        self.__DeletePoints(lstDeletedIndices)
+    #FindBoxConstraint only works for linear constraints. Searches for all the vertices where three constraints #simultaneously apply and then finds the points furthest from the origin.
+    def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 0.0001)->np.array:
         intLength = len(inConstraints)
         intCombinations = int(np.math.factorial(intLength)/(np.math.factorial(3)*np.math.factorial(intLength-3)))
         arrMatrix = np.zeros([3,4])
@@ -146,7 +155,7 @@ class GeneralLattice(RealCell):
                     arrMatrix[0] = inConstraints[i]
                     arrMatrix[1] = inConstraints[j]
                     arrMatrix[2] = inConstraints[k]
-                    if abs(np.linalg.det(arrMatrix[:,:-1])) > 0.0001:
+                    if abs(np.linalg.det(arrMatrix[:,:-1])) > fltTolerance:
                         arrPoints[counter] = np.matmul(np.linalg.inv(arrMatrix[:,:-1]),arrMatrix[:,-1])
                         counter += 1
                     else:
@@ -155,6 +164,13 @@ class GeneralLattice(RealCell):
             arrRanges[j,0] = np.min(arrPoints[:,j])
             arrRanges[j,1] = np.max(arrPoints[:,j])
         return(arrRanges)
+    def ApplyGeneralConstraint(self,strFunction, strVariables): #default scalar value is less than 0 if "inside" the region
+        lstVariables = parse_expr(strVariables)
+        fltFunction = lambdify(lstVariables,parse_expr(strFunction))
+        arrFunction = lambda X : fltFunction(X[0],X[1],X[2])
+        arrLess = np.array(list(map(arrFunction, self.__RealPoints)))
+        lstDeletedIndices = np.where(arrLess > 0)
+        self.__DeletePoints(lstDeletedIndices)
     def GetQuaternionOrientation(self)->np.array:
        # return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(self.GetUnitBasisVectors()))
         return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(np.transpose(self.GetUnitBasisVectors())))     
@@ -335,39 +351,10 @@ class SimulationCell(object):
             raise("Error: Points need to be wrapped into simulation cell")
         
 
-
-
-# class DefectStructure(object):
-#     def __init__(self, arrTripleLines: np.array, arrGrainBoundaries: np.array):
-#         self.__TripleLines = arrTripleLines
-#         self.__GrainBoundaryPoints = arrGrainBoundaries
-#         lstOfGrainObjects = []
-#         for j in arrGrainBoundaries:
-#             lstOfGrainObjects.append(GrainBoundary(j))
-#         self.__GrainBoundariesObjects = lstOfGrainObjects
-#     def GetNeighbouringGrainBoundaries(self, intTripleLine: int):
-#         lstDistances = [] #the closest distance 
-#         lstPositions = []
-#         arrTripleLine = self.__TripleLines[intTripleLine]
-#         for j in self.__GrainBoundaryPoints:
-#             lstDistances.append(np.linalg.norm(np.min(j-arrTripleLine,axis=0)))
-#         for k in range(3):
-#             lstPositions.append(gf.FindNthSmallestPosition(lstDistances,k))
-#         return lstPositions
-#     def GetGrainBoundaryDirection(self, intGrainBoundary:int, intTripleLine: int):
-#         arrDistances = np.linalg.norm(self.__GrainBoundaryPoints[intGrainBoundary]-self.__TripleLines[intTripleLine], axis=0)
-#         intPosition = np.argmin(arrDistances)
-#         vctDirection = self.__GrainBoundariesObjects[intGrainBoundary].GetLinearDirection()
-#         if intPosition > len(arrDistances)/2:
-#             vctDirection = -vctDirection
-#         return vctDirection
-
-
 class GrainBoundaryCurve(object):
     def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array, fltHeight: float, fltSmoothness = 0.5):
         self.__StartPoint = arrTripleLineStart[0:2]
         self.__EndPoint = arrTripleLineEnd[0:2]
-        #self.__GBID = sorted(lstTripleLineIDs)
         self.__GBID = lstTripleLineIDs #this must have the list in the correct order
         self.__AlongAxis = self.__EndPoint -self.__StartPoint
         self.__AlongAxisLength = np.linalg.norm(self.__AlongAxis, axis=0)
@@ -381,7 +368,6 @@ class GrainBoundaryCurve(object):
             arrProjection[intPosition] = self.__ProjectPoint(arrVector)
         arrProjection = arrProjection[np.where((arrProjection[:,0] >0) 
                               & (arrProjection[:,0] < self.__AlongAxisLength))]
-        #arrProjection = arrProjection[np.unique(arrProjection[:,0], return_index=True)[1]]
         arrProjection = np.append(np.array([[0,0]]), arrProjection, axis=0)
         arrProjection = np.append(arrProjection,np.array([self.__ProjectPoint(self.__AlongAxis)]), axis=0)
         arrProjection = arrProjection[np.unique(arrProjection[:,0], return_index=True)[1]]
