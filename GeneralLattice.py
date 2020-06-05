@@ -172,12 +172,25 @@ class GeneralLattice(RealCell):
         lstDeletedIndices = np.where(arrLess > 0)
         self.__DeletePoints(lstDeletedIndices)
     def GetQuaternionOrientation(self)->np.array:
-       # return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(self.GetUnitBasisVectors()))
         return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(np.transpose(self.GetUnitBasisVectors())))     
     def GetLinearConstraints(self):
         return self.__LinearConstraints
     def GetLatticeConstraints(self):
         return self.__LatticeConstraints
+class ExtrudedRectangle(GeneralLattice):
+    def __init__(self, fltLength: float, fltWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin = None):
+        arrConstraints = np.zeros([6,4])
+        arrConstraints[0] = np.array([1,0,0,fltLength])
+        arrConstraints[1] = np.array([-1,0,0,0])
+        arrConstraints[2] = np.array([0,1,0,fltWidth])
+        arrConstraints[3] = np.array([0,-1,0,0])
+        arrConstraints[4] = np.array([0,0,1,fltHeight])
+        arrConstraints[5] = np.array([0,0,-1,0])
+        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters)
+        if not(inOrigin is None):
+                self.SetOrigin(inOrigin)
+        self.MakeRealPoints(arrConstraints)
+    
 class ExtrudedRegularPolygon(GeneralLattice):
     def __init__(self, fltSideLength: float, fltHeight: float, intNumberOfSides: int, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin = None):
         intDimensions = len(inBasisVectors[0])
