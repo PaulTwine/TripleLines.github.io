@@ -51,35 +51,40 @@ class PureCell(object):
         return self.__CellNodes[intMinIndex] 
 
 class RealCell(PureCell):
-    def __init__(self, inBasisVectors: np.array,inCellNodes: np.array, inLatticeParameters: np.array, inNumericalAccuracy = None):
+    def __init__(self,inCellNodes: np.array, inLatticeParameters: np.array, inCellVectors=None):
         PureCell.__init__(self, inCellNodes)
-        self.__UnitBasisVectors = inBasisVectors
         self.__LatticeParameters = inLatticeParameters
-        self.__RealBasisVectors = np.matmul(np.diag(inLatticeParameters), inBasisVectors)
-        if inNumericalAccuracy is None:
-            self.__NumericalAccuracy = 10
+        if inCellVectors is None:
+            self.__CellVectors = gf.StandardBasisVectors(self.Dimensions())
         else:
-            self.__NumericalAccuracy = inNumericalAccuracy
-    def RealDirectionalMotif(self, intBasisVector: int, intSign = +1)->np.array:
-        return np.matmul(self.CellDirectionalMotif(intBasisVector, intSign), self.__UnitBasisVectors)
-    def GetUnitBasisVectors(self)->np.array:
-        return self.__UnitBasisVectors
-    def GetRealBasisVectors(self)->np.array:
-        return self.__RealBasisVectors
-    def GetNumericalAccuracy(self)->int:
-        return self.__NumericalAccuracy
-    def SetNumericalAccuracy(self, inInt):
-        self.__NumericalAccuracy = inInt
-
+            self.__CellVectors = inCellVectors
+        self.__RealCellVectors = np.zeros([self.Dimensions(),self.Dimensions()])
+        for j in range(self.Dimensions()):
+            self.__RealCellVectors[j] = inLatticeParameters[j]*self.__CellVectors[j]
+    def GetCellVectors(self)->np.array:
+        return self.__CellVectors
+    def GetRealCellVectors(self)->np.array:
+        return self.__RealCellVectors
+    def GetLatticeParameters(self):
+        return self.__LatticeParameters
+    
 class GeneralLattice(RealCell):
-    def __init__(self,inBasisVectors:np.array,inCellNodes: np.array,inLatticeParameters:np.array):
-        RealCell.__init__(self,inBasisVectors, inCellNodes,inLatticeParameters)
+    def __init__(self,inBasisVectors:np.array,inCellNodes: np.array,inLatticeParameters:np.array, inCellBasis = None):
+        RealCell.__init__(self, inCellNodes,inLatticeParameters, inCellBasis)
+        self.__UnitBasisVectors  = inBasisVectors # Cartesian basis vectors for the lattice
         self.__RealPoints = []
         self.__LatticePoints = []
         self.__CellPoints = []
         self.__AtomType = 1
         self.__Origin = np.zeros(self.Dimensions())
         self.__LatticeParameters = inLatticeParameters
+        self.__RealBasisVectors = np.zeros([self.Dimensions(),self.Dimensions()])
+        for j in range(self.Dimensions()):
+            self.__RealBasisVectors[j] = inLatticeParameters[j]*inBasisVectors[j]
+    def GetUnitBasisVectors(self)->np.array:
+        return self.__UnitBasisVectors
+    def GetRealBasisVectors(self)->np.array:
+        return self.__RealBasisVectors
     def __DeletePoints(self,lstDeletedIndices: list):
         self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
         self.__LatticePoints  = np.delete(self.__LatticePoints, lstDeletedIndices, axis=0) 
@@ -103,24 +108,48 @@ class GeneralLattice(RealCell):
         return np.unique(arrLatticePoints, axis = 0)
     def GenerateRealPoints(self, inLatticePoints):
         self.__LatticePoints = inLatticePoints
-        self.__RealPoints = np.round(np.matmul(inLatticePoints, self.GetRealBasisVectors()),10)
+        arrRealPoints = np.round(np.matmul(inLatticePoints, self.GetRealCellVectors()),10)
+        self.__RealPoints = np.round(np.matmul(arrRealPoints, self.GetUnitBasisVectors()),10)
         self.__RealPoints = np.add([self.__Origin], self.__RealPoints)
     def GenerateLatticeConstraints(self, inConstraints: np.array):
         rtnArray = np.zeros([len(inConstraints),len(inConstraints[0])])
-        for k in range(len(inConstraints)):
-            arrVector = np.matmul(inConstraints[k,:-1], np.linalg.inv(self.GetUnitBasisVectors()))
-            for j in range(len(arrVector)):
-                rtnArray[k,j] = arrVector[j]
-            rtnArray[k, 3] = np.linalg.norm(inConstraints[k,3] * np.matmul(rtnArray[k,:-1],np.linalg.inv(np.diag(self.__LatticeParameters))),axis=0)
+        tmpArray = np.zeros([3])
+        for i in range(len(inConstraints)):
+            arrVector = inConstraints[i,:-1]
+            fltLength = np.linalg.norm(arrVector)
+            arrConstraint = inConstraints[i,3]*arrVector/fltLength**2
+            arrVector = np.matmul(arrVector, np.linalg.inv(self.GetRealBasisVectors()))
+            arrConstraint = np.matmul(arrConstraint, np.linalg.inv(self.GetRealBasisVectors()))
+           # arrVector = np.matmul(arrVector, np.linalg.inv(self.GetRealCellVectors()))
+           # arrConstraint = np.matmul(arrConstraint, np.linalg.inv(self.GetRealCellVectors()))   
+            #arrVector = np.matmul(arrVector, np.linalg.inv(self.GetRealBasisVectors()))
+            #arrConstraint = np.matmul(arrConstraint, np.linalg.inv(self.GetRealBasisVectors())) 
+            #rtnArray[k,3] = gf.InnerProduct(arrVector, arrConstraint,self.GetCellVectors())
+            #tmpArray[k,3] = np.dot(arrVector, arrConstraint) # components resolved onto vectors in Cartesian system
+            for k in range(3):
+                rtnArray[i,k] = np.dot(arrVector,self.GetCellVectors()[k])
+                tmpArray[k] = np.dot(arrConstraint, self.GetCellVectors()[k])
+            rtnArray[i,3] = np.dot(rtnArray[i,:3], tmpArray)
+            #rtnArray[i,3] = gf.InnerProduct(rtnArray[i,:3], tmpArray,self.GetCellVectors())
         self.__LatticeConstraints = rtnArray
     def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
         arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
         return arrPositions
-    def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
-        arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
-        arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
-        return np.unique(arrPositions)
+    def CheckLatticeConstraints(self,inLatticePoints: np.array)-> np.array: #returns indices to delete 
+        lstPositions = []
+        for j in self.__LatticeConstraints:
+            fltLength = np.linalg.norm(j[:3])
+            arrConstraint =  j[:3]*j[3]/fltLength**2
+            arrRelativePoints = inLatticePoints - arrConstraint
+       #     arrValues = np.array(list(map(lambda x: gf.InnerProduct(j[:3],x,self.GetCellVectors()), arrRelativePoints)))
+            arrValues = np.dot(arrRelativePoints, j[:3])
+            lstPositions.extend(list(np.argwhere(np.round(arrValues,10) > 0)[:,0]))        
+        return np.unique(lstPositions)
+    # def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
+    #      arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
+    #      arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
+    #      return np.unique(arrPositions)
     def GetNumberOfAtoms(self)->int:
         return len(self.__RealPoints)
     def GetAtomType(self)->int:
@@ -133,13 +162,9 @@ class GeneralLattice(RealCell):
         return zip(*self.GetRealPoints())
     def LinearConstrainRealPoints(self, inConstraint: np.array):
         lstDeletedIndices = gf.CheckLinearConstraint(self.__RealPoints, inConstraint)
-        # self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
-        # self.__LatticePoints  = np.delete(self.__LatticePoints, lstDeletedIndices, axis=0)  
         self.__DeletePoints(lstDeletedIndices)
     def RemovePlaneOfAtoms(self, inPlane: np.array):
         lstDeletedIndices = gf.CheckLinearEquality(self.__RealPoints, inPlane, 0.01)
-        #self.__RealPoints = np.delete(self.__RealPoints,lstDeletedIndices, axis = 0)
-        #self.__LatticePoints = np.delete(self.__LatticePoints, lstDeletedIndices, axis = 0)
         self.__DeletePoints(lstDeletedIndices)
     #FindBoxConstraint only works for linear constraints. Searches for all the vertices where three constraints #simultaneously apply and then finds the points furthest from the origin.
     def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 0.0001)->np.array:
@@ -160,11 +185,12 @@ class GeneralLattice(RealCell):
                         counter += 1
                     else:
                         arrPoints = np.delete(arrPoints, counter, axis=0)
+       # arrPoints = np.matmul(arrPoints,np.linalg.inv(self.GetCellVectors()))                
         for j in range(len(arrRanges)):
             arrRanges[j,0] = np.min(arrPoints[:,j])
             arrRanges[j,1] = np.max(arrPoints[:,j])
         return(arrRanges)
-    def ApplyGeneralConstraint(self,strFunction, strVariables): #default scalar value is less than 0 if "inside" the region
+    def ApplyGeneralConstraint(self,strFunction, strVariables='[x,y,z]'): #default scalar value is less than 0 if "inside" the region
         lstVariables = parse_expr(strVariables)
         fltFunction = lambdify(lstVariables,parse_expr(strFunction))
         arrFunction = lambda X : fltFunction(X[0],X[1],X[2])
@@ -178,7 +204,7 @@ class GeneralLattice(RealCell):
     def GetLatticeConstraints(self):
         return self.__LatticeConstraints
 class ExtrudedRectangle(GeneralLattice):
-    def __init__(self, fltLength: float, fltWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin = None):
+    def __init__(self, fltLength: float, fltWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin = None, inCellBasis= None):
         arrConstraints = np.zeros([6,4])
         arrConstraints[0] = np.array([1,0,0,fltLength])
         arrConstraints[1] = np.array([-1,0,0,0])
@@ -186,13 +212,13 @@ class ExtrudedRectangle(GeneralLattice):
         arrConstraints[3] = np.array([0,-1,0,0])
         arrConstraints[4] = np.array([0,0,1,fltHeight])
         arrConstraints[5] = np.array([0,0,-1,0])
-        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters)
+        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters, inCellBasis)
         if not(inOrigin is None):
                 self.SetOrigin(inOrigin)
         self.MakeRealPoints(arrConstraints)
     
 class ExtrudedRegularPolygon(GeneralLattice):
-    def __init__(self, fltSideLength: float, fltHeight: float, intNumberOfSides: int, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin = None):
+    def __init__(self, fltSideLength: float, fltHeight: float, intNumberOfSides: int, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin = None, inCellBasis=None):
         intDimensions = len(inBasisVectors[0])
         arrConstraints = np.zeros([intNumberOfSides + 2,intDimensions+1])
         arrNormalVector = np.zeros(intDimensions)
@@ -214,7 +240,7 @@ class ExtrudedRegularPolygon(GeneralLattice):
         arrConstraints[-2,-1] = 0
         arrConstraints[-1,-2] = 1
         arrConstraints[-1,-1] = fltHeight
-        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters)
+        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters, inCellBasis)
         if not(inOrigin is None):
             self.SetOrigin(inOrigin)
         self.MakeRealPoints(arrConstraints)
