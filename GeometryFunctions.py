@@ -280,6 +280,9 @@ def FindGeometricMediod(inPoints: np.array,bln2D = False, blnSquaring = True)-> 
         arrRowSums = np.sum(arrDistanceMatrix, axis = 0)
         intPosition = np.argmin(arrRowSums)
         return inPoints[intPosition]
+def InnerProduct(inVector1 :np.array, inVector2: np.array, inBasisVectors: np.array )->float:
+        arrMatrix = np.matmul(np.transpose(inBasisVectors), inBasisVectors)
+        return np.matmul(np.transpose(inVector1), np.matmul(arrMatrix, inVector2))
 
 
 

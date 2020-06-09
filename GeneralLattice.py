@@ -117,6 +117,7 @@ class GeneralLattice(RealCell):
         for i in range(len(inConstraints)):
             arrVector = inConstraints[i,:-1]
             fltLength = np.linalg.norm(arrVector)
+            arrVector = arrVector/fltLength
             arrConstraint = inConstraints[i,3]*arrVector/fltLength**2
             arrVector = np.matmul(arrVector, np.linalg.inv(self.GetRealBasisVectors()))
             arrConstraint = np.matmul(arrConstraint, np.linalg.inv(self.GetRealBasisVectors()))
@@ -127,10 +128,11 @@ class GeneralLattice(RealCell):
             #rtnArray[k,3] = gf.InnerProduct(arrVector, arrConstraint,self.GetCellVectors())
             #tmpArray[k,3] = np.dot(arrVector, arrConstraint) # components resolved onto vectors in Cartesian system
             for k in range(3):
-                rtnArray[i,k] = np.dot(arrVector,self.GetCellVectors()[k])
+                rtnArray[i,k] = np.dot(arrVector,self.GetCellVectors()[k]) # generally a non-Carteisan Basis
                 tmpArray[k] = np.dot(arrConstraint, self.GetCellVectors()[k])
-            rtnArray[i,3] = np.dot(rtnArray[i,:3], tmpArray)
-            #rtnArray[i,3] = gf.InnerProduct(rtnArray[i,:3], tmpArray,self.GetCellVectors())
+            fltLength = np.linalg.norm(rtnArray[i,:3])
+            rtnArray[i,:3] = rtnArray[i,:3]/fltLength 
+            rtnArray[i,3] = gf.InnerProduct(rtnArray[i,:3], tmpArray,np.linalg.inv(self.GetCellVectors()))
         self.__LatticeConstraints = rtnArray
     def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
