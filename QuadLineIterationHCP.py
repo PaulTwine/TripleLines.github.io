@@ -15,10 +15,11 @@ fltAngle1 = 20
 fltAngle2 = 80
 #a = 4.05/np.sqrt(2) ##lattice parameter
 a= 3.230676
+c= 5.182
 #a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 w = 50*a
 l = np.sqrt(3)*w
-h= 10*np.sqrt(8/3)*a
+h= 20*c
 z = np.array([0,0,h])
 strDirectory = '../../data' # + str(intCounter) 
 strDataFile = 'read.data' +str(intCounter)
@@ -28,7 +29,7 @@ arr100BasisVectors = gf.StandardBasisVectors(3)
 arrHorizontalVector = np.array([w,0,0])
 arrUpVector =  np.array([0, l,0]) 
 r =0.96*l/2
-arrLatticeParameters= np.array([a,a,np.sqrt(8/3)*a])
+arrLatticeParameters= np.array([a,a,c])
 MySimulationCell = gl.SimulationCell(np.array([2*arrHorizontalVector,arrUpVector, z])) 
 objTop = gl.ExtrudedRectangle(2*w,l/2, h, gf.RotateVectors(gf.DegreesToRadians(fltAngle2),z,arr100BasisVectors), ld.HCPCell, arrLatticeParameters,arrUpVector/2,ld.HCPBasisVectors)
 objTop.ApplyGeneralConstraint('((x-'+str(w)+')/'+str(w/2)+')**2 +((y -' +str(l) +')/' +str(r) + ')**2-1' ,'[x,y,z]')
@@ -44,7 +45,7 @@ MySimulationCell.WrapAllPointsIntoSimulationCell()
 MySimulationCell.RemovePlaneOfAtoms(np.array([[0,0,1,z[2]]]),0.001)
 #MySimulationCell.RemovePlaneOfAtoms(np.array([[0,l,0,l]]),0.001)
 MySimulationCell.SetFileHeader('Angle1 = ' + str(fltAngle1) + ' Angle2 = ' + str(fltAngle2) + 'Axis = [100]')
-MySimulationCell.WriteLAMMPSDataFile('readPoly.data')
+MySimulationCell.WriteLAMMPSDataFile('readHCP.data')
 # fIn = open(strDirectory + '/' + 'TemplateNVT.in', 'rt')
 # fData = fIn.read()
 # fData = fData.replace('new.data', strDataFile)
