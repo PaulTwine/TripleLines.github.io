@@ -9,6 +9,7 @@
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+from matplotlib import transforms
 from matplotlib.ticker import FormatStrFormatter
 import LatticeDefinitions as ld
 import GeometryFunctions as gf
@@ -25,29 +26,31 @@ from IPython.core.debugger import set_trace
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 #strDumpFile = '../../PythonLAMMPS/VolumeTest/dump.eamPM'
-strDumpFile = '/home/paul/csf3_scratch/TripleLines/data19/dump.eam19PM'
+strDumpFile = '/home/paul/csf3_scratch/Axis110/data8/dump.eam8PM'
 objData = LD.LAMMPSData(strDumpFile,1, 4.05)
 objProcess = objData.GetTimeStepByIndex(-1)
 objProcess.CategoriseAtoms()         
 #objQPoints = LD.Quantised2DPoints(objProcess.GetOtherAtoms()[:,1:3], a1, objProcess.GetCellVectors()[0:2,0:2],11) 
-objQPoints = LD.QuantisedRectangularPoints(objProcess.GetOtherAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],10,a1, 1,5, blnDebug = True)
-fig,ax = plt.subplots(1,4)
-ax[0].imshow(objQPoints.GetArrayGrid())
-
+objQPoints = LD.QuantisedRectangularPoints(objProcess.GetNonLatticeAtoms()[:,1:3],objProcess.GetUnitBasisConversions()[0:2,0:2],20,a1,1,1, blnDebug = False)
+fig,ax = plt.subplots(1,3)
+tr = transforms.Affine2D().rotate_deg(90)
+#objQPoints.FindTriplePoints()
+ax[0].matshow(np.flip(objQPoints.GetArrayGrid()),origin='lower')
 #print(objQPoints.GetTriplePoints())
-ax[1].imshow(objQPoints.GetExtendedArrayGrid())
+ax[1].matshow(np.flip(objQPoints.GetExtendedArrayGrid()),origin='lower')
 #objQPoints.FindGrainBoundaries()
 #print(objQPoints.GetNumberOfGrainBoundaries())
 #objQPoints.ClassifyGBPoints(3,True)
 objQPoints.FindTriplePoints()
-ax[2].imshow(objQPoints.GetExtendedSkeletonPoints())
+ax[2].matshow(np.flip(objQPoints.GetExtendedSkeletonPoints()),origin='lower')
 objQPoints.FindGrainBoundaries()
-ax[3].imshow(objQPoints.GetExtendedSkeletonPoints())
+#ax[3].imshow(objQPoints.GetExtendedSkeletonPoints(),cmap='gist_earth')
 #fig.colorbar(pos, ax=ax[2])
 #print(objQPoints.ClearWrapperValues())
 #print(objQPoints.GetGrainBoundaries())
 print(objQPoints.MakeAdjacencyMatrix())
-#print(objQPoints.GetAdjacentTriplePoints(5))
+for j in range(len(objQPoints.GetTriplePoints())):
+    print(objQPoints.GetEquivalentTriplePoints(j))
 
 
 

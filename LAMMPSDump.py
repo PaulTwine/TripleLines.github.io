@@ -3,11 +3,11 @@ import numpy as np
 import GeometryFunctions as gf
 import GeneralLattice as gl
 from scipy import spatial, optimize, ndimage
-from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes
+from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes, remove_small_objects
 from scipy.cluster.vq import kmeans,vq
+from scipy.interpolate import RectBivariateSpline
 from skimage.filters import gaussian
 import shapely as sp
-import geopandas as gpd
 import copy
 import warnings
 from sklearn.metrics import mean_squared_error
@@ -367,7 +367,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstOfVectors = []
         fltEnergy = 0
         arrCentre = self.GetUniqueTripleLines(strTripleLineID).GetCentre()
-        fltLength = self.FindClosestTripleLine(strTripleLineID)
+        fltLength = self.FindClosestTripleLineDistance(strTripleLineID)
         fltMeanLatticeValue = np.mean(self.FindValuesInCylinder(self.GetLatticeAtoms()[:,0:4],arrCentre,fltLength,self.CellHeight,self._intPE))
         if blnByVolume: #hard coded for FCC at the minute
             fltMinimumLatticeValue = fltMinimumLatticeValue*4/(self.__LatticeParameter**3)
@@ -650,7 +650,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             elif strValue =='sum':
                 lstValues.append(np.sum(self.GetAtomsByID(lstIndices)[:,self._intPE],axis=0))
         return lstLength, lstValues,lstIndices
-    def FindClosestTripleLine(self, strTripleLineID: str)->float:
+    def FindClosestTripleLineDistance(self, strTripleLineID: str)->float:
         if strTripleLineID[:1] == 'U':
             intTripleLine = int(strTripleLineID[3:])
         elif strTripleLineID[:1] == 'T':
@@ -698,7 +698,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstN = []
         if fltLength is None:
            # fltClosest = np.sort(self.__TripleLineDistanceMatrix[intTripleLine,list(setTripleLines)])[1]/2
-           fltClosest = self.FindClosestTripleLine(strTripleLineID)/2
+           fltClosest = self.FindClosestTripleLineDistance(strTripleLineID)/2
         else:
             fltClosest = fltLength
         intMax = np.floor(fltClosest/(fltIncrement)).astype('int')
@@ -762,38 +762,42 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             arrGBVectors[j,0:2] = fltValue*gf.NormaliseVector(arrGBVectors[j,0:2])
         arrHerring = np.sum(arrGBVectors, axis = 0) 
         return gf.NormaliseVector(arrHerring), np.linalg.norm(arrHerring)
+    def FindClosestTripleLineID(self, inPoint: np.array)->str:
+        blnFirstTime = True
+        for j in self.GetUniqueTripleLineIDs():
+            fltNewDistance = np.linalg.norm(self.GetUniqueTripleLines(j).GetCentre()-inPoint)
+            if blnFirstTime:
+                strID = j
+                fltMinDistance = fltNewDistance
+                blnFirstTime = False   
+            elif fltNewDistance < fltMinDistance:
+                fltMinDistance = fltNewDistance
+                strID = j
+        return strID
 
+                
 class QuantisedRectangularPoints(object): #linear transform parallelograms into a rectangular parameter space
     def __init__(self, in2DPoints: np.array, inUnitBasisVectors: np.array, n: int, fltGridSize: float, intMinCount: int, intDilation = 2, blnDebug = False):
+        self.__GrainValue = 0
+        self.__GBValue = 1 #just fixed constants used in the array 
+        self.__DislocationValue = 2
+        self.__TripleLineValue = 3
         self.__WrapperWidth = n #mininum count specifies how many nonlattice atoms occur in the float grid size before it is counted as a grain boundary grid or triple line
         self.__BasisVectors = inUnitBasisVectors
         self.__InverseMatrix =  np.linalg.inv(inUnitBasisVectors)
         self.__GridSize = fltGridSize
         self.__WrapperVector = np.array([n,n])
         arrPoints =  np.matmul(in2DPoints, self.__BasisVectors)*(1/fltGridSize)
-        intMaxHeight = np.round(np.max(arrPoints[:,0])).astype('int')
-        intMaxWidth = np.round(np.max(arrPoints[:,1])).astype('int')
-        self.__ArrayGrid =  np.zeros([(intMaxHeight+1),intMaxWidth+1])
+        self.__intMaxHeight = np.round(np.max(arrPoints[:,0])).astype('int')+1
+        self.__intMaxWidth = np.round(np.max(arrPoints[:,1])).astype('int')+1
+        self.__OriginalGrid =  np.zeros([(self.__intMaxHeight),self.__intMaxWidth])
+        self.__ExtendedArrayGrid = np.zeros([np.shape(self.__ArrayGrid)[0]+2*n,np.shape(self.__ArrayGrid)[1]+2*n])
         arrPoints = np.round(arrPoints).astype('int')
         for j in arrPoints:
-            self.__ArrayGrid[j[0],j[1]] += 1 #this array represents the simultion cell
-        self.__ArrayGrid = (self.__ArrayGrid >= intMinCount).astype('int')
-        self.__ArrayGrid = ndimage.binary_dilation(self.__ArrayGrid, np.ones([intDilation,intDilation]))
-        self.__ArrayGrid = remove_small_holes(self.__ArrayGrid, 4)
-        self.__ExtendedArrayGrid = np.zeros([np.shape(self.__ArrayGrid)[0]+2*n,np.shape(self.__ArrayGrid)[1]+2*n])
-        self.__ExtendedArrayGrid[n:-n, n:-n] = self.__ArrayGrid
-        self.__ExtendedArrayGrid[0:n, n:-n] = self.__ArrayGrid[-n:,:]
-        self.__ExtendedArrayGrid[-n:, n:-n] = self.__ArrayGrid[:n,:]
-        self.__ExtendedArrayGrid[:,0:n] = self.__ExtendedArrayGrid[:,-2*n:-n]
-        self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
-        self.__ExtendedArrayGrid = gaussian(self.__ExtendedArrayGrid, sigma=3)
-        self.__ExtendedArrayGrid = np.round(self.__ExtendedArrayGrid,0).astype('int')
-        self.__ExtendedArrayGrid = (self.__ExtendedArrayGrid.astype('bool')).astype('int')
-        self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
-        self.__GrainValue = 0
-        self.__GBValue = 1 #just fixed constants used in the array 
-        self.__DislocationValue = 2
-        self.__TripleLineValue = 3
+            self.__OriginalGrid[j[0],j[1]] += 1 #this array represents the simultion cell
+       # self.__OriginalGrid = ndimage.median_filter(self.__OriginalGrid,2)
+        self.FillInGrainBoundaryGaps()
+        self.MakeExtendedGrid()
         self.__TriplePoints = []
         self.__Dislocations = []
         self.__GrainBoundaryLabels = []
@@ -803,6 +807,24 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
             self.FindTriplePoints() #when debugging comment these out and call the methods one at a time in this order
             self.FindGrainBoundaries()
             self.MakeAdjacencyMatrix()
+    def FillInGrainBoundaryGaps(self,fltSigma = 1):
+        self.__fltSigma = fltSigma
+        arrHeightValues = np.array(list(range(self.__intMaxHeight)))
+        arrWidthValues = np.array(list(range(self.__intMaxWidth)))
+        objFunction = RectBivariateSpline(arrHeightValues ,arrWidthValues,self.__OriginalGrid)
+        self.__ArrayGrid = objFunction(arrHeightValues,arrWidthValues)
+        self.__ArrayGrid = gaussian(self.__ArrayGrid, fltSigma)
+        self.__ArrayGrid = (self.__ArrayGrid >= np.mean(self.__ArrayGrid)).astype('int')
+        self.__ArrayGrid = remove_small_holes(self.__ArrayGrid, 4)
+    def MakeExtendedGrid(self):
+        n = self.__WrapperWidth
+        self.__ExtendedArrayGrid[n:-n, n:-n] = self.__ArrayGrid
+        self.__ExtendedArrayGrid[0:n, n:-n] = self.__ArrayGrid[-n:,:]
+        self.__ExtendedArrayGrid[-n:, n:-n] = self.__ArrayGrid[:n,:]
+        self.__ExtendedArrayGrid[:,0:n] = self.__ExtendedArrayGrid[:,-2*n:-n]
+        self.__ExtendedArrayGrid[:,-n:] = self.__ExtendedArrayGrid[:,n:2*n]
+        self.__ExtendedArrayGrid = (self.__ExtendedArrayGrid.astype('bool')).astype('int')
+        self.__ExtendedSkeletonGrid = skeletonize(self.__ExtendedArrayGrid).astype('int')
     def GetArrayGrid(self):
         return self.__ArrayGrid
     def GetExtendedArrayGrid(self)->np.array:
@@ -832,13 +854,11 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
                         intSwaps += 1
                         intValue = k
                 if intSwaps == 6 and m ==3:
-                    # if not (arrCurrent[0].all() == self.__GBValue or arrCurrent[-1].all() == self.__GBValue or arrCurrent[:,0].all() == self.__GBValue or  arrCurrent[:,-1].all() ==self.__GBValue):
-                        if self.CheckEachSide(arrCurrent):
-                            self.SetSkeletonValue(x,self.__TripleLineValue)
+                    if self.CheckEachSide(arrCurrent):
+                        self.SetSkeletonValue(x,self.__TripleLineValue)
                 elif intSwaps ==6:
                     self.SetSkeletonValue(x,self.__TripleLineValue)
-                elif intSwaps < 4 and blnFlagEndPoints and m==3: #only flag end points for a search with 3x3
-                   # if not self.OnEdge(x,3): #only set dislocation end points inside the ArrayGrid
+                elif intSwaps < 4 and blnFlagEndPoints and m==3: 
                     self.SetSkeletonValue(x,self.__DislocationValue)
         self.__Dislocations = np.argwhere(self.__ExtendedSkeletonGrid == self.__DislocationValue)
         return np.argwhere(self.__ExtendedSkeletonGrid == self.__TripleLineValue)
@@ -874,6 +894,17 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
         self.__ExtendedSkeletonGrid[:, k:] = self.__GrainValue
     def FindTriplePoints(self):
         self.__TriplePoints = self.ClassifyGBPoints(3, True)
+        blnBrokenGB = False
+        intCounter = 0
+        while not(blnBrokenGB) and intCounter < len(self.__Dislocations):
+            if self.InGrid(self.__Dislocations[intCounter]):
+                blnBrokenGB = True
+            else:
+                intCounter += 1        
+        if blnBrokenGB and self.__fltSigma < 5:
+            self.FillInGrainBoundaryGaps(self.__fltSigma+0.25)
+            self.MakeExtendedGrid()
+            self.FindTriplePoints()
         k = np.ceil(self.__WrapperWidth/2).astype('int')
         lstDeleteTJs = []
         for j, arrTriplePoint in enumerate(self.__TriplePoints): #errors in skeletonize sometimes produces fake TJS at the edge of the extended skeleton grid. 
@@ -896,8 +927,6 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
                 self.SetSkeletonValue(j, self.__GrainValue)
                 arrPoints = np.delete(arrPoints, j, axis=0)
         self.__TriplePoints = arrPoints
-        #self.MergeGrainBoundaries() #removed as this caused problems with finding adjacent triple lines
-        #self.ClearWrapper()
     def GetGrainBoundaryLabels(self):
         if  not self.__blnGrainBoundaries:
             self.FindGrainBoundaries()
@@ -917,46 +946,6 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
                 arrPoints = np.unique(np.mod(arrPoints,arrMod), axis=0)
                 lstGrainBoundaries.append(self.__ConvertToCoordinates(arrPoints))
         return lstGrainBoundaries
-    def MergeGrainBoundaries(self):
-        arrMod = np.array([np.shape(self.__ArrayGrid)])
-        lstCurrentIDs = list(np.copy(self.__GrainBoundaryIDs))
-        counterj = 0
-        while (counterj < len(self.__GrainBoundaryIDs)):
-            j = self.__GrainBoundaryIDs[counterj]
-            lstCurrentIDs.remove(j)
-            arrPointsj = np.argwhere(self.__ExtendedSkeletonGrid == j)
-            arrDistanceMatrixJ = spatial.distance_matrix(self.__TriplePoints, arrPointsj)
-            arrPositionsJ = np.argwhere(arrDistanceMatrixJ < 2)[:,1]
-            arrPointsj =np.delete(arrPointsj, arrPositionsJ, axis = 0)
-            arrPointsjMod = np.mod(arrPointsj, arrMod)
-            counterk = 0
-            while (counterk < len(lstCurrentIDs) and len(arrPointsjMod) > 0):
-                blnEmptyArray = False
-                k = lstCurrentIDs[counterk]
-                arrPointsk = np.argwhere(self.__ExtendedSkeletonGrid == k)
-                arrDistanceMatrixK = spatial.distance_matrix(self.__TriplePoints, arrPointsk)
-                arrPositionsK = np.argwhere(arrDistanceMatrixK < 2)[:,1]
-                arrPointsk =np.delete(arrPointsk, arrPositionsK, axis = 0)
-                arrPointskMod = np.mod(arrPointsk, arrMod)
-                arrDistanceMatrix = spatial.distance_matrix(arrPointsjMod, arrPointskMod)
-                if arrDistanceMatrix.size > 0:
-                    fltMin = np.min(arrDistanceMatrix)
-                    #arrEquivalent = np.argwhere(arrDistanceMatrix == 0) #as points adjacent to triple points have been
-                else:#removed then diagonal connectivity is permissible
-                    blnEmptyArray = True                      
-                if fltMin < 2 and not(blnEmptyArray): #the two grain boundaries periodically link
-                    #if len(arrEquivalent) > 0:
-                       # for arrPositions in arrEquivalent:
-                            #if np.linalg.norm(arrPointsj[arrPositions[0]]- arrPointsk[arrPositions[1]]) > 0:
-                            #    if arrPointsj[arrPositions[0]]-self.__WrapperVector 
-                       #     if not(self.InGrid(arrPointsk[arrPositions[1]])):
-                       #         self.SetSkeletonValue(arrPointsk[arrPositions[1]],self.__GrainValue)
-                    self.__ExtendedSkeletonGrid[self.__ExtendedSkeletonGrid == k] = j
-                    self.__GrainBoundaryIDs.remove(k)
-                    lstCurrentIDs.remove(k)
-                else:
-                    counterk +=1
-            counterj +=1
     def InGrid(self, inPoint: np.array)->bool:
         blnReturn = True
         arrPoint = inPoint - self.__WrapperVector
@@ -985,7 +974,7 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
                 for k in arrPositions:
                     if np.linalg.norm(k-np.array([1,1])) > 1:
                         lstStartPoints.append(k+x-np.array([1,1]))
-        for j in lstStartPoints: #normally 3 points buy maybe one or two
+        for j in lstStartPoints: #normally 3 points but maybe one or two
             self.SetSkeletonValue(j, intValue)
             blnEnd = False
             arrNewPoint = j
