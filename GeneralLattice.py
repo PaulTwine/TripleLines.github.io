@@ -196,7 +196,7 @@ class GeneralLattice(RealCell):
         fltFunction = lambdify(lstVariables,parse_expr(strFunction))
         arrFunction = lambda X : fltFunction(X[0],X[1],X[2])
         arrLess = np.array(list(map(arrFunction, self.__RealPoints)))
-        lstDeletedIndices = np.where(arrLess > 0)
+        lstDeletedIndices = np.where(arrLess > 0)[0]
         self.__DeletePoints(lstDeletedIndices)
     def GetQuaternionOrientation(self)->np.array:
         return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(np.transpose(self.GetUnitBasisVectors())))     
