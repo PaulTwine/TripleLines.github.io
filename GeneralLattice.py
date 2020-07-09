@@ -121,12 +121,6 @@ class GeneralLattice(RealCell):
             arrConstraint = inConstraints[i,3]*arrVector/fltLength**2
             arrVector = np.matmul(arrVector, np.linalg.inv(self.GetRealBasisVectors()))
             arrConstraint = np.matmul(arrConstraint, np.linalg.inv(self.GetRealBasisVectors()))
-           # arrVector = np.matmul(arrVector, np.linalg.inv(self.GetRealCellVectors()))
-           # arrConstraint = np.matmul(arrConstraint, np.linalg.inv(self.GetRealCellVectors()))   
-            #arrVector = np.matmul(arrVector, np.linalg.inv(self.GetRealBasisVectors()))
-            #arrConstraint = np.matmul(arrConstraint, np.linalg.inv(self.GetRealBasisVectors())) 
-            #rtnArray[k,3] = gf.InnerProduct(arrVector, arrConstraint,self.GetCellVectors())
-            #tmpArray[k,3] = np.dot(arrVector, arrConstraint) # components resolved onto vectors in Cartesian system
             for k in range(3):
                 rtnArray[i,k] = np.dot(arrVector,self.GetCellVectors()[k]) # generally a non-Carteisan Basis
                 tmpArray[k] = np.dot(arrConstraint, self.GetCellVectors()[k])
@@ -138,16 +132,6 @@ class GeneralLattice(RealCell):
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
         arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
         return arrPositions
-    # def CheckLatticeConstraints(self,inLatticePoints: np.array)-> np.array: #returns indices to delete 
-    #     lstPositions = []
-    #     for j in self.__LatticeConstraints:
-    #         fltLength = np.linalg.norm(j[:3])
-    #         arrConstraint =  j[:3]*j[3]/fltLength**2
-    #         arrRelativePoints = inLatticePoints - arrConstraint
-    #    #     arrValues = np.array(list(map(lambda x: gf.InnerProduct(j[:3],x,self.GetCellVectors()), arrRelativePoints)))
-    #         arrValues = np.dot(arrRelativePoints, j[:3])
-    #         lstPositions.extend(list(np.argwhere(np.round(arrValues,10) > 0)[:,0]))        
-    #     return np.unique(lstPositions)
     def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
          arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
          arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
