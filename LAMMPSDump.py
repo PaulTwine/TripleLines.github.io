@@ -5,8 +5,9 @@ import GeneralLattice as gl
 from scipy import spatial, optimize, ndimage,stats
 from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes, remove_small_objects
 from scipy.cluster.vq import kmeans,vq
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 from skimage.filters import gaussian
+from skimage import measure
 import shapely as sp
 import copy
 import warnings
@@ -197,7 +198,8 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._intPositionZ = int(self.GetColumnNames().index('z'))
         self._intPE = int(self.GetColumnNames().index('c_pe1'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
-    def CategoriseAtoms(self):    
+        self.__DefectiveAtoms = []
+    def CategoriseAtoms(self, fltTolerance = None):    
         lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
         lstLatticeAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
         lstUnknownAtoms = list(np.where(np.isin(self.GetColumnByIndex(self._intStructureType).astype('int') ,[0,1],invert=True))[0])
@@ -207,6 +209,18 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self.__NonLatticeTree =  spatial.KDTree(list(zip(*self.__PlotList(lstOtherAtoms+lstUnknownAtoms))))
         self.__LatticeTree = spatial.KDTree(list(zip(*self.__PlotList(lstLatticeAtoms))))
         self.__UnknownAtoms = lstUnknownAtoms
+    def FindDefectiveAtoms(self, fltTolerance = None):
+        if fltTolerance is None:
+            fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
+            fltTolerance = 1.96*fltStdLatticeValue #95% limit assuming Normal distribution
+        fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
+        lstDefectiveAtoms = list(np.where(self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue +fltTolerance)[0])
+        self.__DefectiveAtoms = lstDefectiveAtoms
+        return self.GetRows(self.__DefectiveAtoms)
+    def GetDefectiveAtoms(self):
+        if len(self.__DefectiveAtoms) ==0:
+            self.FindDefectiveAtoms()
+        return self.GetRows(self.__DefectiveAtoms)
     def GetNonLatticeAtoms(self):
         return self.GetRows(self.__NonLatticeAtoms)
     def GetUnknownAtoms(self):
@@ -248,7 +262,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def FindNonGrainMediod(self, inPoint: np.array, fltRadius: float, bln2D= True):
         arrReturn = np.ones(3)*self.CellHeight/2
         lstPointsIndices = []
-        lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
+        lstPointsIndices = self.FindCylindricalAtoms(self.GetDefectiveAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
         if len(lstPointsIndices) > 0:
             lstPointsIndices = list(np.unique(lstPointsIndices))
             arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
@@ -260,7 +274,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             return None
     def FindNonGrainMean(self, inPoint: np.array, fltRadius: float): 
         lstPointsIndices = []
-        lstPointsIndices = self.FindCylindricalAtoms(self.GetNonLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
+        lstPointsIndices = self.FindCylindricalAtoms(self.GetDefectiveAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
         if len(lstPointsIndices) > 0:
             lstPointsIndices = list(np.unique(lstPointsIndices))
             arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
@@ -399,7 +413,9 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
     def DisplacementsToLattice(self, strTripleLineID: str, fltWidth: float, fltIncrement: float, fltTolerance: float)->np.array:
         arrCentre = self.GetUniqueTripleLines(strTripleLineID).GetCentre()
         fltLength = self.FindClosestTripleLineDistance(strTripleLineID)/2
-        fltMeanLatticeValue = np.mean(self.FindValuesInCylinder(self.GetLatticeAtoms()[:,0:4],arrCentre,fltLength,self.CellHeight,self._intPE))
+        arrValues = self.FindValuesInCylinder(self.GetLatticeAtoms()[:,0:4],arrCentre,fltLength,self.CellHeight,self._intPE)
+        fltMeanLatticeValue = np.mean(arrValues)
+        fltVarLatticeValue = np.var(arrValues)
         arrVectors  = self.GBBisectingVectors(strTripleLineID)
         n = len(arrVectors)
         lstDisplacements = []
@@ -447,7 +463,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
             return self.__UniqueTripleLines[strID]
     def FindTripleLines(self,fltGridLength: float, fltSearchRadius: float):
         fltMidHeight = self.CellHeight/2
-        objQPoints = QuantisedRectangularPoints(self.GetNonLatticeAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],20,fltGridLength)
+        objQPoints = QuantisedRectangularPoints(self.GetDefectiveAtoms()[:,self._intPositionX:self._intPositionY+1],self.GetUnitBasisConversions()[0:2,0:2],20,fltGridLength)
         arrTripleLines = objQPoints.GetTriplePoints()   
         arrTripleLines[:,2] = fltMidHeight*np.ones(len(arrTripleLines))
         for i  in range(len(arrTripleLines)):
@@ -463,7 +479,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                  objTripleLine.SetEquivalentTripleLines('TJ'+str(k))
             self.__TripleLines[objTripleLine.GetID()] =objTripleLine
         # here the ith row corrsponds to the TJi triple line
-    def MergePeriodicTripleLines(self, fltRadius:float): #finds equivalent and adjacent triplelines and sets
+    def MergePeriodicTripleLines(self, fltRadius = None): #finds equivalent and adjacent triplelines and sets
         lstKeys = self.GetTripleLineIDs()
         counter = 0
         while len(lstKeys) > 0: 
@@ -496,8 +512,9 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         lstSortedUniqueIDs = self.GetUniqueTripleLineIDs()
         arrUniqueTripleLines =np.zeros([len(lstSortedUniqueIDs),3])
         for strID in lstSortedUniqueIDs:
-            arrCentre = self.MoveTripleLine(self.GetUniqueTripleLines(strID).GetCentre(),fltRadius)
-            self.GetUniqueTripleLines(strID).SetCentre(arrCentre)
+            if fltRadius is not(None):
+                arrCentre = self.MoveTripleLine(self.GetUniqueTripleLines(strID).GetCentre(),fltRadius)
+                self.GetUniqueTripleLines(strID).SetCentre(arrCentre)
             arrUniqueTripleLines[int(strID[3:])] = self.GetUniqueTripleLines(strID).GetCentre()
         self.__PeriodicTripleLineDistanceMatrix = self.MakePeriodicDistanceMatrix(arrUniqueTripleLines, arrUniqueTripleLines)
     def MakeGrainBoundaries(self):
@@ -510,7 +527,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 arrMovedTripleLine = self.PeriodicShiftCloser(self.GetTripleLines(strCurrentTJ).GetCentre(),self.GetTripleLines(j).GetCentre())
                 arrLength = arrMovedTripleLine - self.GetTripleLines(strCurrentTJ).GetCentre()
                 arrWidth = 25*np.cross(gf.NormaliseVector(arrLength), np.array([0,0,1]))
-                arrPoints = self.FindValuesInBox(self.GetNonLatticeAtoms()[:,0:4], 
+                arrPoints = self.FindValuesInBox(self.GetDefectiveAtoms()[:,0:4], 
                 self.GetTripleLines(strCurrentTJ).GetCentre(),arrLength,arrWidth,self.GetCellVectors()[:,2],[1,2,3])
                 arrPoints = self.PeriodicShiftAllCloser(self.GetTripleLines(strCurrentTJ).GetCentre(), arrPoints)
                 lstGBID = [strCurrentTJ ,j]
@@ -1055,3 +1072,37 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
                 lstEquivalentTripleLines.append(int(intPosition))
         lstEquivalentTripleLines.sort()
         return lstEquivalentTripleLines
+
+
+class QuantisedCuboidPoints(object):
+    def __init__(self, in3DPoints: np.array, inUnitBasisVectors: np.array, fltGridSize: float):
+        arrOrigin = np.array([np.min(in3DPoints[:,0]),np.min(in3DPoints[:,1]),np.min(in3DPoints[:,2])])
+        in3DPoints = in3DPoints - arrOrigin
+        arrCuboidPoints = np.matmul(in3DPoints, inUnitBasisVectors)/fltGridSize
+        arrZeros =  np.zeros([np.round(np.max(arrCuboidPoints[:,0])).astype('int')+1,np.round(np.max(arrCuboidPoints[:,1])).astype('int')+1,np.round(np.max(arrCuboidPoints[:,2])).astype('int')+1])
+        nx,ny,nz = np.shape(arrZeros)
+        self.__ModArray = np.array([nx,ny,nz])
+        arrCoordinates = (np.linspace(0,nx-1,nx),np.linspace(0,ny-1,ny),
+                             np.linspace(0,nz-1,nz))
+        for k in arrCuboidPoints:
+            k = np.round(k,0).astype('int')
+            k = np.mod(k,self.__ModArray)
+            arrZeros[k[0],k[1], k[2]] += 1
+        objInterpolate = RegularGridInterpolator(arrCoordinates, arrZeros, method = 'nearest')
+        arrOut = arrZeros
+        for j in arrCoordinates:
+            j = j.astype('int')
+            arrOut[j[0],j[1],j[2]] = objInterpolate(np.array([j[0],j[1],j[2]]))
+        arrOut = gaussian(arrOut,1, mode='wrap',multichannel = False)
+        arrOut = np.round(arrOut).astype('int')
+        self.__BinaryArray = arrOut.astype('bool').astype('int')
+        self.__Grains  = measure.label(arrOut == 0)
+        lstGrainLabels = list(np.unique(self.__Grains))
+        lstGrainLabels.remove(0)
+        self.__GrainLabels = lstGrainLabels
+    def GetBinaryArray(self):
+        return self.__BinaryArray
+    def GetGrains(self):
+        return self.__Grains
+    def GetGrainLabels(self):
+        return self.__GrainLabels    
