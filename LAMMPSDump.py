@@ -1075,13 +1075,22 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
 
 
 class QuantisedCuboidPoints(object):
-    def __init__(self, in3DPoints: np.array, inUnitBasisVectors: np.array, fltGridSize: float):
+    def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
         arrOrigin = np.array([np.min(in3DPoints[:,0]),np.min(in3DPoints[:,1]),np.min(in3DPoints[:,2])])
         in3DPoints = in3DPoints - arrOrigin
-        arrCuboidPoints = np.matmul(in3DPoints, inUnitBasisVectors)/fltGridSize
-        arrZeros =  np.zeros([np.round(np.max(arrCuboidPoints[:,0])).astype('int')+1,np.round(np.max(arrCuboidPoints[:,1])).astype('int')+1,np.round(np.max(arrCuboidPoints[:,2])).astype('int')+1])
+        arrCuboidCellVectors = np.matmul(inCellVectors,inBasisConversion)
+        arrModArray = np.zeros([3])
+        for i in range(len(arrCuboidCellVectors)): #calculate a scaling factor that splits into exact integer multiples
+            intValue = np.round(np.linalg.norm(arrCuboidCellVectors[i])/arrGridDimensions[i]).astype('int')
+            arrModArray[i] = intValue
+            arrGridDimensions[i] = np.linalg.norm(arrCuboidCellVectors[i])/intValue
+        arrModArray = arrModArray.astype('int')
+        arrScaling = np.linalg.inv(np.diag(arrGridDimensions))
+        arrCuboidPoints = np.matmul(in3DPoints, inBasisConversion)
+        arrCuboidPoints = np.matmul(arrCuboidPoints, arrScaling)    
+        arrZeros =  np.zeros([arrModArray[0],arrModArray[1],arrModArray[2]])
         nx,ny,nz = np.shape(arrZeros)
-        self.__ModArray = np.array([nx,ny,nz])
+        self.__ModArray = arrModArray
         arrCoordinates = (np.linspace(0,nx-1,nx),np.linspace(0,ny-1,ny),
                              np.linspace(0,nz-1,nz))
         for k in arrCuboidPoints:
@@ -1096,13 +1105,89 @@ class QuantisedCuboidPoints(object):
         arrOut = gaussian(arrOut,1, mode='wrap',multichannel = False)
         arrOut = np.round(arrOut).astype('int')
         self.__BinaryArray = arrOut.astype('bool').astype('int')
-        self.__Grains  = measure.label(arrOut == 0)
+        self.__Grains  = measure.label(arrOut == 0).astype('int')
         lstGrainLabels = list(np.unique(self.__Grains))
         lstGrainLabels.remove(0)
         self.__GrainLabels = lstGrainLabels
+        if intWrapper is not(None):
+            self.__WrapperWidth = intWrapper
+            self.CheckPeriodicGrains()
+            self.MergeEquivalentGrains()
+            self.ExtendArrayPeriodically(intWrapper)
+    def MergeEquivalentGrains(self):
+        for j in self.__EquivalentGrains:
+            if len(j) > 0:
+                for k in j[1:]:
+                    self.__Grains[self.__Grains == k] = j[0]
+        lstValues = list(np.unique(self.__Grains))
+        lstValues.remove(0)
+        self.__GrainLabels = lstValues        
+    def ExtendArrayPeriodically(self, intWrapperWidth: int):
+        n = intWrapperWidth
+        self.__ExtendedGrains = np.zeros([self.__ModArray[0]+2*n,self.__ModArray[1]+2*n, self.__ModArray[2]+2*n])
+        self.__ExtendedGrains[n:-n, n:-n, n:-n] = self.__Grains
+        self.__ExtendedGrains[0:n, n:-n, n:-n] = self.__Grains[-n:,:,:]
+        self.__ExtendedGrains[-n:, n:-n, n:-n] = self.__Grains[:n,:,:]
+        self.__ExtendedGrains[:,0:n,:] = self.__ExtendedGrains[:,-2*n:-n,:]
+        self.__ExtendedGrains[:,-n:,:] = self.__ExtendedGrains[:,n:2*n,:]
+        self.__ExtendedGrains[:,0:n,:] = self.__ExtendedGrains[:,-2*n:-n,:]
+        self.__ExtendedGrains[:,-n:,:] = self.__ExtendedGrains[:,n:2*n,:]
+        self.__ExtendedGrains[:,:,0:n] = self.__ExtendedGrains[:,:,-2*n:-n]
+        self.__ExtendedGrains[:,:,-n:] = self.__ExtendedGrains[:,:,n:2*n]
+    def CheckPeriodicGrains(self):
+        lstEquivalentGrains = []
+        for intCurrentGrain in self.__GrainLabels:
+            lstMatchedGrains = [intCurrentGrain]
+            for j in range(3):
+                arrCellBoundaryPoints = self.CellBoundaryPoints(j, self.GetGrainPoints(intCurrentGrain),True)
+                arrCellBoundaryPoints[:,j] = arrCellBoundaryPoints[:,j] + self.__ModArray[j] -1
+                lstMatchedGrains.extend(list(np.unique(self.__Grains[arrCellBoundaryPoints[:,0],arrCellBoundaryPoints[:,1],arrCellBoundaryPoints[:,2]])))
+                arrCellBoundaryPoints = self.CellBoundaryPoints(j, self.GetGrainPoints(intCurrentGrain),False)
+                arrCellBoundaryPoints[:,j] = np.zeros(len(arrCellBoundaryPoints[:,j]))
+                lstMatchedGrains.extend(list(np.unique(self.__Grains[arrCellBoundaryPoints[:,0],arrCellBoundaryPoints[:,1],arrCellBoundaryPoints[:,2]])))
+            lstMatchedGrains = list(np.unique(lstMatchedGrains))
+            if 0 in lstMatchedGrains:
+                lstMatchedGrains.remove(0)
+            lstEquivalentGrains.append(lstMatchedGrains)
+        self.__EquivalentGrains = lstEquivalentGrains
+        return lstEquivalentGrains
+    def CellBoundaryPoints(self, intAxis: int, inPoints: np.array, blnZeroFace = True)->np.array: #returns boundary points
+        if blnZeroFace:
+            lstIndices = np.where(inPoints[:,intAxis] == 0)[0] 
+        else:
+            lstIndices  = np.where(inPoints[:,intAxis] == self.__ModArray[intAxis]-1)[0]
+        if len(lstIndices) > 0: 
+            lstIndices = np.unique(lstIndices)
+        return inPoints[lstIndices]
+    def FindGrainBoundaries(self):
+        arrGBPoints = (np.argwhere(self.__BinaryArray == 1) + np.ones(3)*self.__WrapperWidth).astype('int')
+        lstTriplePoints = []
+        for j in arrGBPoints:
+            lstDistances = []
+            for k in self.__GrainLabels:
+                lstDistances.append(self.FindClosestGrainPoint(j,k)[0])
+            lstDistances = np.sort(lstDistances)
+            if lstDistances[2] < 5:
+                self.__ExtendedGrains[j[0],j[1],j[2]] = -1
+                lstTriplePoints.append(j)
+        self.__TriplePoints = np.array(lstTriplePoints)
+    def GetTriplePoints(self)->np.array:
+        return self.__TriplePoints
+    def GetGrainPoints(self, intGrainNumber: int):
+        return np.argwhere(self.__Grains == intGrainNumber)
+    def GetExtendedGrainPoints(self, intGrainNumber: int):
+        return np.argwhere(self.__ExtendedGrains == intGrainNumber)
+    def GetExtendedGrains(self):
+        return self.__ExtendedGrains
     def GetBinaryArray(self):
         return self.__BinaryArray
     def GetGrains(self):
         return self.__Grains
     def GetGrainLabels(self):
         return self.__GrainLabels    
+    def FindClosestGrainPoint(self, inPoint: np.array ,intGrainNumber: int):
+        arrPoints = self.GetExtendedGrainPoints(intGrainNumber) - inPoint
+        lstDistances = np.linalg.norm(arrPoints, axis=1)
+        intPosition = np.argmin(lstDistances)
+        return lstDistances[intPosition], arrPoints[intPosition]+inPoint
+
