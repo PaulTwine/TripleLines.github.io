@@ -199,6 +199,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._intPE = int(self.GetColumnNames().index('c_pe1'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
         self.__DefectiveAtoms = []
+        self.__NonDefectiveAtoms = []
     def CategoriseAtoms(self, fltTolerance = None):    
         lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
         lstLatticeAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
@@ -217,6 +218,18 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         lstDefectiveAtoms = list(np.where(self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue +fltTolerance)[0])
         self.__DefectiveAtoms = lstDefectiveAtoms
         return self.GetRows(self.__DefectiveAtoms)
+    def FindNonDefectiveAtoms(self,fltTolerance = None):
+        if fltTolerance is None:
+            fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
+            fltTolerance = 1.96*fltStdLatticeValue #95% limit assuming Normal distribution
+        fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
+        lstNonDefectiveAtoms = list(np.where(self.GetColumnByIndex(self._intPE) <= fltMeanLatticeValue +fltTolerance)[0])
+        self.__NonDefectiveAtoms = lstNonDefectiveAtoms
+        return self.GetRows(self.__NonDefectiveAtoms)
+    def GetNonDefectiveAtoms(self):
+        if len(self.__NonDefectiveAtoms) ==0:
+            self.FindNonDefectiveAtoms()
+        return self.GetRows(self.__NonDefectiveAtoms)
     def GetDefectiveAtoms(self):
         if len(self.__DefectiveAtoms) ==0:
             self.FindDefectiveAtoms()
@@ -1075,7 +1088,8 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
 
 
 class QuantisedCuboidPoints(object):
-    def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
+    def __init__(self, inIDandPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
+        in3DPoints = inIDandPoints[:,1:4]
         arrOrigin = np.array([np.min(in3DPoints[:,0]),np.min(in3DPoints[:,1]),np.min(in3DPoints[:,2])])
         in3DPoints = in3DPoints - arrOrigin
         arrCuboidCellVectors = np.matmul(inCellVectors,inBasisConversion)
@@ -1084,36 +1098,48 @@ class QuantisedCuboidPoints(object):
             intValue = np.round(np.linalg.norm(arrCuboidCellVectors[i])/arrGridDimensions[i]).astype('int')
             arrModArray[i] = intValue
             arrGridDimensions[i] = np.linalg.norm(arrCuboidCellVectors[i])/intValue
+        self.__GridDimensions = arrGridDimensions
+        self.__SizeParameter = np.min(arrGridDimensions)
         arrModArray = arrModArray.astype('int')
         arrScaling = np.linalg.inv(np.diag(arrGridDimensions))
         arrCuboidPoints = np.matmul(in3DPoints, inBasisConversion)
         arrCuboidPoints = np.matmul(arrCuboidPoints, arrScaling)    
-        arrZeros =  np.zeros([arrModArray[0],arrModArray[1],arrModArray[2]])
-        nx,ny,nz = np.shape(arrZeros)
+        arrValues =  np.zeros([arrModArray[0],arrModArray[1],arrModArray[2]])
+        self.__TripleLines = arrValues
+        nx,ny,nz = np.shape(arrValues)
         self.__ModArray = arrModArray
         arrCoordinates = (np.linspace(0,nx-1,nx),np.linspace(0,ny-1,ny),
                              np.linspace(0,nz-1,nz))
-        for k in arrCuboidPoints:
+        for m in range(len(arrCuboidPoints)):
+            k = arrCuboidPoints[m]
             k = np.round(k,0).astype('int')
             k = np.mod(k,self.__ModArray)
-            arrZeros[k[0],k[1], k[2]] += 1
-        objInterpolate = RegularGridInterpolator(arrCoordinates, arrZeros, method = 'nearest')
-        arrOut = arrZeros
-        for j in arrCoordinates:
-            j = j.astype('int')
-            arrOut[j[0],j[1],j[2]] = objInterpolate(np.array([j[0],j[1],j[2]]))
+            arrValues[k[0],k[1], k[2]] += 1
+        #    objStorage.AddItem(k, lstIDs[m])
+        objInterpolate = RegularGridInterpolator(arrCoordinates, arrValues, method = 'linear')
+        arrOut = arrValues
+        arrCoordinates = gf.CreateCuboidPoints(np.array([[0,nx-1],[0,ny-1],[0,nz-1]]))
+        arrOut = objInterpolate(arrCoordinates)
+        arrOut = np.reshape(arrOut,arrModArray)
         arrOut = gaussian(arrOut,1, mode='wrap',multichannel = False)
-        arrOut = np.round(arrOut).astype('int')
+        fltMedian = np.median(arrOut[arrOut > 0])
+        arrOut = arrOut > fltMedian
         self.__BinaryArray = arrOut.astype('bool').astype('int')
+        self.__BinaryArray = remove_small_holes(self.__BinaryArray.astype('bool'), 4).astype('int')
         self.__Grains  = measure.label(arrOut == 0).astype('int')
         lstGrainLabels = list(np.unique(self.__Grains))
         lstGrainLabels.remove(0)
         self.__GrainLabels = lstGrainLabels
         if intWrapper is not(None):
+            self.__blnPeriodic = True
             self.__WrapperWidth = intWrapper
             self.CheckPeriodicGrains()
             self.MergeEquivalentGrains()
             self.ExtendArrayPeriodically(intWrapper)
+           # self.FindTripleLines()
+           # self.ExtendArrayPeriodically(intWrapper)
+           # self.CheckPeriodicTripleLines()
+           # self.MergeEquivalentTripleLines()
     def MergeEquivalentGrains(self):
         for j in self.__EquivalentGrains:
             if len(j) > 0:
@@ -1121,7 +1147,15 @@ class QuantisedCuboidPoints(object):
                     self.__Grains[self.__Grains == k] = j[0]
         lstValues = list(np.unique(self.__Grains))
         lstValues.remove(0)
-        self.__GrainLabels = lstValues        
+        self.__GrainLabels = lstValues
+    def MergeEquivalentTripleLines(self):
+        for j in self.__EquivalentTripleLineLabels:
+            if len(j) > 0:
+                for k in j[1:]:
+                    self.__Grains[self.__Grains == k] = j[0]
+        lstValues = list(np.unique(self.__Grains))
+        lstValues.remove(0)
+        self.__TripleLineLabels = lstValues        
     def ExtendArrayPeriodically(self, intWrapperWidth: int):
         n = intWrapperWidth
         self.__ExtendedGrains = np.zeros([self.__ModArray[0]+2*n,self.__ModArray[1]+2*n, self.__ModArray[2]+2*n])
@@ -1134,6 +1168,7 @@ class QuantisedCuboidPoints(object):
         self.__ExtendedGrains[:,-n:,:] = self.__ExtendedGrains[:,n:2*n,:]
         self.__ExtendedGrains[:,:,0:n] = self.__ExtendedGrains[:,:,-2*n:-n]
         self.__ExtendedGrains[:,:,-n:] = self.__ExtendedGrains[:,:,n:2*n]
+        self.__ExtendedGrains = self.__ExtendedGrains.astype('int') 
     def CheckPeriodicGrains(self):
         lstEquivalentGrains = []
         for intCurrentGrain in self.__GrainLabels:
@@ -1151,7 +1186,31 @@ class QuantisedCuboidPoints(object):
             lstEquivalentGrains.append(lstMatchedGrains)
         self.__EquivalentGrains = lstEquivalentGrains
         return lstEquivalentGrains
+    def ReturnGrains(self, inPoints: np.array)->list:
+        inPoints
+        if len(inPoints) > 0:
+            return list(self.__TripleLines[inPoints[:,0],inPoints[:,1],inPoints[:,2]])
+    def CheckPeriodicTripleLines(self):
+        lstEquivalentTripleLines= []
+        for intCurrentTripleLine in self.__TripleLineLabels:
+            lstMatchedTripleLines = [intCurrentTripleLine]
+            for j in range(3):
+                arrCellBoundaryPoints = self.CellBoundaryPoints(j, self.GetTripleLinePoints(intCurrentTripleLine),True)
+                arrCellBoundaryPoints[:,j] = arrCellBoundaryPoints[:,j] + self.__ModArray[j] -1
+                if len(arrCellBoundaryPoints) > 0:
+                    lstMatchedTripleLines.extend(list(np.unique(self.__TripleLines[np.array(list(zip(*arrCellBoundaryPoints)))])))
+                arrCellBoundaryPoints = self.CellBoundaryPoints(j, self.GetTripleLinePoints(intCurrentTripleLine),False)
+                arrCellBoundaryPoints[:,j] = np.zeros(len(arrCellBoundaryPoints[:,j]))
+                if len(arrCellBoundaryPoints) > 0:
+                    lstMatchedTripleLines.extend(list(np.unique(self.__TripleLines[np.array(list(zip(*arrCellBoundaryPoints)))])))
+            lstMatchedTripleLines = list(np.unique(lstMatchedTripleLines))
+            if 0 in lstMatchedTripleLines:
+                lstMatchedTripleLines.remove(0)
+            lstEquivalentTripleLines.append(lstMatchedTripleLines)
+        self.__EquivalentTripleLineLabels = lstEquivalentTripleLines
+        return lstEquivalentTripleLines
     def CellBoundaryPoints(self, intAxis: int, inPoints: np.array, blnZeroFace = True)->np.array: #returns boundary points
+        lstIndices = []
         if blnZeroFace:
             lstIndices = np.where(inPoints[:,intAxis] == 0)[0] 
         else:
@@ -1159,20 +1218,65 @@ class QuantisedCuboidPoints(object):
         if len(lstIndices) > 0: 
             lstIndices = np.unique(lstIndices)
         return inPoints[lstIndices]
-    def FindGrainBoundaries(self):
+    def FindTripleLines(self):
         arrGBPoints = (np.argwhere(self.__BinaryArray == 1) + np.ones(3)*self.__WrapperWidth).astype('int')
-        lstTriplePoints = []
+        n = self.__WrapperWidth
         for j in arrGBPoints:
             lstDistances = []
             for k in self.__GrainLabels:
                 lstDistances.append(self.FindClosestGrainPoint(j,k)[0])
             lstDistances = np.sort(lstDistances)
-            if lstDistances[2] < 5:
-                self.__ExtendedGrains[j[0],j[1],j[2]] = -1
-                lstTriplePoints.append(j)
-        self.__TriplePoints = np.array(lstTriplePoints)
-    def GetTriplePoints(self)->np.array:
-        return self.__TriplePoints
+            if lstDistances[2] < self.__SizeParameter:
+                self.__Grains[j[0]-n,j[1]-n,j[2]-n] = -1
+                self.__TripleLines[j[0]-n,j[1]-n,j[2]-n] = +1                
+        self.ExtendArrayPeriodically(n)
+        self.__ExtendedTripleLines = measure.label(self.__ExtendedGrains ==-1)
+        self.__TripleLines = self.__ExtendedTripleLines[n:-n,n:-n,n:-n]
+        lstTripleLines = list(np.unique(self.__TripleLines))
+        if 0 in lstTripleLines:
+            lstTripleLines.remove(0)
+        self.__TripleLineLabels = lstTripleLines
+    def ExpandGrains(self):
+        self.__ExpandedGrains = np.copy(self.__ExtendedGrains)
+        arrGBPoints = np.argwhere(self.__ExtendedGrains == 0) 
+        arrGBPoints = arrGBPoints.astype('int')
+        intNewLength = len(arrGBPoints)
+        if intNewLength > 0 :
+            for j in arrGBPoints:
+                blnNearGrain = False
+                arrBox = self.__ExtendedGrains[j[0]-4:j[0]+5,j[1]-4:j[1]+5,j[2]-4:j[2]+5] 
+                fltDistance = 5*np.sqrt(3)
+                for k in self.__GrainLabels:
+                    arrGrainPoints = np.argwhere(arrBox == k)
+                    if len(arrGrainPoints) > 0:
+                        fltNewDistance = np.min(np.linalg.norm(arrGrainPoints - np.array([5,5,5]), axis=1))
+                        if fltNewDistance < fltDistance:
+                            fltDistance = fltNewDistance
+                            blnNearGrain = True
+                            intGrainValue = k
+                        elif fltNewDistance == fltDistance:
+                            blnNearGrain = False
+                if blnNearGrain:
+                    self.__ExpandedGrains[j[0],j[1],j[2]] = intGrainValue
+        else:
+            warnings.warn("Unable to find any defective regions")
+        arrGBPoints = np.argwhere(self.__ExpandedGrains == 0) 
+        for l in arrGBPoints:
+            arrBox = self.__ExpandedGrains[l[0]-1:l[0]+2,l[1]-1:l[1]+2,l[2]-1:l[2]+2]
+            arrBox = arrBox[arrBox != 0]
+            if len(arrBox) > 0:
+                arrValues, arrCounts = np.unique(arrBox, return_counts = True)
+                intGrain = arrValues[np.argmax(arrCounts)]
+                if len(np.argwhere(arrValues == intGrain)) ==1:
+                    self.__ExpandedGrains[l[0],l[1],l[2]] = intGrain
+        n = self.__WrapperWidth
+        self.__GrainCell =self.__ExpandedGrains[n:-n,n:-n,n:-n]
+    def GetGrainCell(self):
+        return self.__GrainCell
+    def GetExpandedGrains(self):
+        return self.__ExpandedGrains
+    def GetTripleLinePoints(self, intTripleLineNumber)->np.array:
+        return np.argwhere(self.__TripleLines == intTripleLineNumber)
     def GetGrainPoints(self, intGrainNumber: int):
         return np.argwhere(self.__Grains == intGrainNumber)
     def GetExtendedGrainPoints(self, intGrainNumber: int):
@@ -1184,10 +1288,34 @@ class QuantisedCuboidPoints(object):
     def GetGrains(self):
         return self.__Grains
     def GetGrainLabels(self):
-        return self.__GrainLabels    
+        return self.__GrainLabels
+    def GetTripleLineLabels(self):
+        return self.__TripleLineLabels    
+    def GetEquivalentTripleLineLabels(self):
+        return self.__EquivalentTripleLineLabels
     def FindClosestGrainPoint(self, inPoint: np.array ,intGrainNumber: int):
         arrPoints = self.GetExtendedGrainPoints(intGrainNumber) - inPoint
         lstDistances = np.linalg.norm(arrPoints, axis=1)
         intPosition = np.argmin(lstDistances)
         return lstDistances[intPosition], arrPoints[intPosition]+inPoint
+    def GetAtomIDsByGrid(self, inGridPoints:np.array):
+        lstAtomIDs = []
+        for k in inGridPoints:
+            lstAtomIDs.extend(self.__IDStorage.GetItems(k))
+        return lstAtomIDs
 
+class ListStorage(object):
+    def __init__(self, arrDimensions: np.array):
+        self.Dimensions = arrDimensions 
+        self.Length = arrDimensions[0]*arrDimensions[1]*arrDimensions[2]
+        self.IntStorage = [[] for _ in range(self.Length)]
+    def AddItem(self, arrPosition: np.array, objItem):
+        z = arrPosition[2]*self.Dimensions[0]*self.Dimensions[1]
+        y = arrPosition[1]*self.Dimensions[0]
+        x = arrPosition[0]
+        self.IntStorage[z+y+x].append(objItem)
+    def GetItems(self, arrPosition: np.array):
+        z = arrPosition[2]*self.Dimensions[0]*self.Dimensions[1]
+        y = arrPosition[1]*self.Dimensions[0]
+        x = arrPosition[0]
+        return self.IntStorage[z+y+x]
