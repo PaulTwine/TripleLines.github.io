@@ -83,8 +83,15 @@ class LAMMPSTimeStep(object):
         self.__ColumnNames = lstColumnNames
         self.SetBoundBoxLabels(lstBoundaryType)
         self.SetBoundBoxDimensions(lstBounds)
+    def GetNumberOfColumns(self):
+        return len(self.__ColumnNames)
+    def SetColumnValueByIDs(self,lstOfAtomIDs: list, intColumn: int, arrValues: np.array):
+        self.__AtomData[np.isin(self.__AtomData[:,0], lstOfAtomIDs), intColumn] = arrValues
     def SetRow(self, intRowNumber: int, lstRow: list):
         self.__AtomData[intRowNumber] = lstRow
+    def AddColumn(self, arrColumn: np.array, strColumnName):
+        self.__AtomData = np.append(self.__AtomData, arrColumn, axis=1)
+        self.__ColumnNames.append(strColumnName)
     def GetRow(self,intRowNumber: int):
         return self.__AtomData[intRowNumber]
     def GetRows(self, lstOfRows: list):
@@ -147,8 +154,6 @@ class LAMMPSTimeStep(object):
         return self.__UnitCellBasis
     def GetNumberOfAtoms(self):
         return self.__NumberOfAtoms
-    def GetNumberOfColumns(self):
-        return self.__NumberOfColumns
     def GetCellVectors(self)->np.array:
         return self.__CellVectors
     def GetOrigin(self):
@@ -354,6 +359,7 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
         self.__UniqueTripleLines = dict() #periodically equivalent triple lines are merged into a single point
         self.__TripleLines = dict()
         self.__LatticeParameter = fltLatticeParameter
+        self.__GrainLabels = []
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
     def __Reciprocal(self, r,a,b,c): 
@@ -817,7 +823,19 @@ class LAMMPSAnalysis(LAMMPSPostProcess):
                 fltMinDistance = fltNewDistance
                 strID = j
         return strID
-
+    def LabelAtomsByGrain(self):
+        objQuantisedCuboid = QuantisedCuboidPoints(self.GetDefectiveAtoms()[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),20)
+        lstGrainNumbers = objQuantisedCuboid.ReturnGrains(self.GetNonDefectiveAtoms()[:,1:4])
+        self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainNumber')
+        arrGrainNumbers = np.array([lstGrainNumbers])
+        self.__GrainLabels = list(np.unique(lstGrainNumbers))
+        np.reshape(arrGrainNumbers, (len(lstGrainNumbers),1))
+        self.SetColumnValueByIDs(self.GetNonDefectiveAtoms()[:,0], self.GetNumberOfColumns()-1, arrGrainNumbers)
+    def GetGrainAtomIDs(self, intGrainNumber: int):
+        lstGrainAtoms = list(np.where(self.GetColumnByName('GrainNumber').astype('int') == intGrainNumber)[0])
+        return self.GetRows(lstGrainAtoms)
+    def GetGrainLabels(self):
+        return self.__GrainLabels
                 
 class QuantisedRectangularPoints(object): #linear transform parallelograms into a rectangular parameter space
     def __init__(self, in2DPoints: np.array, inUnitBasisVectors: np.array, n: int, fltGridSize: float, blnDebug = False):
@@ -1088,22 +1106,25 @@ class QuantisedRectangularPoints(object): #linear transform parallelograms into 
 
 
 class QuantisedCuboidPoints(object):
-    def __init__(self, inIDandPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
-        in3DPoints = inIDandPoints[:,1:4]
+    def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
         arrOrigin = np.array([np.min(in3DPoints[:,0]),np.min(in3DPoints[:,1]),np.min(in3DPoints[:,2])])
         in3DPoints = in3DPoints - arrOrigin
+        self.__Origin = arrOrigin
         arrCuboidCellVectors = np.matmul(inCellVectors,inBasisConversion)
         arrModArray = np.zeros([3])
         for i in range(len(arrCuboidCellVectors)): #calculate a scaling factor that splits into exact integer multiples
             intValue = np.round(np.linalg.norm(arrCuboidCellVectors[i])/arrGridDimensions[i]).astype('int')
             arrModArray[i] = intValue
             arrGridDimensions[i] = np.linalg.norm(arrCuboidCellVectors[i])/intValue
+        self.__BasisConversion = inBasisConversion
+        self.__InverseBasisConversion = np.linalg.inv(inBasisConversion)
         self.__GridDimensions = arrGridDimensions
         self.__SizeParameter = np.min(arrGridDimensions)
         arrModArray = arrModArray.astype('int')
-        arrScaling = np.linalg.inv(np.diag(arrGridDimensions))
+        self.__InverseScaling = np.diag(arrGridDimensions)
+        self.__Scaling = np.linalg.inv(self.__InverseScaling)
         arrCuboidPoints = np.matmul(in3DPoints, inBasisConversion)
-        arrCuboidPoints = np.matmul(arrCuboidPoints, arrScaling)    
+        arrCuboidPoints = np.matmul(arrCuboidPoints, self.__Scaling)    
         arrValues =  np.zeros([arrModArray[0],arrModArray[1],arrModArray[2]])
         self.__TripleLines = arrValues
         nx,ny,nz = np.shape(arrValues)
@@ -1122,8 +1143,8 @@ class QuantisedCuboidPoints(object):
         arrOut = objInterpolate(arrCoordinates)
         arrOut = np.reshape(arrOut,arrModArray)
         arrOut = gaussian(arrOut,1, mode='wrap',multichannel = False)
-        fltMedian = np.median(arrOut[arrOut > 0])
-        arrOut = arrOut > fltMedian
+        #fltMedian = np.median(arrOut[arrOut > 0])
+        arrOut = arrOut > np.mean(arrOut)
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__BinaryArray = remove_small_holes(self.__BinaryArray.astype('bool'), 4).astype('int')
         self.__Grains  = measure.label(arrOut == 0).astype('int')
@@ -1133,9 +1154,10 @@ class QuantisedCuboidPoints(object):
         if intWrapper is not(None):
             self.__blnPeriodic = True
             self.__WrapperWidth = intWrapper
-            self.CheckPeriodicGrains()
-            self.MergeEquivalentGrains()
-            self.ExtendArrayPeriodically(intWrapper)
+            self.CheckPeriodicGrains() #check to see if any grains connect over the simulation cell boundary
+            self.MergeEquivalentGrains() #if two grains are periodically linked then merge them into one
+            self.ExtendArrayPeriodically(intWrapper)#extend the cuboid by intwrapper using a periodic copy
+            self.ExpandGrains() #expand all the grains until the grain boundaries are dissolved
            # self.FindTripleLines()
            # self.ExtendArrayPeriodically(intWrapper)
            # self.CheckPeriodicTripleLines()
@@ -1186,10 +1208,22 @@ class QuantisedCuboidPoints(object):
             lstEquivalentGrains.append(lstMatchedGrains)
         self.__EquivalentGrains = lstEquivalentGrains
         return lstEquivalentGrains
+    def CellBoundaryPoints(self, intAxis: int, inPoints: np.array, blnZeroFace = True)->np.array: #returns boundary points
+        lstIndices = []
+        if blnZeroFace:
+            lstIndices = np.where(inPoints[:,intAxis] == 0)[0] 
+        else:
+            lstIndices  = np.where(inPoints[:,intAxis] == self.__ModArray[intAxis]-1)[0]
+        if len(lstIndices) > 0: 
+            lstIndices = np.unique(lstIndices)
+        return inPoints[lstIndices]
     def ReturnGrains(self, inPoints: np.array)->list:
-        inPoints
-        if len(inPoints) > 0:
-            return list(self.__TripleLines[inPoints[:,0],inPoints[:,1],inPoints[:,2]])
+        inPoints = inPoints - self.__Origin
+        inPoints = np.matmul(inPoints, self.__Scaling)
+        inPoints = np.matmul(inPoints, self.__BasisConversion)
+        inPoints = np.mod(inPoints, self.__ModArray).astype('int')
+        print(np.argwhere(self.__GrainCell == 0))
+        return list(self.__GrainCell[inPoints[:,0],inPoints[:,1],inPoints[:,2]])
     def CheckPeriodicTripleLines(self):
         lstEquivalentTripleLines= []
         for intCurrentTripleLine in self.__TripleLineLabels:
@@ -1209,15 +1243,6 @@ class QuantisedCuboidPoints(object):
             lstEquivalentTripleLines.append(lstMatchedTripleLines)
         self.__EquivalentTripleLineLabels = lstEquivalentTripleLines
         return lstEquivalentTripleLines
-    def CellBoundaryPoints(self, intAxis: int, inPoints: np.array, blnZeroFace = True)->np.array: #returns boundary points
-        lstIndices = []
-        if blnZeroFace:
-            lstIndices = np.where(inPoints[:,intAxis] == 0)[0] 
-        else:
-            lstIndices  = np.where(inPoints[:,intAxis] == self.__ModArray[intAxis]-1)[0]
-        if len(lstIndices) > 0: 
-            lstIndices = np.unique(lstIndices)
-        return inPoints[lstIndices]
     def FindTripleLines(self):
         arrGBPoints = (np.argwhere(self.__BinaryArray == 1) + np.ones(3)*self.__WrapperWidth).astype('int')
         n = self.__WrapperWidth
@@ -1241,15 +1266,17 @@ class QuantisedCuboidPoints(object):
         arrGBPoints = np.argwhere(self.__ExtendedGrains == 0) 
         arrGBPoints = arrGBPoints.astype('int')
         intNewLength = len(arrGBPoints)
+        arrCentre = np.matmul(np.matmul(np.array([5,5,5]), self.__InverseBasisConversion),self.__InverseScaling)
         if intNewLength > 0 :
             for j in arrGBPoints:
                 blnNearGrain = False
                 arrBox = self.__ExtendedGrains[j[0]-4:j[0]+5,j[1]-4:j[1]+5,j[2]-4:j[2]+5] 
-                fltDistance = 5*np.sqrt(3)
+                fltDistance = 2*self.__WrapperWidth
                 for k in self.__GrainLabels:
                     arrGrainPoints = np.argwhere(arrBox == k)
                     if len(arrGrainPoints) > 0:
-                        fltNewDistance = np.min(np.linalg.norm(arrGrainPoints - np.array([5,5,5]), axis=1))
+                        arrGrainPoints = np.matmul(np.matmul(arrGrainPoints, self.__InverseBasisConversion),self.__InverseScaling)
+                        fltNewDistance = np.min(np.linalg.norm(arrGrainPoints - arrCentre, axis=1))
                         if fltNewDistance < fltDistance:
                             fltDistance = fltNewDistance
                             blnNearGrain = True
@@ -1269,7 +1296,9 @@ class QuantisedCuboidPoints(object):
                 intGrain = arrValues[np.argmax(arrCounts)]
                 if len(np.argwhere(arrValues == intGrain)) ==1:
                     self.__ExpandedGrains[l[0],l[1],l[2]] = intGrain
-        n = self.__WrapperWidth
+                else:
+                    print("Equidistant grains")
+        n = np.copy(self.__WrapperWidth)
         self.__GrainCell =self.__ExpandedGrains[n:-n,n:-n,n:-n]
     def GetGrainCell(self):
         return self.__GrainCell
@@ -1298,12 +1327,7 @@ class QuantisedCuboidPoints(object):
         lstDistances = np.linalg.norm(arrPoints, axis=1)
         intPosition = np.argmin(lstDistances)
         return lstDistances[intPosition], arrPoints[intPosition]+inPoint
-    def GetAtomIDsByGrid(self, inGridPoints:np.array):
-        lstAtomIDs = []
-        for k in inGridPoints:
-            lstAtomIDs.extend(self.__IDStorage.GetItems(k))
-        return lstAtomIDs
-
+    
 class ListStorage(object):
     def __init__(self, arrDimensions: np.array):
         self.Dimensions = arrDimensions 
