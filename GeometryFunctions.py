@@ -226,6 +226,10 @@ def CylindricalVolume(arrPoints: np.array, arrCentre: np.array, fltRadius: float
         lstIndices = np.where((np.linalg.norm(arrPointsNew[:,0:2],axis=1) <= fltRadius)
                                & (np.abs(arrPointsNew[:,2]) <= fltHeight/2))[0]
         return list(lstIndices)
+def SphericalVolume(arrPoints: np.array, arrCentre: np.array, fltRadius: float)->list:
+        arrPointsNew = arrPoints - arrCentre
+        lstIndices = np.where(np.linalg.norm(arrPointsNew,axis=1) <= fltRadius)[0]
+        return list(lstIndices)
 def ParallelopipedVolume(arrPoints: np.array, arrStartPoint: np.array, arrAlong: np.array, arrAcross: np.array, arrUp:np.array)->list:
         arrPointsNew = arrPoints - arrStartPoint
         fltHeight = np.linalg.norm(arrUp, axis = 0)
@@ -283,6 +287,16 @@ def FindGeometricMediod(inPoints: np.array,bln2D = False, blnSquaring = True)-> 
 def InnerProduct(inVector1 :np.array, inVector2: np.array, inBasisVectors: np.array )->float:
         arrMatrix = np.matmul(np.transpose(inBasisVectors), inBasisVectors)
         return np.matmul(np.transpose(inVector1), np.matmul(arrMatrix, inVector2))
+def WrapAroundSlice(inSlices:np.array, inModArray:np.array)->slice:
+        lstPoints = []
+        for i in range(len(inSlices)):
+                lstRange = list(range(inSlices[i][0],inSlices[i][1]))
+                lstRange = list(np.mod(lstRange, inModArray[i]))  
+                lstPoints.append(lstRange)
+        lstPoints = CartesianProduct(lstPoints).astype('int')
+        return lstPoints[:,0],lstPoints[:,1],lstPoints[:,2]
+
+
 
 
 

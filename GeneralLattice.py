@@ -528,5 +528,26 @@ class UniqueTripleLine(TripleLine):
     def GetUniqueAdjacentGrainBoundaries(self):
         return self.__UniqueAdjacentGrainBoundaries
 
+class GeneralTripleLine(object):
+    def __init__(self,inMeshPoints: np.array, strID: str):
+        self.__MeshPoints = inMeshPoints
+        self.__ID = strID
+    def SetAtomIDs(self, inlstIDs: list):
+        self.__AtomIDs = inlstIDs
+    def GetAtomIDs(self)->list:
+        return self.__AtomIDs
+    def GetMeshPoints(self):
+        return self.__MeshPoints
+
+class GeneralGrainBoundary(object):
+    def __init__(self,inMeshPoints: np.array, strID: str):
+        self.__MeshPoints = inMeshPoints
+        self.__ID = strID
+    def SetAtomIDs(self, inlstIDs: list):
+        self.__AtomIDs = inlstIDs
+    def GetAtomIDs(self)->list:
+        return self.__AtomIDs
+    def GetMeshPoints(self):
+        return self.__MeshPoints
 
 
