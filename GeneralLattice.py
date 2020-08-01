@@ -528,26 +528,56 @@ class UniqueTripleLine(TripleLine):
     def GetUniqueAdjacentGrainBoundaries(self):
         return self.__UniqueAdjacentGrainBoundaries
 
-class GeneralTripleLine(object):
-    def __init__(self,inMeshPoints: np.array, strID: str):
+
+class DefectMeshObject(object):
+    def __init__(self,inMeshPoints: np.array, intID: int):
         self.__MeshPoints = inMeshPoints
-        self.__ID = strID
+        self.__ID = intID
+        self.__AtomIDs = []
+        self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
     def SetAtomIDs(self, inlstIDs: list):
         self.__AtomIDs = inlstIDs
     def GetAtomIDs(self)->list:
         return self.__AtomIDs
+    def AddAtomIDs(self, inList):
+        self.__AtomsIDs = list(np.unique(self.__AtomIDs.extend(inList)))
+    def RemoveAtomIDs(self, inList):
+        setAtomIDs = set(self.__AtomIDs)
+        self.__AtomIDs = list(setAtomIDs.difference(inList))
     def GetMeshPoints(self):
         return self.__MeshPoints
+    def AddAdjustedMeshPoint(self, inPoint: np.array):
+        self.__AdjustedMeshPoints.append(inPoint)
+    def GetAdjustedMeshPoints(self)->np.array:
+        return np.vstack(self.__AdjustedMeshPoints)
 
-class GeneralGrainBoundary(object):
-    def __init__(self,inMeshPoints: np.array, strID: str):
-        self.__MeshPoints = inMeshPoints
-        self.__ID = strID
-    def SetAtomIDs(self, inlstIDs: list):
-        self.__AtomIDs = inlstIDs
-    def GetAtomIDs(self)->list:
-        return self.__AtomIDs
-    def GetMeshPoints(self):
-        return self.__MeshPoints
+class GeneralJunctionLine(DefectMeshObject):
+    def __init__(self,inMeshPoints: np.array, intID: int):
+        DefectMeshObject.__init__(self,inMeshPoints, intID)
+        self.__AdjacentGrains = []
+        self.__AdjacentGrainBoundaries = []
+    def SetAdjacentGrains(self, inList):
+        self.__AdjacentGrains = inList
+    def GetAdjacentGrains(self)->list:
+        return self.__AdjacentGrains
+    def SetAdjacentGrainBoundaries(self, inList):
+        self.__AdjacentGrainBoundaries = inList
+    def GetAdjacentGrainBoundaries(self)->list:
+        return self.__AdjacentGrainBoundaries
 
+class GeneralGrainBoundary(DefectMeshObject):
+    def __init__(self,inMeshPoints: np.array, intID: str):
+        DefectMeshObject.__init__(self,inMeshPoints, intID)
+        self.__AdjacentGrains = []
+        self.__AdjacentJunctionLines = []
+        self.__AdjacentGrainBoundaries = []    
+    def SetAdjacentGrains(self, inList):
+        self.__AdjacentGrains = inList
+    def GetAdjacentGrains(self)->list:
+        return self.__AdjacentGrains
+    def SetAdjacentJunctionLines(self, inList):
+        self.__AdjacentJunctionLines = inList
+    def GetAdjacentJunctionLines(self)->list:
+        return self.__AdjacentJunctionLines
+ 
 
