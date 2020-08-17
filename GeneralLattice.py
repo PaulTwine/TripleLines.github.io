@@ -579,5 +579,5 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentJunctionLines = inList
     def GetAdjacentJunctionLines(self)->list:
         return self.__AdjacentJunctionLines
- 
+
 

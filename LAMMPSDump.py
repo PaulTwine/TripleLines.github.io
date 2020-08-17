@@ -232,7 +232,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
             fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
-            fltTolerance = 3.14*fltStdLatticeValue #95% limit assuming Normal distribution
+            fltTolerance = 3.14*fltStdLatticeValue #99% limit assuming Normal distribution
         fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
         lstDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue +fltTolerance) | (self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue - fltTolerance))[0]
         self.__DefectiveAtoms = self.GetAtomData()[lstDefectiveAtoms,0].astype('int')
@@ -240,9 +240,9 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def FindNonDefectiveAtoms(self,fltTolerance = None):
         if fltTolerance is None:
             fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
-            fltTolerance = 3.14*fltStdLatticeValue #95% limit assuming Normal distribution
+            fltTolerance = 3.14*fltStdLatticeValue #99% limit assuming Normal distribution
         fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
-        lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) <= fltMeanLatticeValue +fltTolerance) | (self.GetColumnByIndex(self._intPE) >= fltMeanLatticeValue  - fltTolerance))[0]
+        lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) <= fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) >= fltMeanLatticeValue  - fltTolerance))[0]
         self.__NonDefectiveAtoms = self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int')
         return self.GetRows(lstNonDefectiveAtoms)
     def GetLatticeAtomIDs(self):
@@ -416,7 +416,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrGrainNumbers = np.array([lstGrainNumbers])
         self.__GrainLabels = list(np.unique(lstGrainNumbers))
         np.reshape(arrGrainNumbers, (len(lstGrainNumbers),1))
-        self.__intGrainNumber = self.GetNumberOfColumns()-1
+        self.__intGrainNumber = self.GetNumberOfColumns()-1 #column number for the grains
         self.SetColumnValueByIDs(lstGrainAtoms, self.__intGrainNumber, arrGrainNumbers)
         self.__QuantisedCuboidPoints.FindTripleLines()
         self.__TripleLineIDs = self.__QuantisedCuboidPoints.GetTripleLineIDs()
@@ -430,7 +430,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__GrainBoundaries[k].SetAdjacentGrains(self.__QuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(self.__QuantisedCuboidPoints.GetAdjacentTripleLines(k))
             for l in self.__GrainBoundaries[k].GetMeshPoints():
-                lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetNonDefectiveAtoms()[:,0:4],l, 3*self.__LatticeParameter))
+                lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetDefectiveAtoms()[:,0:4],l, 3*self.__LatticeParameter))
                 self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
                 self.CheckBoundaries(l, 3*self.__LatticeParameter)
         self.MakeGrainTrees()
@@ -471,6 +471,62 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                             intClosestGrain = l
                     if fltMin <= 1.01*self.__LatticeParameter/np.sqrt(2):
                         self.SetColumnValueByIDs(lstClusterIDs, self.__intGrainNumber, intClosestGrain*np.ones(len(lstClusterIDs)))
+    # def FinaliseGrainBoundaries(self):
+    #     lstGBIDs =  list(np.copy(self.__GrainBoundaryIDs))
+    #     while len(lstGBIDs) > 0:
+    #         lstOverlapAtoms = []
+    #         intGBID = lstGBIDs.pop()
+    #         lstAtomIDs = self.__GrainBoundaries[intGBID].GetAtomIDs()
+    #         lstAdjacentGrainBoundaries = self.GetAdjacentGrainBoundaries(intGBID)
+    #         for i in lstAdjacentGrainBoundaries:
+    #             lstOverlapAtoms = list(set(lstAtomIDs) & set(self.__GrainBoundaries[i].GetAtomIDs()))
+    #             arrAtoms = self.GetAtomsByID(lstOverlapAtoms)
+    #             for j in arrAtoms:
+
+
+    def FindJunctionLines(self):
+        for i in self.__TripleLineIDs:
+            lstTJAtomIDs = []
+            lstCloseAtoms = []
+            for s in self.__TripleLines[i].GetAdjacentGrainBoundaries():
+                lstCloseAtoms.append(set(self.__GrainBoundaries[s].GetAtomIDs()))
+            lstOverlapAtoms = list(reduce(lambda x,y: x & y,lstCloseAtoms))
+            for t in self.__TripleLines[i].GetAdjacentGrainBoundaries():
+                self.__GrainBoundaries[t].RemoveAtomIDs(lstOverlapAtoms)
+            arrAtoms = self.GetAtomsByID(lstOverlapAtoms)
+            for j in arrAtoms:
+                arrPosition = j[1:4]
+                intID = j[0].astype('int')
+                #lstVectors = []
+                lstGrainDistances = []
+                lstGrainLabels = []
+                lstClosestGrains = []
+                for k in self.__GrainLabels:
+                    arrPeriodicVariants = self.PeriodicEquivalents(arrPosition)
+                    lstDistances,lstIndices = self.__Grains[k].query(arrPeriodicVariants,1)
+                    lstGrainDistances.append(min(lstDistances))
+                    lstGrainLabels.append(k)
+                  #  intIndex = lstIndices[np.argmin(lstDistances)]
+                  #  arrGrainPoint = self.__Grains[k].data[intIndex]
+                  #  lstVectors.append(arrGrainPoint)
+                lstIndices = np.argsort(lstGrainDistances)
+                lstClosestGrains.append(lstGrainLabels[lstIndices[0]])
+                lstClosestGrains.append(lstGrainLabels[lstIndices[1]])
+                lstClosestGrains = sorted(lstClosestGrains)
+                fltGBLength = np.sum(np.sort(lstGrainDistances)[:2]) 
+                if  np.all(np.array(lstGrainDistances) < fltGBLength):
+                    lstTJAtomIDs.append(intID)
+                else:
+                    intCounter = 0
+                    blnFound = False
+                    while (intCounter < len(self.__TripleLines[i].GetAdjacentGrainBoundaries()) and not(blnFound)):
+                        intGrainBoundary = self.__TripleLines[i].GetAdjacentGrainBoundaries()[intCounter]
+                        if lstClosestGrains == self.__GrainBoundaries[intGrainBoundary].GetAdjacentGrains():
+                            self.__GrainBoundaries[intGrainBoundary].AddAtomIDs([intID])
+                            blnFound = True
+                        else:
+                            intCounter += 1
+                self.__TripleLines[i].SetAtomIDs(lstTJAtomIDs)    
     def FindAllTripleLines(self):
         for i in self.__TripleLineIDs:
             lstTJAtomIDs = []
@@ -511,7 +567,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 elif len(arrPoints) > 3:
                     arrCentre = np.mean(arrPoints, axis=0)
                     fltRadius = np.max(np.linalg.norm(arrPoints - arrCentre,axis=1))
-                if fltMaxDistance < 2*fltMinDistance and fltRadius < 2*fltMinDistance:
+                if fltMaxDistance < 2*fltMinDistance: #and fltRadius < 2*fltMinDistance:
                     lstTJAtomIDs.append(intID)
                 else:
                     intCounter = 0
@@ -524,14 +580,18 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         else:
                             intCounter += 1
                 self.__TripleLines[i].SetAtomIDs(lstTJAtomIDs)    
-    def GetGrainBoundaryAtomIDs(self, intGrainBoundary = None):
-        if intGrainBoundary is None:
-            lstGrainBoundaryIDs = []
+    def GetGrainBoundaryAtomIDs(self, inGrainBoundaries = None):
+        lstGrainBoundaryIDs = []
+        if inGrainBoundaries is None:
             for j in self.__GrainBoundaryIDs:
                 lstGrainBoundaryIDs.extend(self.__GrainBoundaries[j].GetAtomIDs())
             return lstGrainBoundaryIDs
-        else:
-            return self.__GrainBoundaries[intGrainBoundary].GetAtomIDs()
+        elif isinstance(inGrainBoundaries, list):
+            for k in inGrainBoundaries:
+                lstGrainBoundaryIDs.extend(self.__GrainBoundaries[k].GetAtomIDs())
+            return lstGrainBoundaryIDs
+        elif isinstance(inGrainBoundaries, int):
+            return self.__GrainBoundaries[inGrainBoundaries].GetAtomIDs()
     def GetTripleLineAtomIDs(self, intTripleLine = None):
         if intTripleLine is None:
             lstTripleLineIDs = []
@@ -585,7 +645,15 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         return self.__TripleLineIDs
     def GetGrainBoundaryIDs(self):
         return self.__GrainBoundaryIDs
-
+    def GetAdjacentGrainBoundaries(self, intGrainBoundary: int):
+        lstAdjacentGrainBoundaries = []
+        lstJunctionLines = self.__GrainBoundaries[intGrainBoundary].GetAdjacentJunctionLines()
+        for k in lstJunctionLines:
+            lstAdjacentGrainBoundaries.extend(self.__TripleLines[k].GetAdjacentGrainBoundaries())
+        lstAdjacentGrainBoundaries =  list(np.unique(lstAdjacentGrainBoundaries))
+        if intGrainBoundary in lstAdjacentGrainBoundaries:
+            lstAdjacentGrainBoundaries.remove(intGrainBoundaries)
+        return lstAdjacentGrainBoundaries
 
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
