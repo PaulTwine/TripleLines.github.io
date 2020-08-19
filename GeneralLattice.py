@@ -536,10 +536,11 @@ class DefectMeshObject(object):
         self.__AtomIDs = []
         self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
     def SetAtomIDs(self, inlstIDs: list):
-        self.__AtomIDs = inlstIDs
+        self.__AtomIDs = list(map(int,inlstIDs))
     def GetAtomIDs(self)->list:
         return self.__AtomIDs
     def AddAtomIDs(self, inList):
+        inList = list(map(int,inList))
         self.__AtomsIDs = list(np.unique(self.__AtomIDs.extend(inList)))
     def RemoveAtomIDs(self, inList):
         setAtomIDs = set(self.__AtomIDs)
