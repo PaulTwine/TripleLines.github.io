@@ -314,9 +314,14 @@ def EqualAxis3D(ax):
         ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
-
-
-
+def ParseConic(lstCentre: list, lstScaling: list, lstPower:list, lstVariables = ['x','y','z'])->str:
+        strReturn = ''
+        for i in range(len(lstCentre)):
+                strReturn += '((' + str(lstVariables[i]) + '-' + str(lstCentre[i]) + ')/' + str(lstScaling[i]) + ')**' + str(lstPower[i]) + '+'
+        strReturn = strReturn[:-1] + '-1'
+        return strReturn
+def InvertRegion(strInput: str)->str: #changes an "inside closed surface to outside closed surface"
+        return '-(' + strInput + ')'
 
 
 
