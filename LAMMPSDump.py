@@ -651,7 +651,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('Atom IDs \n')
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAtomIDs()))
             fdata.write('Grain Numbers \n')
-            fdata.write('{},'.format(self.GetColumnByIndex(self.__intGrainNumber)[0].tolist()))
+            fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).tolist()))
     def ReadInDefectData(self, strFilename: str):
             with open(strFilename) as fdata:
                 while True:
