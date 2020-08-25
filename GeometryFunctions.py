@@ -69,7 +69,6 @@ def CheckLinearConstraint(inPoints: np.array, inConstraint: np.array)-> np.array
                if ((np.dot(inPoints[j],inConstraint[:-1]) > inConstraint[intDimensions])):
                    lstIndicesToDelete.append(j)
         return lstIndicesToDelete
-
 def StandardBasisVectors(inDimensions: int): #generates standard basis vectors [1 0 0],[0 1 0] etc for any dimension
         arrBasisVectors = np.zeros([inDimensions, inDimensions])
         for j in range(inDimensions):

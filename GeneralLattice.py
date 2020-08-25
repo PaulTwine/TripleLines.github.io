@@ -557,6 +557,7 @@ class GeneralJunctionLine(DefectMeshObject):
         DefectMeshObject.__init__(self,inMeshPoints, intID)
         self.__AdjacentGrains = []
         self.__AdjacentGrainBoundaries = []
+        self.__PeriodicDirections = []
     def SetAdjacentGrains(self, inList):
         self.__AdjacentGrains = inList
     def GetAdjacentGrains(self)->list:
@@ -565,13 +566,17 @@ class GeneralJunctionLine(DefectMeshObject):
         self.__AdjacentGrainBoundaries = inList
     def GetAdjacentGrainBoundaries(self)->list:
         return self.__AdjacentGrainBoundaries
-
+    def SetPeriodicDirections(self, inList):
+        self.__PeriodicDirections = inList
+    def GetPeriodicDirections(self):
+        return self.__PeriodicDirections 
 class GeneralGrainBoundary(DefectMeshObject):
     def __init__(self,inMeshPoints: np.array, intID: str):
         DefectMeshObject.__init__(self,inMeshPoints, intID)
         self.__AdjacentGrains = []
         self.__AdjacentJunctionLines = []
-        self.__AdjacentGrainBoundaries = []    
+        self.__AdjacentGrainBoundaries = []
+        self.__PeriodicDirections = []    
     def SetAdjacentGrains(self, inList):
         self.__AdjacentGrains = inList
     def GetAdjacentGrains(self)->list:
@@ -580,5 +585,8 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentJunctionLines = inList
     def GetAdjacentJunctionLines(self)->list:
         return self.__AdjacentJunctionLines
-
+    def SetPeriodicDirections(self, inList):
+        self.__PeriodicDirections = inList
+    def GetPeriodicDirections(self):
+        return self.__PeriodicDirections
 
