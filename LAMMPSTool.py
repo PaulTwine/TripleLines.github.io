@@ -403,11 +403,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
         self.__GrainBoundaries = dict()
-        self.__TripleLines = dict()
+        self.__JunctionLines = dict()
         self.__Grains = dict()
         self.__LatticeParameter = fltLatticeParameter
         self.__GrainLabels = []
-        self.__TripleLineIDs = []
+        self.__JunctionLineIDs = []
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
     def LabelAtomsByGrain(self):
@@ -415,18 +415,18 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstGrainAtoms = self.GetNonDefectiveAtomIDs()
         lstGrainNumbers = self.__QuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4])
         self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
-        self.__QuantisedCuboidPoints.FindTripleLines()
-        self.__TripleLineIDs = self.__QuantisedCuboidPoints.GetTripleLineIDs()
-        for i in self.__TripleLineIDs:
-            self.__TripleLines[i] = gl.GeneralJunctionLine(self.__QuantisedCuboidPoints.GetTripleLinePoints(i),i)
-            self.__TripleLines[i].SetAdjacentGrains(self.__QuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
-            self.__TripleLines[i].SetAdjacentGrainBoundaries(self.__QuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
-            self.__TripleLines[i].SetPeriodicDirections(self.__QuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
+        self.__QuantisedCuboidPoints.FindJunctionLines()
+        self.__JunctionLineIDs = self.__QuantisedCuboidPoints.GetJunctionLineIDs()
+        for i in self.__JunctionLineIDs:
+            self.__JunctionLines[i] = gl.GeneralJunctionLine(self.__QuantisedCuboidPoints.GetJunctionLinePoints(i),i)
+            self.__JunctionLines[i].SetAdjacentGrains(self.__QuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
+            self.__JunctionLines[i].SetAdjacentGrainBoundaries(self.__QuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
+            self.__JunctionLines[i].SetPeriodicDirections(self.__QuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
         self.__GrainBoundaryIDs = self.__QuantisedCuboidPoints.GetGrainBoundaryIDs()
         for k in self.__GrainBoundaryIDs:
             self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(self.__QuantisedCuboidPoints.GetGrainBoundaryPoints(k),k)
             self.__GrainBoundaries[k].SetAdjacentGrains(self.__QuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
-            self.__GrainBoundaries[k].SetAdjacentJunctionLines(self.__QuantisedCuboidPoints.GetAdjacentTripleLines(k))
+            self.__GrainBoundaries[k].SetAdjacentJunctionLines(self.__QuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(self.__QuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
             for l in self.__GrainBoundaries[k].GetMeshPoints():
                 lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetDefectiveAtoms()[:,0:4],l, 3*self.__LatticeParameter))
@@ -518,13 +518,13 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         elif lstClosestGrains == self.__GrainBoundaries[i].GetAdjacentGrains():
                             self.__GrainBoundaries[i].AddAtomIDs([intAtomID])
     def FindJunctionLines(self):
-        for i in self.__TripleLineIDs:
+        for i in self.__JunctionLineIDs:
             lstTJAtomIDs = []
             lstCloseAtoms = []
-            for s in self.__TripleLines[i].GetAdjacentGrainBoundaries():
+            for s in self.__JunctionLines[i].GetAdjacentGrainBoundaries():
                 lstCloseAtoms.append(set(self.__GrainBoundaries[s].GetAtomIDs()))
             lstOverlapAtoms = list(reduce(lambda x,y: x & y,lstCloseAtoms))
-            for t in self.__TripleLines[i].GetAdjacentGrainBoundaries():
+            for t in self.__JunctionLines[i].GetAdjacentGrainBoundaries():
                 self.__GrainBoundaries[t].RemoveAtomIDs(lstOverlapAtoms)
             arrAtoms = self.GetAtomsByID(lstOverlapAtoms)
             for j in arrAtoms:
@@ -551,14 +551,14 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 else:
                     intCounter = 0
                     blnFound = False
-                    while (intCounter < len(self.__TripleLines[i].GetAdjacentGrainBoundaries()) and not(blnFound)):
-                        intGrainBoundary = self.__TripleLines[i].GetAdjacentGrainBoundaries()[intCounter]
+                    while (intCounter < len(self.__JunctionLines[i].GetAdjacentGrainBoundaries()) and not(blnFound)):
+                        intGrainBoundary = self.__JunctionLines[i].GetAdjacentGrainBoundaries()[intCounter]
                         if lstClosestGrains == self.__GrainBoundaries[intGrainBoundary].GetAdjacentGrains():
                             self.__GrainBoundaries[intGrainBoundary].AddAtomIDs([intID])
                             blnFound = True
                         else:
                             intCounter += 1
-                self.__TripleLines[i].SetAtomIDs(lstTJAtomIDs)        
+                self.__JunctionLines[i].SetAtomIDs(lstTJAtomIDs)        
     def GetGrainBoundaryAtomIDs(self, inGrainBoundaries = None):
         lstGrainBoundaryIDs = []
         if inGrainBoundaries is None:
@@ -571,35 +571,35 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             return lstGrainBoundaryIDs
         elif isinstance(inGrainBoundaries, int):
             return self.__GrainBoundaries[inGrainBoundaries].GetAtomIDs()
-    def GetTripleLineAtomIDs(self, intTripleLine = None):
-        if intTripleLine is None:
-            lstTripleLineIDs = []
-            for j in self.__TripleLineIDs:
-                lstTripleLineIDs.extend(self.__TripleLines[j].GetAtomIDs())
-            return lstTripleLineIDs
+    def GetJunctionLineAtomIDs(self, intJunctionLine = None):
+        if intJunctionLine is None:
+            lstJunctionLineIDs = []
+            for j in self.__JunctionLineIDs:
+                lstJunctionLineIDs.extend(self.__JunctionLines[j].GetAtomIDs())
+            return lstJunctionLineIDs
         else:
-            return self.__TripleLines[intTripleLine].GetAtomIDs()
+            return self.__JunctionLines[intJunctionLine].GetAtomIDs()
     def GetGrainAtomIDs(self, intGrainNumber: int):
         lstGrainAtoms = list(np.where(self.GetColumnByName('GrainNumber').astype('int') == intGrainNumber)[0])
         return self.GetAtomData()[lstGrainAtoms,0].astype('int')
     def GetGrainLabels(self):
         return self.__GrainLabels
-    def GetTripleLineMeshPoints(self, intTripleLine = None):
-        if intTripleLine is None:
-            lstTripleLinePoints = []
-            for j in self.__TripleLineIDs:
-                lstTripleLinePoints.append(self.__TripleLines[j].GetMeshPoints())
-            return np.vstack(lstTripleLinePoints)
+    def GetJunctionLineMeshPoints(self, intJunctionLine = None):
+        if intJunctionLine is None:
+            lstJunctionLinePoints = []
+            for j in self.__JunctionLineIDs:
+                lstJunctionLinePoints.append(self.__JunctionLines[j].GetMeshPoints())
+            return np.vstack(lstJunctionLinePoints)
         else:
-            return self.__TripleLines[intTripleLine].GetMeshPoints()
-    def GetTripleLineAdjustedMeshPoints(self, intTripleLine = None):
-        if intTripleLine is None:
-            lstTripleLinePoints = []
-            for j in self.__TripleLineIDs:
-                lstTripleLinePoints.append(self.__TripleLines[j].GetAdjustedMeshPoints())
-            return np.vstack(lstTripleLinePoints)
+            return self.__JunctionLines[intJunctionLine].GetMeshPoints()
+    def GetJunctionLineAdjustedMeshPoints(self, intJunctionLine = None):
+        if intJunctionLine is None:
+            lstJunctionLinePoints = []
+            for j in self.__JunctionLineIDs:
+                lstJunctionLinePoints.append(self.__JunctionLines[j].GetAdjustedMeshPoints())
+            return np.vstack(lstJunctionLinePoints)
         else:
-            return self.__TripleLines[intTripleLine].GetMeshPoints()
+            return self.__JunctionLines[intJunctionLine].GetMeshPoints()
     def GetGrainBoundaryAdjustedMeshPoints(self, intGrainBoundary = None):
         if intGrainBoundary is None:
             lstGrainBoundaryIDs = []
@@ -618,36 +618,36 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             return self.__GrainBoundaries[intGrainBoundary].GetMeshPoints()
     def GetGrainBoundary(self, intGrainBoundary):
         return self.__GrainBoundaries[intGrainBoundary]
-    def GetTripleLine(self, intTripleLine):
-        return self.__TripleLines[intTripleLine]
-    def GetTripleLineIDs(self):
-        return self.__TripleLineIDs
+    def GetJunctionLine(self, intJunctionLine):
+        return self.__JunctionLines[intJunctionLine]
+    def GetJunctionLineIDs(self):
+        return self.__JunctionLineIDs
     def GetGrainBoundaryIDs(self):
         return self.__GrainBoundaryIDs
     def GetAdjacentGrainBoundaries(self, intGrainBoundary: int):
         lstAdjacentGrainBoundaries = []
         lstJunctionLines = self.__GrainBoundaries[intGrainBoundary].GetAdjacentJunctionLines()
         for k in lstJunctionLines:
-            lstAdjacentGrainBoundaries.extend(self.__TripleLines[k].GetAdjacentGrainBoundaries())
+            lstAdjacentGrainBoundaries.extend(self.__JunctionLines[k].GetAdjacentGrainBoundaries())
         lstAdjacentGrainBoundaries =  list(np.unique(lstAdjacentGrainBoundaries))
         if intGrainBoundary in lstAdjacentGrainBoundaries:
             lstAdjacentGrainBoundaries.remove(intGrainBoundary)
         return lstAdjacentGrainBoundaries
     def WriteDefectData(self, strFileName: str):
         with open(strFileName, 'w') as fdata:
-            for i in self.__TripleLineIDs:
+            for i in self.__JunctionLineIDs:
                 fdata.write('Junction Line \n')
                 fdata.write('{} \n'.format(i))
                 fdata.write('Mesh Points \n')
-                fdata.write('{} \n'.format(self.__TripleLines[i].GetMeshPoints().tolist()))
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetMeshPoints().tolist()))
                 fdata.write('Adjacent Grains \n')
-                fdata.write('{} \n'.format(self.__TripleLines[i].GetAdjacentGrains()))
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetAdjacentGrains()))
                 fdata.write('Adjacent Grain Boundaries \n')
-                fdata.write('{} \n'.format(self.__TripleLines[i].GetAdjacentGrainBoundaries()))
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetAdjacentGrainBoundaries()))
                 fdata.write('Periodic Directions \n')
-                fdata.write('{} \n'.format(self.__TripleLines[i].GetPeriodicDirections()))
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetPeriodicDirections()))
                 fdata.write('Atom IDs \n')
-                fdata.write('{} \n'.format(self.__TripleLines[i].GetAtomIDs()))
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetAtomIDs()))
             for k in self.__GrainBoundaryIDs:
                 fdata.write('Grain Boundary \n')
                 fdata.write('{} \n'.format(k))
@@ -693,7 +693,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         if line == "Atom IDs":
                             line = next(fdata).strip()
                             objJunctionLine.SetAtomIDs(eval(line))
-                        self.__TripleLines[intJL] = objJunctionLine
+                        self.__JunctionLines[intJL] = objJunctionLine
                     elif line == "Grain Boundary":
                         intGB = int(next(fdata).strip())
                         line = next(fdata).strip()
@@ -722,7 +722,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         line = next(fdata).strip()
                         self.AppendGrainNumbers(eval(line))
             self.MakeGrainTrees()
-            self.__TripleLineIDs = list(self.__TripleLines.keys())
+            self.__JunctionLineIDs = list(self.__JunctionLines.keys())
             self.__GrainBoundaryIDs = list(self.__GrainBoundaries.keys())
 
 class QuantisedCuboidPoints(object):
@@ -743,9 +743,9 @@ class QuantisedCuboidPoints(object):
         arrCuboidPoints = np.matmul(in3DPoints, inBasisConversion)
         arrCuboidPoints = np.matmul(arrCuboidPoints, self.__Scaling)    
         arrValues =  np.zeros([arrModArray[0],arrModArray[1],arrModArray[2]])
-        self.__TripleLinesArray = np.copy(arrValues)
+        self.__JunctionLinesArray = np.copy(arrValues)
         self.__GrainBoundariesArray = np.copy(arrValues)
-        self.__TripleLines = []
+        self.__JunctionLines = []
         nx,ny,nz = np.shape(arrValues)
         self.__ModArray = arrModArray
         arrCoordinates = (np.linspace(0,nx-1,nx),np.linspace(0,ny-1,ny),
@@ -836,25 +836,25 @@ class QuantisedCuboidPoints(object):
             for j in arrZeros:
                 self.__ReturnGrains[j[0],j[1],j[2]] = 0
             return list(self.__ReturnGrains[inPoints[:,0],inPoints[:,1],inPoints[:,2]])                     
-    def FindTripleLines(self):
+    def FindJunctionLines(self):
         lstGrainBoundaryList = []
         for j in self.__Coordinates:
             j = j.astype('int')
             arrBox  = self.__ExpandedGrains[gf.WrapAroundSlice(np.array([[j[0],j[0]+2],[j[1],j[1]+2],[j[2],j[2]+2]]),self.__ModArray)]
             lstValues = list(np.unique(arrBox))
             if len(lstValues) > 2:
-                self.__TripleLinesArray[j[0],j[1],j[2]] = len(lstValues)
+                self.__JunctionLinesArray[j[0],j[1],j[2]] = len(lstValues)
             elif len(lstValues) ==2:
                 if lstValues not in lstGrainBoundaryList:
                     lstGrainBoundaryList.append(lstValues)
                 self.__GrainBoundariesArray[j[0],j[1],j[2]] = 1 + lstGrainBoundaryList.index(lstValues)
-        self.__TripleLinesArray = measure.label(self.__TripleLinesArray).astype('int')
-        self.CheckPeriodicTripleLines()
+        self.__JunctionLinesArray = measure.label(self.__JunctionLinesArray).astype('int')
+        self.CheckPeriodicJunctionLines()
         self.__GrainBoundariesArray = measure.label(self.__GrainBoundariesArray).astype('int')
         self.CheckPeriodicGrainBoundaries() 
-    def CheckPeriodicTripleLines(self):
-        arrJLPoints = np.argwhere(self.__TripleLinesArray > 0)
-        setEquivalentTripleLines = set()
+    def CheckPeriodicJunctionLines(self):
+        arrJLPoints = np.argwhere(self.__JunctionLinesArray > 0)
+        setEquivalentJunctionLines = set()
         for j in range(3):
             lstIndicesLower = np.where(arrJLPoints[:,j] == 0)[0]
             arrPointsLower = arrJLPoints[lstIndicesLower]
@@ -864,20 +864,20 @@ class QuantisedCuboidPoints(object):
             arrDistanceMatrix = spatial.distance_matrix(arrPointsLower, arrPointsUpper)
             arrClosePoints = np.argwhere(arrDistanceMatrix < 2) 
             for j in arrClosePoints:
-                tupPairs = (self.__TripleLinesArray[tuple(zip(arrPointsLower[j[0]]))][0], self.__TripleLinesArray[tuple(zip(arrPointsUpper[j[1]]))][0])
+                tupPairs = (self.__JunctionLinesArray[tuple(zip(arrPointsLower[j[0]]))][0], self.__JunctionLinesArray[tuple(zip(arrPointsUpper[j[1]]))][0])
                 if tupPairs[0] != tupPairs[1]:
-                    setEquivalentTripleLines.add(tupPairs)
-        for k in setEquivalentTripleLines: #merge the periodic values
-            self.__TripleLinesArray[self.__TripleLinesArray == k[1]] = k[0] 
-        lstValues = list(np.unique(self.__TripleLinesArray)) #renumber the array sequentially for convenience starting at 1
+                    setEquivalentJunctionLines.add(tupPairs)
+        for k in setEquivalentJunctionLines: #merge the periodic values
+            self.__JunctionLinesArray[self.__JunctionLinesArray == k[1]] = k[0] 
+        lstValues = list(np.unique(self.__JunctionLinesArray)) #renumber the array sequentially for convenience starting at 1
         if 0 in lstValues:
             lstValues.remove(0)
         for intIndex, intValue in enumerate(lstValues):
-            self.__TripleLinesArray[self.__TripleLinesArray == intValue] = intIndex+1 
-        lstValues = list(np.unique(self.__TripleLinesArray))
+            self.__JunctionLinesArray[self.__JunctionLinesArray == intValue] = intIndex+1 
+        lstValues = list(np.unique(self.__JunctionLinesArray))
         if 0 in lstValues:
             lstValues.remove(0)
-        self.__TripleLineIDs = lstValues             
+        self.__JunctionLineIDs = lstValues             
     def CheckPeriodicGrainBoundaries(self):
         arrGBPoints = np.argwhere(self.__GrainBoundariesArray > 0)
         setEquivalentGrainBoundaries = set()
@@ -892,16 +892,16 @@ class QuantisedCuboidPoints(object):
             for j in arrClosePoints:
                 tupPairs = (self.__GrainBoundariesArray[tuple(zip(arrPointsLower[j[0]]))][0], self.__GrainBoundariesArray[tuple(zip(arrPointsUpper[j[1]]))][0])
                 if tupPairs[0] != tupPairs[1]:
-                    setTripleLines = set(self.GetAdjacentTripleLines(tupPairs[0]))
-                    lstTripleLines = self.GetAdjacentTripleLines(tupPairs[1])
-                    setTripleLines = setTripleLines.intersection(lstTripleLines)
-                    if len(setTripleLines) >= 1:
-                        if len(setTripleLines) > 1:
+                    setJunctionLines = set(self.GetAdjacentJunctionLines(tupPairs[0]))
+                    lstJunctionLines = self.GetAdjacentJunctionLines(tupPairs[1])
+                    setJunctionLines = setJunctionLines.intersection(lstJunctionLines)
+                    if len(setJunctionLines) >= 1:
+                        if len(setJunctionLines) > 1:
                             warnings.warn("Two grain boundaries sharing more than one junction line")
-                        lstGrainBoundaries = self.GetAdjacentGrainBoundaries(setTripleLines.pop())
+                        lstGrainBoundaries = self.GetAdjacentGrainBoundaries(setJunctionLines.pop())
                         if (tupPairs[0] not in lstGrainBoundaries) and (tupPairs[1] not in lstGrainBoundaries): 
                             setEquivalentGrainBoundaries.add(tupPairs)
-                    elif len(setTripleLines) == 0:
+                    elif len(setJunctionLines) == 0:
                         setEquivalentGrainBoundaries.add(tupPairs)
         for k in setEquivalentGrainBoundaries: #merge the periodic values
             self.__GrainBoundariesArray[self.__GrainBoundariesArray == k[1]] = k[0] 
@@ -965,15 +965,15 @@ class QuantisedCuboidPoints(object):
             return np.matmul(np.matmul(np.argwhere(self.__GrainBoundariesArray.astype('int') == intGrainBoundaryID)+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
         else:
             warnings.warn(str(intGrainBoundaryID) + ' is an invalid grain boundary ID')
-    def GetTripleLinePoints(self, intTripleLineID = None)->np.array:
-        if intTripleLineID is None:
-            return np.matmul(np.matmul(np.argwhere(self.__TripleLinesArray.astype('int') != 0) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
-        elif intTripleLineID in self.__TripleLineIDs: 
-            return np.matmul(np.matmul(np.argwhere(self.__TripleLinesArray.astype('int') == intTripleLineID)+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
+    def GetJunctionLinePoints(self, intJunctionLineID = None)->np.array:
+        if intJunctionLineID is None:
+            return np.matmul(np.matmul(np.argwhere(self.__JunctionLinesArray.astype('int') != 0) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
+        elif intJunctionLineID in self.__JunctionLineIDs: 
+            return np.matmul(np.matmul(np.argwhere(self.__JunctionLinesArray.astype('int') == intJunctionLineID)+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
         else:
-            warnings.warn(str(intTripleLineID) + ' is an invalid triple line ID')
-    def GetTripleLineIDs(self)->list:
-        return self.__TripleLineIDs
+            warnings.warn(str(intJunctionLineID) + ' is an invalid junction line ID')
+    def GetJunctionLineIDs(self)->list:
+        return self.__JunctionLineIDs
     def GetGrainBoundaryIDs(self)->list:
         return self.__GrainBoundaryIDs
     def GetGrainPoints(self, intGrainNumber):
@@ -992,7 +992,7 @@ class QuantisedCuboidPoints(object):
         return self.__GrainLabels
     def GetAdjacentGrains(self, intID: int, strType: str)->list:
         if strType == 'JunctionLine':
-            arrPoints = np.argwhere(self.__TripleLinesArray == intID)
+            arrPoints = np.argwhere(self.__JunctionLinesArray == intID)
         elif strType =='GrainBoundary':   
             arrPoints = np.argwhere(self.__GrainBoundariesArray == intID)
         if len(arrPoints) > 0:
@@ -1001,18 +1001,18 @@ class QuantisedCuboidPoints(object):
             return list(np.unique(arrBox))
         else:
             warnings.warn('Invalid ' +str(strType) + ' ID')
-    def GetAdjacentTripleLines(self, intGrainBoundary: int)->list:
+    def GetAdjacentJunctionLines(self, intGrainBoundary: int)->list:
         arrPoints  = np.argwhere(self.__GrainBoundariesArray == intGrainBoundary)
         lstValues = []
         if len(arrPoints) > 0:
             for l in arrPoints:
-                lstValues.extend(self.__TripleLinesArray[gf.WrapAroundSlice(np.array([[l[0]-1,l[0]+2],[l[1]-1,l[1]+2], [l[2]-1,l[2]+2]]),self.__ModArray)])
+                lstValues.extend(self.__JunctionLinesArray[gf.WrapAroundSlice(np.array([[l[0]-1,l[0]+2],[l[1]-1,l[1]+2], [l[2]-1,l[2]+2]]),self.__ModArray)])
         lstValues = list(np.unique(lstValues))
         if 0 in lstValues:
             lstValues.remove(0)
         return lstValues
-    def GetAdjacentGrainBoundaries(self, intTripleLine)->list:
-        arrPoints  = np.argwhere(self.__TripleLinesArray == intTripleLine)
+    def GetAdjacentGrainBoundaries(self, intJunctionLine)->list:
+        arrPoints  = np.argwhere(self.__JunctionLinesArray == intJunctionLine)
         lstValues = []
         if len(arrPoints) > 0:
             for l in arrPoints:
@@ -1024,7 +1024,7 @@ class QuantisedCuboidPoints(object):
     def GetPeriodicExtensions(self, intIndex, strType): #returns index of the periodic cell vector
         lstPeriodicDirections = []
         if strType == 'JunctionLine':
-            arrPoints = np.argwhere(self.__TripleLinesArray == intIndex)
+            arrPoints = np.argwhere(self.__JunctionLinesArray == intIndex)
         elif strType == 'GrainBoundary':
             arrPoints = np.argwhere(self.__GrainBoundariesArray == intIndex)
         for j in range(3):
