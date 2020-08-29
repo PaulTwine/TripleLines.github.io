@@ -535,6 +535,7 @@ class DefectMeshObject(object):
         self.__ID = intID
         self.__AtomIDs = []
         self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
+        self.__Volume = 0
     def SetAtomIDs(self, inlstIDs: list):
         self.__AtomIDs = list(map(int,inlstIDs))
     def GetAtomIDs(self)->list:
@@ -551,6 +552,20 @@ class DefectMeshObject(object):
         self.__AdjustedMeshPoints.append(inPoint)
     def GetAdjustedMeshPoints(self)->np.array:
         return np.vstack(self.__AdjustedMeshPoints)
+    def SetVolume(self, fltVolume):
+        self.__Volume = fltVolume 
+    def GetVolume(self):
+        return self.__Volume
+    def GetAtomicDensity(self):
+        if self.__Volume > 0 and len(self.__AtomIDs) > 0:
+            return self.__Volume/len(self.__AtomIDs)
+        else:
+            return 0   
+    def SetPeriodicDirections(self, inList):
+        self.__PeriodicDirections = inList
+    def GetPeriodicDirections(self):
+        return self.__PeriodicDirections 
+    
 
 class GeneralJunctionLine(DefectMeshObject):
     def __init__(self,inMeshPoints: np.array, intID: int):
@@ -566,10 +581,7 @@ class GeneralJunctionLine(DefectMeshObject):
         self.__AdjacentGrainBoundaries = inList
     def GetAdjacentGrainBoundaries(self)->list:
         return self.__AdjacentGrainBoundaries
-    def SetPeriodicDirections(self, inList):
-        self.__PeriodicDirections = inList
-    def GetPeriodicDirections(self):
-        return self.__PeriodicDirections 
+    
 class GeneralGrainBoundary(DefectMeshObject):
     def __init__(self,inMeshPoints: np.array, intID: str):
         DefectMeshObject.__init__(self,inMeshPoints, intID)
@@ -585,8 +597,4 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentJunctionLines = inList
     def GetAdjacentJunctionLines(self)->list:
         return self.__AdjacentJunctionLines
-    def SetPeriodicDirections(self, inList):
-        self.__PeriodicDirections = inList
-    def GetPeriodicDirections(self):
-        return self.__PeriodicDirections
-
+    

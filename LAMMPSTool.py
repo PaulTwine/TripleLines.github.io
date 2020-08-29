@@ -89,9 +89,9 @@ class LAMMPSTimeStep(object):
         return len(self.__ColumnNames)
     def SetColumnByIndex(self, arrColumn:np.array, intColumnIndex: int):
         self.__AtomData[:, intColumnIndex] = arrColumn
-    def GetColumnValueByIDs(self,lstOfAtomIDs: list, intColumn: int):
+    def GetColumnByIDs(self,lstOfAtomIDs: list, intColumn: int):
         return self.__AtomData[np.isin(self.__AtomData[:,0], lstOfAtomIDs), intColumn]     
-    def SetColumnValueByIDs(self,lstOfAtomIDs: list, intColumn: int, arrValues: np.array):
+    def SetColumnByIDs(self,lstOfAtomIDs: list, intColumn: int, arrValues: np.array):
         self.__AtomData[np.isin(self.__AtomData[:,0], lstOfAtomIDs), intColumn] = arrValues
     def SetRow(self, intRowNumber: int, lstRow: list):
         self.__AtomData[intRowNumber] = lstRow
@@ -203,7 +203,14 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         LAMMPSTimeStep.__init__(self,fltTimeStep,intNumberOfAtoms, lstColumnNames, lstBoundaryType, lstBounds)
         self.__Dimensions = self.GetNumberOfDimensions()
         self._LatticeStructure = intLatticeType #lattice structure type as defined by OVITOS
-        self._intStructureType = int(self.GetColumnNames().index('StructureType'))
+        if 'StructureType' in self.GetColumnNames():
+            self._intStructureType = int(self.GetColumnNames().index('StructureType'))
+        else:
+            warnings.warn('Error missing atom structure types in dump file.')
+        if 'c_v11' in self.GetColumnNames():
+            self._intVolume = int(self.GetColumnNames().index('c_v11'))
+        else:
+            warnings.warn('Per atom volume data is missing.')
         self._intPositionX = int(self.GetColumnNames().index('x'))
         self._intPositionY = int(self.GetColumnNames().index('y'))
         self._intPositionZ = int(self.GetColumnNames().index('z'))
@@ -226,32 +233,42 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         return self.__PlaneNormalVectors
     def CategoriseAtoms(self, fltTolerance = None):    
         lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
-        lstLatticeAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
-        lstUnknownAtoms = list(np.where(np.isin(self.GetColumnByIndex(self._intStructureType).astype('int') ,[0,1],invert=True))[0])
-        self.__LatticeAtoms = lstLatticeAtoms
-        self.__NonLatticeAtoms = lstOtherAtoms + lstUnknownAtoms
+        lstPTMAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
+        lstUnknownAtoms = list(np.where(np.isin(self.GetColumnByIndex(self._intStructureType).astype('int') ,[0,self._LatticeStructure],invert=True))[0])
+        self.__PTMAtoms = lstPTMAtoms
+        self.__NonPTMAtoms = lstOtherAtoms + lstUnknownAtoms
         self.__OtherAtoms = lstOtherAtoms
         self.__UnknownAtoms = lstUnknownAtoms
         self.FindDefectiveAtoms(fltTolerance)
         self.FindNonDefectiveAtoms(fltTolerance)
+        self.__LatticeAtoms = list(set(self.__NonDefectiveAtoms) & set(self.__PTMAtoms))
+        self.__NonLatticeAtoms = list(np.where(np.isin(self.GetColumnByIndex(self._intStructureType).astype('int'), self.__LatticeAtoms, invert=True))[0])
+    def GetLatticeAtoms(self):
+        return self.__LatticeAtoms
+    def GetNonLatticeAtoms(self):
+        return self.__NonLatticeAtoms  
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
-            fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
+            fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
             fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
-        fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
+        fltMeanLatticeValue = np.mean(self.GetPTMAtoms()[:,self._intPE])
         lstDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue +fltTolerance) | (self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue - fltTolerance))[0]
-        self.__DefectiveAtoms = self.GetAtomData()[lstDefectiveAtoms,0].astype('int')
+        self.__DefectiveAtoms = list(self.GetAtomData()[lstDefectiveAtoms,0].astype('int'))
         return self.GetRows(lstDefectiveAtoms)
     def FindNonDefectiveAtoms(self,fltTolerance = None):
         if fltTolerance is None:
-            fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
+            fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
             fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
-        fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
+        fltMeanLatticeValue = np.mean(self.GetPTMAtoms()[:,self._intPE])
         lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) <= fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) >= fltMeanLatticeValue  - fltTolerance))[0]
-        self.__NonDefectiveAtoms = self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int')
+        self.__NonDefectiveAtoms = list(self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int'))
         return self.GetRows(lstNonDefectiveAtoms)
-    def GetLatticeAtomIDs(self):
-        return self.__LatticeAtoms
+    def GetOtherAtomIDs(self):
+        return list(self.GetAtomData()[self.__OtherAtoms,0].astype('int'))
+    def GetPTMAtomIDs(self):
+        return list(self.GetAtomData()[self.__PTMAtoms,0].astype('int'))
+    def GetNonPTMAtomIDs(self):
+        return list(self.GetAtomData()[self.__PTMAtoms,0].astype('int'))
     def GetDefectiveAtomIDs(self):
         return self.__DefectiveAtoms
     def GetNonDefectiveAtomIDs(self):
@@ -264,22 +281,22 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         if len(self.__DefectiveAtoms) ==0:
             self.FindDefectiveAtoms()
         return self.GetAtomsByID(self.__DefectiveAtoms)
-    def GetNonLatticeAtoms(self):
-        return self.GetRows(self.__NonLatticeAtoms)
+    def GetNonPTMAtoms(self):
+        return self.GetRows(self.__NonPTMAtoms)
     def GetUnknownAtoms(self):
         return self.GetRows(self.__UnknownAtoms) 
-    def GetLatticeAtoms(self):
-        return self.GetRows(self.__LatticeAtoms)  
+    def GetPTMAtoms(self):
+        return self.GetRows(self.__PTMAtoms)  
     def GetOtherAtoms(self):
         return self.GetRows(self.__OtherAtoms)
-    def GetNumberOfNonLatticeAtoms(self):
-        return len(self.__NonLatticeAtoms)
+    def GetNumberOfNonPTMAtoms(self):
+        return len(self.__NonPTMAtoms)
     def GetNumberOfOtherAtoms(self)->int:
         return len(self.GetRows(self.__OtherAtoms))
-    def GetNumberOfLatticeAtoms(self)->int:
-        return len(self.__LatticeAtoms)
+    def GetNumberOfPTMAtoms(self)->int:
+        return len(self.__PTMAtoms)
     def PlotGrainAtoms(self, strGrainNumber: str):
-        return self.__PlotList(self.__LatticeAtoms)
+        return self.__PlotList(self.__PTMAtoms)
     def PlotUnknownAtoms(self):
         return self.__PlotList(self.__UnknownAtoms)
     def PlotPoints(self, inArray: np.array)->np.array:
@@ -332,7 +349,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             return None
     def FindGrainMean(self, inPoint: np.array, fltRadius: float): 
         lstPointsIndices = []
-        lstPointsIndices = self.FindCylindricalAtoms(self.GetLatticeAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
+        lstPointsIndices = self.FindCylindricalAtoms(self.GetPTMAtoms()[:,0:self._intPositionZ+1],inPoint,fltRadius, self.CellHeight, True)
         if len(lstPointsIndices) > 0:
             lstPointsIndices = list(np.unique(lstPointsIndices))
             arrPoints = self.GetAtomsByID(lstPointsIndices)[:,self._intPositionX:self._intPositionZ+1]
@@ -412,7 +429,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__LatticeParameter = fltParameter
     def LabelAtomsByGrain(self):
         self.__QuantisedCuboidPoints = QuantisedCuboidPoints(self.GetDefectiveAtoms()[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
-        lstGrainAtoms = self.GetNonDefectiveAtomIDs()
+        lstGrainAtoms = self.GetLatticeAtoms()
+        lstNonGrainAtoms = self.GetNonLatticeAtoms()
         lstGrainNumbers = self.__QuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4])
         self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
         self.__QuantisedCuboidPoints.FindJunctionLines()
@@ -429,10 +447,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(self.__QuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(self.__QuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
             for l in self.__GrainBoundaries[k].GetMeshPoints():
-                lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetDefectiveAtoms()[:,0:4],l, 3*self.__LatticeParameter))
-                #arrMean = np.mean(self.GetAtomsByID(lstSurroundingAtoms)[:,1:4],axis=0)
+                lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, 3*self.__LatticeParameter))
                 self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
-               # self.CheckBoundaries(arrMean, 3*self.__LatticeParameter)
         self.CheckBoundaries()   
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
         if 'GrainNumber' not in self.GetColumnNames():
@@ -444,7 +460,12 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if lstGrainAtoms is None:
             self.SetColumnByIndex(arrGrainNumbers, self.__intGrainNumber)
         else:
-            self.SetColumnValueByIDs(lstGrainAtoms, self.__intGrainNumber, arrGrainNumbers)
+            self.SetColumnByIDs(lstGrainAtoms, self.__intGrainNumber, arrGrainNumbers)
+    def AssignVolumes(self):
+        for i in self.__JunctionLineIDs:
+            self.__JunctionLines[i].SetVolume(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intVolume)))
+        for j in self.__GrainBoundaryIDs:
+            self.__GrainBoundaries[j].SetVolume(np.sum(self.GetColumnByIDs(self.__GrainBoundaries[j].GetAtomIDs(),self._intVolume)))
     def MakeGrainTrees(self):
         lstGrainLabels = self.__GrainLabels
         if 0 in lstGrainLabels:
@@ -456,7 +477,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstGrains = self.__GrainLabels
         if 0 in lstGrains:
             lstGrains.remove(0)
-        lstNextAtoms = list(set(self.GetNonDefectiveAtomIDs()).intersection(set(self.GetGrainAtomIDs(0))))
+        lstNextAtoms = list(set(self.GetLatticeAtoms()).intersection(set(self.GetGrainAtomIDs(0))))
         lstAtoms = []
         self.MakeGrainTrees()
         while len(set(lstNextAtoms).difference(lstAtoms)) > 0:
@@ -480,11 +501,12 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                     elif intCurrent == intMax and intMax > 0:
                         intGrain = 0
                 if intGrain > 0:
-                    self.SetColumnValueByIDs(list(arrClusterIDs), self.__intGrainNumber, intGrain*np.ones(len(arrClusterIDs)))
-            lstNextAtoms = list(set(self.GetNonDefectiveAtomIDs()) & set(self.GetGrainAtomIDs(0)))
+                    self.SetColumnByIDs(list(arrClusterIDs), self.__intGrainNumber, intGrain*np.ones(len(arrClusterIDs)))
+            lstNextAtoms = list(set(self.GetLatticeAtoms()).intersection(set(self.GetGrainAtomIDs(0))))
+            lstNextAtoms = list(lstNextAtoms)
             self.MakeGrainTrees()
         if len(lstNextAtoms) > 0:
-            warnings.warn(str(len(lstNextAtoms)) + ' grain atoms have not been defined')
+            warnings.warn(str(len(lstNextAtoms)) + ' grain atom(s) have not been assigned a grain number /n' + str(lstNextAtoms))
     def FinaliseGrainBoundaries(self):
         lstGBIDs =  list(np.copy(self.__GrainBoundaryIDs))
         while len(lstGBIDs) > 0:
@@ -519,7 +541,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                             self.__GrainBoundaries[i].AddAtomIDs([intAtomID])
     def FindJunctionLines(self):
         for i in self.__JunctionLineIDs:
-            lstTJAtomIDs = []
+            lstJLAtomsIDs = []
             lstCloseAtoms = []
             for s in self.__JunctionLines[i].GetAdjacentGrainBoundaries():
                 lstCloseAtoms.append(set(self.__GrainBoundaries[s].GetAtomIDs()))
@@ -546,8 +568,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 lstClosestGrains.append(lstGrainLabels[lstIndices[1]])
                 lstClosestGrains = sorted(lstClosestGrains)
                 fltGBLength = np.linalg.norm(lstVectors[lstIndices[0]]-lstVectors[lstIndices[1]])
+                if fltGBLength < self.__LatticeParameter/2:
+                    warnings.warn('Estimated GB length is only ' + str(fltGBLength) + ' Anstroms')
                 if  np.all(np.array(lstGrainDistances) < fltGBLength):
-                    lstTJAtomIDs.append(intID)
+                    lstJLAtomsIDs.append(intID)
                 else:
                     intCounter = 0
                     blnFound = False
@@ -558,7 +582,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                             blnFound = True
                         else:
                             intCounter += 1
-                self.__JunctionLines[i].SetAtomIDs(lstTJAtomIDs)        
+                self.__JunctionLines[i].SetAtomIDs(lstJLAtomsIDs)        
     def GetGrainBoundaryAtomIDs(self, inGrainBoundaries = None):
         lstGrainBoundaryIDs = []
         if inGrainBoundaries is None:
@@ -756,7 +780,7 @@ class QuantisedCuboidPoints(object):
             k = np.mod(k,self.__ModArray)
             arrValues[k[0],k[1], k[2]] += 1
         objInterpolate = RegularGridInterpolator(arrCoordinates, arrValues, method = 'linear')
-        arrOut = arrValues
+        self.__DefectPositions = arrValues.astype('bool').astype('int')
         self.__Coordinates = gf.CreateCuboidPoints(np.array([[0,nx-1],[0,ny-1],[0,nz-1]]))
         arrOut = objInterpolate(self.__Coordinates)
         arrOut = np.reshape(arrOut,arrModArray)
