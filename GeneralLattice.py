@@ -61,12 +61,16 @@ class RealCell(PureCell):
         self.__RealCellVectors = np.zeros([self.Dimensions(),self.Dimensions()])
         for j in range(self.Dimensions()):
             self.__RealCellVectors[j] = inLatticeParameters[j]*self.__CellVectors[j]
+        arrDistanceMatrix = sc.spatial.distance_matrix(self.__RealCellVectors,self.__RealCellVectors)
+        self.__NearestNeighbourDistance = np.min(arrDistanceMatrix[arrDistanceMatrix > 0])
     def GetCellVectors(self)->np.array:
         return self.__CellVectors
     def GetRealCellVectors(self)->np.array:
         return self.__RealCellVectors
     def GetLatticeParameters(self):
         return self.__LatticeParameters
+    def GetNearestNeighbourDistance(self):
+        return self.__NearestNeighbourDistance
     
 class GeneralLattice(RealCell):
     def __init__(self,inBasisVectors:np.array,inCellNodes: np.array,inLatticeParameters:np.array,inOrigin: np.array,inCellBasis = None):
@@ -289,7 +293,7 @@ class SimulationCell(object):
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
         with open(inFileName, 'w') as fdata:
             fdata.write('## ' + strDateTime + ' ' + self.__FileHeader + '\n')
-            fdata.write('{} natoms\n'.format(self.GetTotalNumberOfAtoms()))
+            fdata.write('{} atoms\n'.format(self.GetTotalNumberOfAtoms()))
             fdata.write('{} atom types\n'.format(self.GetNumberOfAtomTypes()))
             fdata.write('{} {} xlo xhi\n'.format(self.__xlo,self.__xhi))
             fdata.write('{} {} ylo yhi\n'.format(self.__ylo,self.__yhi))
@@ -558,7 +562,7 @@ class DefectMeshObject(object):
         return self.__Volume
     def GetAtomicDensity(self):
         if self.__Volume > 0 and len(self.__AtomIDs) > 0:
-            return self.__Volume/len(self.__AtomIDs)
+            return len(self.__AtomIDs)/self.__Volume
         else:
             return 0   
     def SetPeriodicDirections(self, inList):

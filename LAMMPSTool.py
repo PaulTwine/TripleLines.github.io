@@ -211,10 +211,13 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             self._intVolume = int(self.GetColumnNames().index('c_v11'))
         else:
             warnings.warn('Per atom volume data is missing.')
+        if 'c_pe1' in self.GetColumnNames():
+            self._intPE = int(self.GetColumnNames().index('c_pe1'))
+        else:
+            warnings.warn('Per atom potential energy is missing.')
         self._intPositionX = int(self.GetColumnNames().index('x'))
         self._intPositionY = int(self.GetColumnNames().index('y'))
         self._intPositionZ = int(self.GetColumnNames().index('z'))
-        self._intPE = int(self.GetColumnNames().index('c_pe1'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
         self.__fltGrainTolerance = 1.96
         self.__DefectiveAtoms = []
@@ -672,6 +675,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('{} \n'.format(self.__JunctionLines[i].GetPeriodicDirections()))
                 fdata.write('Atom IDs \n')
                 fdata.write('{} \n'.format(self.__JunctionLines[i].GetAtomIDs()))
+                fdata.write('Volume \n')
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetVolume()))
             for k in self.__GrainBoundaryIDs:
                 fdata.write('Grain Boundary \n')
                 fdata.write('{} \n'.format(k))
@@ -685,6 +690,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetPeriodicDirections()))
                 fdata.write('Atom IDs \n')
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAtomIDs()))
+                fdata.write('Volume \n')
+                fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetVolume()))
             fdata.write('Grain Numbers \n')
             fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).tolist()))
     def ReadInDefectData(self, strFilename: str):
@@ -717,6 +724,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         if line == "Atom IDs":
                             line = next(fdata).strip()
                             objJunctionLine.SetAtomIDs(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Volume":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetVolume(eval(line))
                         self.__JunctionLines[intJL] = objJunctionLine
                     elif line == "Grain Boundary":
                         intGB = int(next(fdata).strip())
@@ -741,6 +752,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         if line == "Atom IDs":
                             line = next(fdata).strip()
                             objGrainBoundary.SetAtomIDs(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Volume":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetVolume(eval(line))
                         self.__GrainBoundaries[intGB] = objGrainBoundary
                     elif line == "Grain Numbers": 
                         line = next(fdata).strip()
