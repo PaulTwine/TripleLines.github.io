@@ -207,8 +207,8 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             self._intStructureType = int(self.GetColumnNames().index('StructureType'))
         else:
             warnings.warn('Error missing atom structure types in dump file.')
-        if 'c_v11' in self.GetColumnNames():
-            self._intVolume = int(self.GetColumnNames().index('c_v11'))
+        if 'c_v1' in self.GetColumnNames():
+            self._intVolume = int(self.GetColumnNames().index('c_v1'))
         else:
             warnings.warn('Per atom volume data is missing.')
         if 'c_pe1' in self.GetColumnNames():
@@ -464,6 +464,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.SetColumnByIndex(arrGrainNumbers, self.__intGrainNumber)
         else:
             self.SetColumnByIDs(lstGrainAtoms, self.__intGrainNumber, arrGrainNumbers)
+    def AssignPE(self):
+        for i in self.__JunctionLineIDs:
+            self.__JunctionLines[i].SetPE(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intPE)))
+        for j in self.__GrainBoundaryIDs:
+            self.__GrainBoundaries[j].SetPE(np.sum(self.GetColumnByIDs(self.__GrainBoundaries[j].GetAtomIDs(),self._intPE)))
     def AssignVolumes(self):
         for i in self.__JunctionLineIDs:
             self.__JunctionLines[i].SetVolume(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intVolume)))
@@ -506,10 +511,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 if intGrain > 0:
                     self.SetColumnByIDs(list(arrClusterIDs), self.__intGrainNumber, intGrain*np.ones(len(arrClusterIDs)))
             lstNextAtoms = list(set(self.GetLatticeAtoms()).intersection(set(self.GetGrainAtomIDs(0))))
-            lstNextAtoms = list(lstNextAtoms)
             self.MakeGrainTrees()
         if len(lstNextAtoms) > 0:
-            warnings.warn(str(len(lstNextAtoms)) + ' grain atom(s) have not been assigned a grain number /n' + str(lstNextAtoms))
+            warnings.warn(str(len(lstNextAtoms)) + ' grain atom(s) have been assigned a grain number of -1 \n' + str(lstNextAtoms))
+            self.SetColumnByIDs(lstNextAtoms, self.__intGrainNumber, -1**np.ones(len(lstNextAtoms)))
     def FinaliseGrainBoundaries(self):
         lstGBIDs =  list(np.copy(self.__GrainBoundaryIDs))
         while len(lstGBIDs) > 0:
@@ -677,6 +682,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('{} \n'.format(self.__JunctionLines[i].GetAtomIDs()))
                 fdata.write('Volume \n')
                 fdata.write('{} \n'.format(self.__JunctionLines[i].GetVolume()))
+                fdata.write('PE \n')
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetPE()))
             for k in self.__GrainBoundaryIDs:
                 fdata.write('Grain Boundary \n')
                 fdata.write('{} \n'.format(k))

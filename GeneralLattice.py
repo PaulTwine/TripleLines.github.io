@@ -540,6 +540,7 @@ class DefectMeshObject(object):
         self.__AtomIDs = []
         self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
         self.__Volume = 0
+        self.__PE = 0
     def SetAtomIDs(self, inlstIDs: list):
         self.__AtomIDs = list(map(int,inlstIDs))
     def GetAtomIDs(self)->list:
@@ -568,7 +569,11 @@ class DefectMeshObject(object):
     def SetPeriodicDirections(self, inList):
         self.__PeriodicDirections = inList
     def GetPeriodicDirections(self):
-        return self.__PeriodicDirections 
+        return self.__PeriodicDirections
+    def GetPE(self):
+        return self.__PE
+    def SetPE(self, fltPE):
+        self.__PE = fltPE 
     
 
 class GeneralJunctionLine(DefectMeshObject):
