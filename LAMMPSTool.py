@@ -699,6 +699,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAtomIDs()))
                 fdata.write('Volume \n')
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetVolume()))
+                fdata.write('PE \n')
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetPE()))
             fdata.write('Grain Numbers \n')
             fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).tolist()))
     def ReadInDefectData(self, strFilename: str):
@@ -735,6 +737,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         if line == "Volume":
                             line = next(fdata).strip()
                             objJunctionLine.SetVolume(eval(line))
+                        line = next(fdata).strip()
+                        if line == "PE":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetPE(eval(line))
                         self.__JunctionLines[intJL] = objJunctionLine
                     elif line == "Grain Boundary":
                         intGB = int(next(fdata).strip())
@@ -763,6 +769,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         if line == "Volume":
                             line = next(fdata).strip()
                             objGrainBoundary.SetVolume(eval(line))
+                        line = next(fdata).strip()
+                        if line == "PE":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetPE(eval(line))
                         self.__GrainBoundaries[intGB] = objGrainBoundary
                     elif line == "Grain Numbers": 
                         line = next(fdata).strip()
