@@ -700,7 +700,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('Volume \n')
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetVolume()))
                 fdata.write('PE \n')
-                fdata.write('{} \n'.format(self.__JunctionLines[i].GetPE()))
+                fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetPE()))
             fdata.write('Grain Numbers \n')
             fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).tolist()))
     def ReadInDefectData(self, strFilename: str):
