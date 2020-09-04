@@ -196,7 +196,8 @@ class LAMMPSTimeStep(object):
     def GetBoundingBox(self):
         return np.array([self.GetCellBasis()[0,0]+self.GetCellBasis()[1,0]+self.GetCellBasis()[2,0],
         self.GetCellBasis()[1,1]+self.GetCellBasis()[2,1], self.GetCellBasis()[2,2]])
-
+    def GetTimeStep(self):
+        return self.__TimeStep
 
 class LAMMPSPostProcess(LAMMPSTimeStep):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
@@ -564,7 +565,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 lstGrainDistances = []
                 lstGrainLabels = []
                 lstClosestGrains = []
-                for k in self.__GrainLabels:
+                for k in self.__JunctionLines[i].GetAdjacentGrains():
                     arrPeriodicVariants = self.PeriodicEquivalents(arrPosition)
                     lstDistances,lstIndices = self.__Grains[k].query(arrPeriodicVariants,1)
                     intIndex = np.argmin(lstDistances)
@@ -667,6 +668,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         return lstAdjacentGrainBoundaries
     def WriteDefectData(self, strFileName: str):
         with open(strFileName, 'w') as fdata:
+            fdata.write('Time Step \n')
+            fdata.write('{} \n'.format(self.GetTimeStep()))
             for i in self.__JunctionLineIDs:
                 fdata.write('Junction Line \n')
                 fdata.write('{} \n'.format(i))
@@ -683,7 +686,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('Volume \n')
                 fdata.write('{} \n'.format(self.__JunctionLines[i].GetVolume()))
                 fdata.write('PE \n')
-                fdata.write('{} \n'.format(self.__JunctionLines[i].GetPE()))
+                fdata.write('{} \n'.format(self.__JunctionLines[i].GetTotalPE()))
             for k in self.__GrainBoundaryIDs:
                 fdata.write('Grain Boundary \n')
                 fdata.write('{} \n'.format(k))
@@ -700,7 +703,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('Volume \n')
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetVolume()))
                 fdata.write('PE \n')
-                fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetPE()))
+                fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetTotalPE()))
             fdata.write('Grain Numbers \n')
             fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).tolist()))
     def ReadInDefectData(self, strFilename: str):
@@ -740,7 +743,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         line = next(fdata).strip()
                         if line == "PE":
                             line = next(fdata).strip()
-                            objJunctionLine.SetPE(eval(line))
+                            objJunctionLine.SetTotalPE(eval(line))
                         self.__JunctionLines[intJL] = objJunctionLine
                     elif line == "Grain Boundary":
                         intGB = int(next(fdata).strip())
@@ -772,7 +775,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         line = next(fdata).strip()
                         if line == "PE":
                             line = next(fdata).strip()
-                            objGrainBoundary.SetPE(eval(line))
+                            objGrainBoundary.SetTotalPE(eval(line))
                         self.__GrainBoundaries[intGB] = objGrainBoundary
                     elif line == "Grain Numbers": 
                         line = next(fdata).strip()
@@ -780,6 +783,90 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.MakeGrainTrees()
             self.__JunctionLineIDs = list(self.__JunctionLines.keys())
             self.__GrainBoundaryIDs = list(self.__GrainBoundaries.keys())
+
+class LAMMPSSummary(object):
+    def __init__(self):
+        self.__dctDefects = dict()
+    def GetDefectObject(self, fltTimeStep):
+        return self.__dctDefects[fltTimeStep]
+    def GetTimeSteps(self):
+        return list(self.__dctDefects.keys())
+    def ReadInData(self, strFilename: str):
+        with open(strFilename) as fdata:
+            while True:
+                try:
+                    line = next(fdata).strip()
+                except StopIteration as EndOfFile:
+                    break
+                if line == "Time Step":
+                    intTimeStep = intJL = int(next(fdata).strip())
+                    objDefect = gl.DefectObject(intTimeStep)
+                    line = next(fdata).strip()
+                    if line == "Junction Line":
+                        intJL = int(next(fdata).strip())
+                        line = next(fdata).strip()
+                        if line == "Mesh Points":
+                            line = next(fdata).strip()    
+                            arrMeshPoints = np.array(eval(line))
+                        objJunctionLine = gl.GeneralJunctionLine(arrMeshPoints, intJL)
+                        line = next(fdata).strip()
+                        if line == "Adjacent Grains":
+                            line = next(fdata).strip()    
+                            objJunctionLine.SetAdjacentGrains(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Adjacent Grain Boundaries":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetAdjacentGrainBoundaries(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Periodic Directions":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetPeriodicDirections(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Atom IDs":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetAtomIDs(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Volume":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetVolume(eval(line))
+                        line = next(fdata).strip()
+                        if line == "PE":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetTotalPE(eval(line))
+                        objDefect.AddJunctionLine(objJunctionLine)
+                    elif line == "Grain Boundary":
+                        intGB = int(next(fdata).strip())
+                        line = next(fdata).strip()
+                        if line == "Mesh Points":
+                            line = next(fdata).strip()    
+                            arrMeshPoints = np.array(eval(line))
+                        objGrainBoundary = gl.GeneralGrainBoundary(arrMeshPoints, intGB)
+                        line = next(fdata).strip()
+                        if line == "Adjacent Grains":
+                            line = next(fdata).strip()    
+                            objGrainBoundary.SetAdjacentGrains(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Adjacent Junction Lines":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetAdjacentJunctionLines(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Periodic Directions":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetPeriodicDirections(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Atom IDs":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetAtomIDs(eval(line))
+                        line = next(fdata).strip()
+                        if line == "Volume":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetVolume(eval(line))
+                        line = next(fdata).strip()
+                        if line == "PE":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetTotalPE(eval(line))
+                        objDefect.AddGrainBoundary(objGrainBoundary)
+        self.__dctDefects[intTimeStep] = objDefect            
 
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):

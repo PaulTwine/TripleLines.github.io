@@ -541,6 +541,10 @@ class DefectMeshObject(object):
         self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
         self.__Volume = 0
         self.__PE = 0
+    def GetID(self):
+        return self.__ID
+    def GetNumberOfAtoms(self):
+        return len(self.__AtomIDs)
     def SetAtomIDs(self, inlstIDs: list):
         self.__AtomIDs = list(map(int,inlstIDs))
     def GetAtomIDs(self)->list:
@@ -570,10 +574,16 @@ class DefectMeshObject(object):
         self.__PeriodicDirections = inList
     def GetPeriodicDirections(self):
         return self.__PeriodicDirections
-    def GetPE(self):
+    def GetTotalPE(self):
         return self.__PE
-    def SetPE(self, fltPE):
+    def SetTotalPE(self, fltPE):
         self.__PE = fltPE 
+    def GetPEPerAtom(self):
+        if self.GetNumberOfAtoms() > 0:
+            return self.__PE/len(self.__AtomIDs)
+    def GetPEPerVolume(self):
+        if self.__Volume > 0:
+            return self.__PE/self.__Volume
     
 
 class GeneralJunctionLine(DefectMeshObject):
@@ -606,4 +616,22 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentJunctionLines = inList
     def GetAdjacentJunctionLines(self)->list:
         return self.__AdjacentJunctionLines
+
+class DefectObject(object):
+    def __init__(self, fltTimeStep: float):
+        self.__TimeStep = fltTimeStep
+        self.__dctJunctionLines = dict()
+        self.__dctGrainBoundaries = dict()
+    def AddJunctionLine(self, objJunctionLine: GeneralJunctionLine):
+        self.__dctJunctionLines[objJunctionLine.GetID()] = objJunctionLine 
+    def AddGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
+        self.__dctJunctionLines[objGrainBoundary.GetID()] = objGrainBoundary
+    def GetJunctionLine(self, intKey: int):
+        return self.__dctJunctionLines[intKey]
+    def GetGrainBoundary(self, intKey: int):
+        return self.__dctGrainBoundaries[intKey]
+    def GetJunctionIDs(self):
+        return list(self.__dctJunctionLines.keys())
+    def GetGrainBoundaryIDs(self):
+        return list(self.__dctGrainBoundaries.keys())
     
