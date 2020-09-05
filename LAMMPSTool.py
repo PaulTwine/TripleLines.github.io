@@ -221,8 +221,8 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._intPositionZ = int(self.GetColumnNames().index('z'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
         self.__fltGrainTolerance = 1.96
-        self.__DefectiveAtoms = []
-        self.__NonDefectiveAtoms = []
+        self.__DefectiveAtomIDs = []
+        self.__NonDefectiveAtomIDs = []
         self.FindPlaneNormalVectors()
     def FindPlaneNormalVectors(self):
         n= self.__Dimensions
@@ -236,73 +236,64 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def GetPlaneNormalVectors(self):
         return self.__PlaneNormalVectors
     def CategoriseAtoms(self, fltTolerance = None):    
+        self.__DefectiveAtomIDs = []
+        self.__NonDefectiveAtomIDs = []
         lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
         lstPTMAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
-        lstUnknownAtoms = list(np.where(np.isin(self.GetColumnByIndex(self._intStructureType).astype('int') ,[0,self._LatticeStructure],invert=True))[0])
-        self.__PTMAtoms = lstPTMAtoms
-        self.__NonPTMAtoms = lstOtherAtoms + lstUnknownAtoms
-        self.__OtherAtoms = lstOtherAtoms
-        self.__UnknownAtoms = lstUnknownAtoms
+        lstNonPTMAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') != self._LatticeStructure)[0])
+        self.__PTMAtomIDs = list(self.GetAtomData()[lstPTMAtoms,0].astype('int'))
+        self.__NonPTMAtomIDs = list(self.GetAtomData()[lstNonPTMAtoms,0].astype('int'))
+        self.__OtherAtomIDs = list(self.GetAtomData()[lstOtherAtoms,0].astype('int'))
         self.FindDefectiveAtoms(fltTolerance)
-        self.FindNonDefectiveAtoms(fltTolerance)
-        self.__LatticeAtoms = list(set(self.__NonDefectiveAtoms) & set(self.__PTMAtoms))
-        self.__NonLatticeAtoms = list(np.where(np.isin(self.GetColumnByIndex(self._intStructureType).astype('int'), self.__LatticeAtoms, invert=True))[0])
-    def GetLatticeAtoms(self):
-        return self.__LatticeAtoms
-    def GetNonLatticeAtoms(self):
-        return self.__NonLatticeAtoms  
+        self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
+        self.__NonLatticeAtomIDs = list(np.where(np.isin(self.GetColumnByIndex(0).astype('int'), self.__LatticeAtomIDs, invert=True))[0])
+    def GetLatticeAtomIDs(self):
+        return self.__LatticeAtomIDs
+    def GetNonLatticeAtomIDs(self):
+        return self.__NonLatticeAtomIDs  
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
             fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
             fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
         fltMeanLatticeValue = np.mean(self.GetPTMAtoms()[:,self._intPE])
         lstDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue +fltTolerance) | (self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue - fltTolerance))[0]
-        self.__DefectiveAtoms = list(self.GetAtomData()[lstDefectiveAtoms,0].astype('int'))
-        return self.GetRows(lstDefectiveAtoms)
-    def FindNonDefectiveAtoms(self,fltTolerance = None):
-        if fltTolerance is None:
-            fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
-            fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
-        fltMeanLatticeValue = np.mean(self.GetPTMAtoms()[:,self._intPE])
-        lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) <= fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) >= fltMeanLatticeValue  - fltTolerance))[0]
-        self.__NonDefectiveAtoms = list(self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int'))
-        return self.GetRows(lstNonDefectiveAtoms)
+        self.__DefectiveAtomIDs = list(self.GetAtomData()[lstDefectiveAtoms,0].astype('int'))
+        lstNonDefectiveAtoms = list(np.where(np.isin(self.GetColumnByIndex(0).astype('int'),self.__DefectiveAtomIDs, invert=True))[0])
+        self.__NonDefectiveAtomIDs = list(self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int'))
     def GetOtherAtomIDs(self):
-        return list(self.GetAtomData()[self.__OtherAtoms,0].astype('int'))
+        return self.__OtherAtomIDs
     def GetPTMAtomIDs(self):
-        return list(self.GetAtomData()[self.__PTMAtoms,0].astype('int'))
+        return self.__PTMAtomIDs
     def GetNonPTMAtomIDs(self):
-        return list(self.GetAtomData()[self.__PTMAtoms,0].astype('int'))
+        return self.__NonPTMAtomIDs
     def GetDefectiveAtomIDs(self):
-        return self.__DefectiveAtoms
+        return self.__DefectiveAtomIDs
     def GetNonDefectiveAtomIDs(self):
-        return self.__NonDefectiveAtoms
+        return self.__NonDefectiveAtomIDs
     def GetNonDefectiveAtoms(self):
-        if len(self.__NonDefectiveAtoms) ==0:
-            self.FindNonDefectiveAtoms()
-        return self.GetAtomsByID(self.__NonDefectiveAtoms)
-    def GetDefectiveAtoms(self):
-        if len(self.__DefectiveAtoms) ==0:
+        if len(self.__NonDefectiveAtomIDs) ==0:
             self.FindDefectiveAtoms()
-        return self.GetAtomsByID(self.__DefectiveAtoms)
+        return self.GetAtomsByID(self.__NonDefectiveAtomIDs)
+    def GetDefectiveAtoms(self):
+        if len(self.__DefectiveAtomIDs) ==0:
+            self.FindDefectiveAtoms()
+        return self.GetAtomsByID(self.__DefectiveAtomIDs)
     def GetNonPTMAtoms(self):
-        return self.GetRows(self.__NonPTMAtoms)
-    def GetUnknownAtoms(self):
-        return self.GetRows(self.__UnknownAtoms) 
+        return self.GetAtomsByID(self.__NonPTMAtomIDs)
+    # def GetUnknownAtoms(self):
+    #     return self.GetRows(self.__UnknownAtoms) 
     def GetPTMAtoms(self):
-        return self.GetRows(self.__PTMAtoms)  
+        return self.GetAtomsByID(self.__PTMAtomIDs)  
     def GetOtherAtoms(self):
-        return self.GetRows(self.__OtherAtoms)
+        return self.GetAtomsByID(self.__OtherAtomIDs)
     def GetNumberOfNonPTMAtoms(self):
-        return len(self.__NonPTMAtoms)
+        return len(self.__NonPTMAtomIDs)
     def GetNumberOfOtherAtoms(self)->int:
-        return len(self.GetRows(self.__OtherAtoms))
+        return len(self.GetRows(self.__OtherAtomIDs))
     def GetNumberOfPTMAtoms(self)->int:
-        return len(self.__PTMAtoms)
+        return len(self.__PTMAtomIDs)
     def PlotGrainAtoms(self, strGrainNumber: str):
-        return self.__PlotList(self.__PTMAtoms)
-    def PlotUnknownAtoms(self):
-        return self.__PlotList(self.__UnknownAtoms)
+        return self.__PlotList(self.__PTMAtomIDs)
     def PlotPoints(self, inArray: np.array)->np.array:
         return inArray[:,0],inArray[:,1], inArray[:,2]
     def __PlotList(self, strList: list):
@@ -433,8 +424,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__LatticeParameter = fltParameter
     def LabelAtomsByGrain(self):
         self.__QuantisedCuboidPoints = QuantisedCuboidPoints(self.GetDefectiveAtoms()[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
-        lstGrainAtoms = self.GetLatticeAtoms()
-        lstNonGrainAtoms = self.GetNonLatticeAtoms()
+        lstGrainAtoms = self.GetLatticeAtomIDs()
+        lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
         lstGrainNumbers = self.__QuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4])
         self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
         self.__QuantisedCuboidPoints.FindJunctionLines()
@@ -467,9 +458,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.SetColumnByIDs(lstGrainAtoms, self.__intGrainNumber, arrGrainNumbers)
     def AssignPE(self):
         for i in self.__JunctionLineIDs:
-            self.__JunctionLines[i].SetPE(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intPE)))
+            self.__JunctionLines[i].SetTotalPE(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intPE)))
         for j in self.__GrainBoundaryIDs:
-            self.__GrainBoundaries[j].SetPE(np.sum(self.GetColumnByIDs(self.__GrainBoundaries[j].GetAtomIDs(),self._intPE)))
+            self.__GrainBoundaries[j].SetTotalPE(np.sum(self.GetColumnByIDs(self.__GrainBoundaries[j].GetAtomIDs(),self._intPE)))
     def AssignVolumes(self):
         for i in self.__JunctionLineIDs:
             self.__JunctionLines[i].SetVolume(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intVolume)))
@@ -486,7 +477,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstGrains = self.__GrainLabels
         if 0 in lstGrains:
             lstGrains.remove(0)
-        lstNextAtoms = list(set(self.GetLatticeAtoms()).intersection(set(self.GetGrainAtomIDs(0))))
+        lstNextAtoms = list(set(self.GetLatticeAtomIDs()).intersection(set(self.GetGrainAtomIDs(0))))
         lstAtoms = []
         self.MakeGrainTrees()
         while len(set(lstNextAtoms).difference(lstAtoms)) > 0:
@@ -511,7 +502,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         intGrain = 0
                 if intGrain > 0:
                     self.SetColumnByIDs(list(arrClusterIDs), self.__intGrainNumber, intGrain*np.ones(len(arrClusterIDs)))
-            lstNextAtoms = list(set(self.GetLatticeAtoms()).intersection(set(self.GetGrainAtomIDs(0))))
+            lstNextAtoms = list(set(self.GetLatticeAtomIDs()).intersection(set(self.GetGrainAtomIDs(0))))
             self.MakeGrainTrees()
         if len(lstNextAtoms) > 0:
             warnings.warn(str(len(lstNextAtoms)) + ' grain atom(s) have been assigned a grain number of -1 \n' + str(lstNextAtoms))
@@ -705,7 +696,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('PE \n')
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetTotalPE()))
             fdata.write('Grain Numbers \n')
-            fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).tolist()))
+            fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).astype('int').tolist()))
     def ReadInDefectData(self, strFilename: str):
             with open(strFilename) as fdata:
                 while True:
@@ -799,73 +790,73 @@ class LAMMPSSummary(object):
                 except StopIteration as EndOfFile:
                     break
                 if line == "Time Step":
-                    intTimeStep = intJL = int(next(fdata).strip())
+                    intTimeStep = int(next(fdata).strip())
                     objDefect = gl.DefectObject(intTimeStep)
                     line = next(fdata).strip()
-                    if line == "Junction Line":
-                        intJL = int(next(fdata).strip())
+                if line == "Junction Line":
+                    intJL = int(next(fdata).strip())
+                    line = next(fdata).strip()
+                    if line == "Mesh Points":
+                        line = next(fdata).strip()    
+                        arrMeshPoints = np.array(eval(line))
+                    objJunctionLine = gl.GeneralJunctionLine(arrMeshPoints, intJL)
+                    line = next(fdata).strip()
+                    if line == "Adjacent Grains":
+                        line = next(fdata).strip()    
+                        objJunctionLine.SetAdjacentGrains(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Adjacent Grain Boundaries":
                         line = next(fdata).strip()
-                        if line == "Mesh Points":
-                            line = next(fdata).strip()    
-                            arrMeshPoints = np.array(eval(line))
-                        objJunctionLine = gl.GeneralJunctionLine(arrMeshPoints, intJL)
+                        objJunctionLine.SetAdjacentGrainBoundaries(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Periodic Directions":
                         line = next(fdata).strip()
-                        if line == "Adjacent Grains":
-                            line = next(fdata).strip()    
-                            objJunctionLine.SetAdjacentGrains(eval(line))
+                        objJunctionLine.SetPeriodicDirections(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Atom IDs":
                         line = next(fdata).strip()
-                        if line == "Adjacent Grain Boundaries":
-                            line = next(fdata).strip()
-                            objJunctionLine.SetAdjacentGrainBoundaries(eval(line))
+                        objJunctionLine.SetAtomIDs(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Volume":
                         line = next(fdata).strip()
-                        if line == "Periodic Directions":
-                            line = next(fdata).strip()
-                            objJunctionLine.SetPeriodicDirections(eval(line))
+                        objJunctionLine.SetVolume(eval(line))
+                    line = next(fdata).strip()
+                    if line == "PE":
                         line = next(fdata).strip()
-                        if line == "Atom IDs":
-                            line = next(fdata).strip()
-                            objJunctionLine.SetAtomIDs(eval(line))
+                        objJunctionLine.SetTotalPE(eval(line))
+                    objDefect.AddJunctionLine(objJunctionLine)
+                if line == "Grain Boundary":
+                    intGB = int(next(fdata).strip())
+                    line = next(fdata).strip()
+                    if line == "Mesh Points":
+                        line = next(fdata).strip()    
+                        arrMeshPoints = np.array(eval(line))
+                    objGrainBoundary = gl.GeneralGrainBoundary(arrMeshPoints, intGB)
+                    line = next(fdata).strip()
+                    if line == "Adjacent Grains":
+                        line = next(fdata).strip()    
+                        objGrainBoundary.SetAdjacentGrains(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Adjacent Junction Lines":
                         line = next(fdata).strip()
-                        if line == "Volume":
-                            line = next(fdata).strip()
-                            objJunctionLine.SetVolume(eval(line))
+                        objGrainBoundary.SetAdjacentJunctionLines(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Periodic Directions":
                         line = next(fdata).strip()
-                        if line == "PE":
-                            line = next(fdata).strip()
-                            objJunctionLine.SetTotalPE(eval(line))
-                        objDefect.AddJunctionLine(objJunctionLine)
-                    elif line == "Grain Boundary":
-                        intGB = int(next(fdata).strip())
+                        objGrainBoundary.SetPeriodicDirections(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Atom IDs":
                         line = next(fdata).strip()
-                        if line == "Mesh Points":
-                            line = next(fdata).strip()    
-                            arrMeshPoints = np.array(eval(line))
-                        objGrainBoundary = gl.GeneralGrainBoundary(arrMeshPoints, intGB)
+                        objGrainBoundary.SetAtomIDs(eval(line))
+                    line = next(fdata).strip()
+                    if line == "Volume":
                         line = next(fdata).strip()
-                        if line == "Adjacent Grains":
-                            line = next(fdata).strip()    
-                            objGrainBoundary.SetAdjacentGrains(eval(line))
+                        objGrainBoundary.SetVolume(eval(line))
+                    line = next(fdata).strip()
+                    if line == "PE":
                         line = next(fdata).strip()
-                        if line == "Adjacent Junction Lines":
-                            line = next(fdata).strip()
-                            objGrainBoundary.SetAdjacentJunctionLines(eval(line))
-                        line = next(fdata).strip()
-                        if line == "Periodic Directions":
-                            line = next(fdata).strip()
-                            objGrainBoundary.SetPeriodicDirections(eval(line))
-                        line = next(fdata).strip()
-                        if line == "Atom IDs":
-                            line = next(fdata).strip()
-                            objGrainBoundary.SetAtomIDs(eval(line))
-                        line = next(fdata).strip()
-                        if line == "Volume":
-                            line = next(fdata).strip()
-                            objGrainBoundary.SetVolume(eval(line))
-                        line = next(fdata).strip()
-                        if line == "PE":
-                            line = next(fdata).strip()
-                            objGrainBoundary.SetTotalPE(eval(line))
-                        objDefect.AddGrainBoundary(objGrainBoundary)
+                        objGrainBoundary.SetTotalPE(eval(line))
+                    objDefect.AddGrainBoundary(objGrainBoundary)
         self.__dctDefects[intTimeStep] = objDefect            
 
 class QuantisedCuboidPoints(object):
@@ -970,7 +961,8 @@ class QuantisedCuboidPoints(object):
         inPoints = np.matmul(inPoints, self.__BasisConversion)
         inPoints = np.round(inPoints, 0).astype('int')
         inPoints = np.mod(inPoints, self.__ModArray)
-        #print(np.argwhere(self.__ExpandedGrains == 0)) debugging only
+        if len(np.argwhere(self.__ExpandedGrains == 0)) > 0:
+            warnings.warn('Expanded grain method has not removed all grain boundary atoms')
         if blnExpanded:
             return list(self.__ExpandedGrains[inPoints[:,0],inPoints[:,1],inPoints[:,2]])
         else:

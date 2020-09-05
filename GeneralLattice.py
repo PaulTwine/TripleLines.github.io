@@ -625,7 +625,7 @@ class DefectObject(object):
     def AddJunctionLine(self, objJunctionLine: GeneralJunctionLine):
         self.__dctJunctionLines[objJunctionLine.GetID()] = objJunctionLine 
     def AddGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
-        self.__dctJunctionLines[objGrainBoundary.GetID()] = objGrainBoundary
+        self.__dctGrainBoundaries[objGrainBoundary.GetID()] = objGrainBoundary
     def GetJunctionLine(self, intKey: int):
         return self.__dctJunctionLines[intKey]
     def GetGrainBoundary(self, intKey: int):
