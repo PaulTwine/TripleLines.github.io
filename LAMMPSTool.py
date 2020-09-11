@@ -2,7 +2,7 @@ import re
 import numpy as np
 import GeometryFunctions as gf
 import GeneralLattice as gl
-from scipy import spatial, optimize, ndimage,stats
+from scipy import spatial, optimize, ndimage, stats 
 from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes, remove_small_objects, skeletonize_3d
 from scipy.cluster.vq import kmeans,vq
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
@@ -879,6 +879,7 @@ class QuantisedCuboidPoints(object):
         arrValues =  np.zeros([arrModArray[0],arrModArray[1],arrModArray[2]])
         self.__JunctionLinesArray = np.copy(arrValues)
         self.__GrainBoundariesArray = np.copy(arrValues)
+        self.__Grains = np.copy(arrValues)
         self.__JunctionLines = []
         nx,ny,nz = np.shape(arrValues)
         self.__ModArray = arrModArray
@@ -898,7 +899,10 @@ class QuantisedCuboidPoints(object):
         arrOut = arrOut > np.mean(arrOut) 
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__BinaryArray = remove_small_holes(self.__BinaryArray.astype('bool'), 4).astype('int')
-        self.__Grains  = measure.label(self.__BinaryArray == 0).astype('int')
+        self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
+        #self.__Grains  = measure.label(self.__BinaryArray == 0).astype('int')
+        self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
+        self.__Grains = np.asarray(self.__Grains)
         lstGrainLabels = list(np.unique(self.__Grains))
         lstGrainLabels.remove(0)
         self.__GrainLabels = lstGrainLabels
@@ -972,6 +976,8 @@ class QuantisedCuboidPoints(object):
                 self.__ReturnGrains[j[0],j[1],j[2]] = 0
             return list(self.__ReturnGrains[inPoints[:,0],inPoints[:,1],inPoints[:,2]])                     
     def FindJunctionLines(self):
+        arrGrainBoundaries = np.zeros(self.__ModArray) #temporary array 
+        self.__GrainBoundariesArray = np.zeros(self.__ModArray)
         lstGrainBoundaryList = []
         for j in self.__Coordinates:
             j = j.astype('int')
@@ -983,12 +989,59 @@ class QuantisedCuboidPoints(object):
             elif len(lstValues) ==2:
                 if lstValues not in lstGrainBoundaryList:
                     lstGrainBoundaryList.append(lstValues)
-                self.__GrainBoundariesArray[j[0],j[1],j[2]] = 1 + lstGrainBoundaryList.index(lstValues)
-        self.__JunctionLinesArray = measure.label(self.__JunctionLinesArray).astype('int')
-        self.CheckPeriodicJunctionLines()
-       # self.__GrainBoundariesArray = skeletonize_3d(self.__GrainBoundariesArray.astype('bool').astype('int'))
-        self.__GrainBoundariesArray = measure.label(self.__GrainBoundariesArray, connectivity=2).astype('int')
-        self.CheckPeriodicGrainBoundaries() 
+                arrGrainBoundaries[j[0],j[1],j[2]] = 1 + lstGrainBoundaryList.index(lstValues)
+        self.__JunctionLinesArray, intJLs = ndimage.measurements.label(self.__JunctionLinesArray, np.ones([3,3,3]))
+        arrJLPoints = np.argwhere(self.__JunctionLinesArray > 0)
+        self.CheckPeriodicity(arrJLPoints, 'JunctionLine')
+        lstValues = list(np.unique(self.__JunctionLinesArray)) #renumber the array sequentially for convenience starting at 1
+        if 0 in lstValues:
+            lstValues.remove(0)
+        for intIndex, intValue in enumerate(lstValues):
+            self.__JunctionLinesArray[self.__JunctionLinesArray == intValue] = intIndex+1 
+        lstValues = list(np.unique(self.__JunctionLinesArray))
+        if 0 in lstValues:
+            lstValues.remove(0)
+        self.__JunctionLineIDs = lstValues
+        self.FindPeriodicGrainBoundaries(arrGrainBoundaries)
+        self.__GrainBoundariesArray = self.__GrainBoundariesArray.astype('int')
+        lstValues = list(np.unique(self.__GrainBoundariesArray)) #renumber the array sequentially for convenience starting at 1
+        if 0 in lstValues:
+            lstValues.remove(0)
+        for intIndex, intValue in enumerate(lstValues):
+            self.__GrainBoundariesArray[self.__GrainBoundariesArray == intValue] = intIndex+1 
+        lstValues = list(np.unique(self.__GrainBoundariesArray))
+        if 0 in lstValues:
+            lstValues.remove(0)
+        self.__GrainBoundaryIDs = lstValues
+    def FindPeriodicGrainBoundaries(self,inGBArray: np.array):
+        intMaxGBNumber = 0
+        lstValues = list(np.unique(inGBArray))
+        if 0 in lstValues:
+            lstValues.remove(0)
+        for j in lstValues:
+            arrPoints = np.argwhere(inGBArray == j)
+            arrReturn, intGBs = ndimage.measurements.label(inGBArray == j, np.ones([3,3,3]))
+            arrReturn[arrReturn > 0 ] += intMaxGBNumber
+            self.__GrainBoundariesArray += arrReturn
+            self.CheckPeriodicity(arrPoints, 'GrainBoundary')
+            intMaxGBNumber += intGBs
+    def CheckPeriodicity(self, inPoints: np.array, strType: str):
+        if strType == 'JunctionLine':
+            arrCurrent = self.__JunctionLinesArray
+        elif strType == 'GrainBoundary':
+            arrCurrent = self.__GrainBoundariesArray
+        for j in range(3):
+            lstIndicesLower = np.where(inPoints[:,j] == 0)[0]
+            arrPointsLower = inPoints[lstIndicesLower]
+            lstIndicesUpper = np.where(inPoints[:,j] == self.__ModArray[j]-1)[0]
+            arrPointsUpper  = inPoints[lstIndicesUpper]
+            arrPointsUpper[:,j] = arrPointsUpper[:,j] - np.ones(len(arrPointsUpper))*self.__ModArray[j]
+            arrDistanceMatrix = spatial.distance_matrix(arrPointsLower, arrPointsUpper)
+            arrClosePoints = np.argwhere(arrDistanceMatrix < 2) #allows 3d diagonal connectivity
+            for j in arrClosePoints:
+                tupPairs = (arrCurrent[tuple(zip(arrPointsLower[j[0]]))][0], arrCurrent[tuple(zip(arrPointsUpper[j[1]]))][0])
+                if tupPairs[0] != tupPairs[1]:
+                    arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
     def CheckPeriodicJunctionLines(self):
         arrJLPoints = np.argwhere(self.__JunctionLinesArray > 0)
         for j in range(3):
@@ -1002,43 +1055,14 @@ class QuantisedCuboidPoints(object):
             for j in arrClosePoints:
                 tupPairs = (self.__JunctionLinesArray[tuple(zip(arrPointsLower[j[0]]))][0], self.__JunctionLinesArray[tuple(zip(arrPointsUpper[j[1]]))][0])
                 if tupPairs[0] != tupPairs[1]:
-                    self.__JunctionLinesArray[self.__JunctionLinesArray == max(tupPairs)] = min(tupPairs)
-        lstValues = list(np.unique(self.__JunctionLinesArray)) #renumber the array sequentially for convenience starting at 1
-        if 0 in lstValues:
-            lstValues.remove(0)
-        for intIndex, intValue in enumerate(lstValues):
-            self.__JunctionLinesArray[self.__JunctionLinesArray == intValue] = intIndex+1 
-        lstValues = list(np.unique(self.__JunctionLinesArray))
-        if 0 in lstValues:
-            lstValues.remove(0)
-        self.__JunctionLineIDs = lstValues             
-    def CheckPeriodicGrainBoundaries(self):
-        #arrBoxSize =np.array([3,3,3])
-        arrGBPoints = np.argwhere(self.__GrainBoundariesArray > 0)
-        #arrIndices = np.where((arrGBPoints == 0)  | (np.any(arrGBPoints == self.__ModArray - np.ones(3))))[0]
-        #arrGBPoints = arrGBPoints[np.unique(arrIndices)]
-        # for i in arrGBPoints:
-        #     arrBoxJL = self.__JunctionLinesArray[gf.WrapAroundSlice(np.array([[i[0]-1,i[0]+2],[i[1]-1,i[1]+2], [i[2]-1,i[2]+2]]),self.__ModArray)]
-        #     arrBoxJL = np.reshape(arrBoxJL, arrBoxSize)
-        #     intCurrentValue = self.__GrainBoundariesArray[i[0],i[1],i[2]]
-        #     arrBoxGB = self.__GrainBoundariesArray[gf.WrapAroundSlice(np.array([[i[0]-1,i[0]+2],[i[1]-1,i[1]+2], [i[2]-1,i[2]+2]]),self.__ModArray)]
-        #     arrBoxGB = np.reshape(arrBoxGB, arrBoxSize)
-        #     lstValues = np.unique(arrBoxGB).tolist()
-        #     if 0 in lstValues:
-        #         lstValues.remove(0)
-        #     lstValues.remove(intCurrentValue)
-        #     if len(lstValues) > 0 and np.all(arrBoxJL == 0):
-        #         for l in lstValues:
-        #             #self.__GrainBoundariesArray[self.__GrainBoundariesArray == l] = intCurrentValu
-        #             arrGBPoints = np.argwhere(arrBoxGB  == l)
-        #             arrJLPoints = np.argwhere(arrBoxJL > 0)
-        #             if len(arrJLPoints) > 0: 
-        #                 arrDistanceMatrix = spatial.distance_matrix(arrGBPoints, arrJLPoints)
-        #                 arrDistanceMatrix = arrDistanceMatrix[arrDistanceMatrix > 0]
-        #                 if min(arrDistanceMatrix) >=2:
-        #                     self.__GrainBoundariesArray[self.__GrainBoundariesArray == l] = intCurrentValue
-        #             else:
-        #                 self.__GrainBoundariesArray[self.__GrainBoundariesArray == l] = intCurrentValue
+                    self.__JunctionLinesArray[self.__JunctionLinesArray == max(tupPairs)] = min(tupPairs)             
+    def CheckPeriodicGrainBoundaries(self, lstGBNumbers = None):
+        if lstGBNumbers is None:
+            arrGBPoints = np.argwhere(self.__GrainBoundariesArray > 0)
+            blnCheckJunctionLines = True
+        else:
+            arrGBPoints = np.argwhere(np.isin(self.__GrainBoundariesArray == lstGBNumbers))
+            blnCheckJunctionLines = False
         for j in range(3):
             lstIndicesLower = np.where(arrGBPoints[:,j] == 0)[0]
             arrPointsLower = arrGBPoints[lstIndicesLower]
@@ -1053,31 +1077,27 @@ class QuantisedCuboidPoints(object):
                 tupL =tuple(zip(arrL))
                 tupU =tuple(zip(arrU))
                 tupPairs = (self.__GrainBoundariesArray[tupL][0], self.__GrainBoundariesArray[tupU][0])
-                if tupPairs[0] != tupPairs[1]:  
-                    lstBottomLeft = []
-                    for l in range(3):
-                        lstBottomLeft.append(min(arrL[l], arrU[l]).astype('int'))
-                    arrJLBox = self.__JunctionLinesArray[gf.WrapAroundSlice(np.array([[lstBottomLeft[0],lstBottomLeft[0]+2],[lstBottomLeft[1],lstBottomLeft[1]+2], [lstBottomLeft[2],lstBottomLeft[2]+2]]),self.__ModArray)]
-                    if np.all(arrJLBox == 0):
-                        self.__GrainBoundariesArray[self.__GrainBoundariesArray == max(tupPairs)] = min(tupPairs)
-                    # elif len(setJunctionLines) == 1:
-                    #     lstGrainBoundaries = self.GetAdjacentGrainBoundaries(setJunctionLines.pop())
-                    #     if (tupPairs[0] not in lstGrainBoundaries) or (tupPairs[1] not in lstGrainBoundaries): 
-                    #         self.__GrainBoundariesArray[self.__GrainBoundariesArray == max(tupPairs)] = min(tupPairs)
-                    # elif len(setJunctionLines) == 0:
-                    #     #setEquivalentGrainBoundaries.add(tupPairs)
-                    #     self.__GrainBoundariesArray[self.__GrainBoundariesArray == max(tupPairs)] = min(tupPairs)
-      #  for k in setEquivalentGrainBoundaries: #merge the periodic values
-      #      self.__GrainBoundariesArray[self.__GrainBoundariesArray == k[1]] = k[0] 
-        lstValues = list(np.unique(self.__GrainBoundariesArray)) #renumber the array sequentially for convenience starting at 1
-        if 0 in lstValues:
-            lstValues.remove(0)
-        for intIndex, intValue in enumerate(lstValues):
-            self.__GrainBoundariesArray[self.__GrainBoundariesArray == intValue] = intIndex+1 
-        lstValues = list(np.unique(self.__GrainBoundariesArray))
-        if 0 in lstValues:
-            lstValues.remove(0)
-        self.__GrainBoundaryIDs = lstValues
+                if tupPairs[0] != tupPairs[1]:
+                    if blnCheckJunctionLines:  
+                        lstBottomLeft = []
+                        for l in range(3):
+                            lstBottomLeft.append(min(arrL[l], arrU[l]).astype('int'))
+                        arrJLBox = self.__JunctionLinesArray[gf.WrapAroundSlice(np.array([[lstBottomLeft[0],lstBottomLeft[0]+2],[lstBottomLeft[1],lstBottomLeft[1]+2], [lstBottomLeft[2],lstBottomLeft[2]+2]]),self.__ModArray)]
+                        if np.all(arrJLBox == 0):
+                            self.__GrainBoundariesArray[self.__GrainBoundariesArray == max(tupPairs)] = min(tupPairs)
+                    else:
+                         self.__GrainBoundariesArray[self.__GrainBoundariesArray == max(tupPairs)] = min(tupPairs)    
+        # for j in lstValues:
+        #     x = np.argwhere(self.__GrainBoundariesArray == j)
+        #     if len(x) ==1:
+        #         x = x[0]
+        #         arrBox = self.__GrainBoundariesArray[gf.WrapAroundSlice(np.array([[x[0],x[0]+2],[x[1],x[1]+2], [x[2],x[2]+2]]),self.__ModArray)]
+        #         lstGrains = np.unique(arrBox).tolist()
+        #         lstGrains.remove(j)
+        #         if 0 in lstGrains:
+        #             lstGrains.remove(0)
+        #         if len(lstGrains) > 0:
+        #             self.__GrainBoundariesArray[self.__GrainBoundariesArray == j] = lstGrains[0]
     def ExpandGrains(self, n=3): 
         self.__ExpandedGrains = np.copy(self.__Grains)
         arrGBPoints = np.argwhere(self.__Grains == 0)
