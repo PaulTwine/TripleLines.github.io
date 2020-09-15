@@ -181,6 +181,32 @@ def QuantisedVector(inVector: np.array)->np.array: #2D only for now!
                 arrReturn[j,intCol] = j
                 arrReturn[j, 1-intCol] = np.round(j*fltRatio)   
         return arrReturn.astype('int')
+def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array: 
+        arrVector = np.array([inPositionVector])                        
+        arrCellCoordinates = np.matmul(inPositionVector, inBasisConversion)
+        for i,strBoundary in enumerate(inBoundaryList):
+            if strBoundary == 'pp':
+                 if  arrCellCoordinates[i] > 0.5:
+                     arrVector = np.append(arrVector, np.subtract(arrVector,inCellVectors[i]),axis=0)
+                 elif arrCellCoordinates[i] <= 0.5:
+                     arrVector = np.append(arrVector, np.add(arrVector,inCellVectors[i]),axis=0)                  
+        return arrVector
+def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
+        arrPoints = np.array(list(map(lambda x: PeriodicShiftCloser(inFixedPoint, x, inCellVectors, inBasisConversion, inBoundaryList), inAllPointsToShift)))
+        return arrPoints
+def PeriodicShiftCloser(inFixedPoint: np.array, inPointToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
+        arrPeriodicVectors = PeriodicEquivalents(inPointToShift, inCellVectors, inBasisConversion, inBoundaryList)
+        fltDistances = list(map(np.linalg.norm, np.subtract(arrPeriodicVectors, inFixedPoint)))
+        return arrPeriodicVectors[np.argmin(fltDistances)]
+def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
+        arrPeriodicDistance = np.zeros([len(inVectors1), len(inVectors2)])
+        for j in range(len(inVectors1)):
+            for k in range(len(inVectors2)):
+                arrPeriodicDistance[j,k] = PeriodicMinimumDistance(inVectors1[j],inVectors2[k], inCellVectors, inBasisConversion, inBoundaryList)
+        return arrPeriodicDistance
+def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
+        inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
+        return np.linalg.norm(inVector2-inVector1, axis=0)
 def PowerRule(r, a,b):
         return b*r**a
 def LinearRule(r,m,c):

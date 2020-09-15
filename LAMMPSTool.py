@@ -78,6 +78,7 @@ class LAMMPSData(object):
 class LAMMPSTimeStep(object):
     def __init__(self,fltTimeStep: float,intNumberOfAtoms: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list):
         self.__Dimensions = 3 #assume three dimensional unless specificed otherwise
+        self.__BoundaryTypes = []
         self.__NumberOfAtoms = intNumberOfAtoms
         self.__NumberOfColumns = len(lstColumnNames)
         self.__TimeStep = fltTimeStep
@@ -85,6 +86,8 @@ class LAMMPSTimeStep(object):
         self.__ColumnNames = lstColumnNames
         self.SetBoundBoxLabels(lstBoundaryType)
         self.SetBoundBoxDimensions(lstBounds)
+    def GetBoundaryTypes(self):
+        return self.__BoundaryTypes
     def GetNumberOfColumns(self):
         return len(self.__ColumnNames)
     def SetColumnByIndex(self, arrColumn:np.array, intColumnIndex: int):
@@ -168,25 +171,38 @@ class LAMMPSTimeStep(object):
         return self.__Dimensions
     def GetCellCentre(self):
         return self.__CellCentre
-    def PeriodicEquivalents(self, inPositionVector: np.array)->np.array: #For POSITION vectors only for points within   
-        arrVector = np.array([inPositionVector])                         #the simulation cell
-        arrCellCoordinates = np.matmul(inPositionVector, self.__BasisConversion)
-        for i,strBoundary in enumerate(self.__BoundaryTypes):
-            if strBoundary == 'pp':
-                 if  arrCellCoordinates[i] > 0.5:
-                     arrVector = np.append(arrVector, np.subtract(arrVector,self.__CellVectors[i]),axis=0)
-                 elif arrCellCoordinates[i] <= 0.5:
-                     arrVector = np.append(arrVector, np.add(arrVector,self.__CellVectors[i]),axis=0)                  
-        return arrVector
+    def PeriodicEquivalents(self, inPositionVector: np.array)->np.array: #Moved to GeometryFunctions.py for access from other   
+        # arrVector = np.array([inPositionVector])                         classes
+        # arrCellCoordinates = np.matmul(inPositionVector, self.__BasisConversion)
+        # for i,strBoundary in enumerate(self.__BoundaryTypes):
+        #     if strBoundary == 'pp':
+        #          if  arrCellCoordinates[i] > 0.5:
+        #              arrVector = np.append(arrVector, np.subtract(arrVector,self.__CellVectors[i]),axis=0)
+        #          elif arrCellCoordinates[i] <= 0.5:
+        #              arrVector = np.append(arrVector, np.add(arrVector,self.__CellVectors[i]),axis=0)                  
+        # return arrVector
+        return gf.PeriodicEquivalents(inPositionVector,  self.__CellVectors,self.__BasisConversion, self.__BoundaryTypes)
     def MoveToSimulationCell(self, inPositionVector: np.array)->np.array:
         return gf.WrapVectorIntoSimulationCell(self.__CellBasis, self.__BasisConversion, inPositionVector)
     def PeriodicShiftAllCloser(self, inFixedPoint: np.array, inAllPointsToShift: np.array)->np.array:
-        arrPoints = np.array(list(map(lambda x: self.PeriodicShiftCloser(inFixedPoint, x), inAllPointsToShift)))
-        return arrPoints
+        #arrPoints = np.array(list(map(lambda x: self.PeriodicShiftCloser(inFixedPoint, x), inAllPointsToShift)))
+        return gf.PeriodicShiftAllCloser(inFixedPoint,inAllPointsToShift, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
     def PeriodicShiftCloser(self, inFixedPoint: np.array, inPointToShift: np.array)->np.array:
-        arrPeriodicVectors = self.PeriodicEquivalents(inPointToShift)
-        fltDistances = list(map(np.linalg.norm, np.subtract(arrPeriodicVectors, inFixedPoint)))
-        return arrPeriodicVectors[np.argmin(fltDistances)]
+        #arrPeriodicVectors = self.PeriodicEquivalents(inPointToShift)
+        #fltDistances = list(map(np.linalg.norm, np.subtract(arrPeriodicVectors, inFixedPoint)))
+        #return arrPeriodicVectors[np.argmin(fltDistances)]
+        return gf.PeriodicShiftCloser(inFixedPoint, inPointToShift, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+    def MakePeriodicDistanceMatrix(self, inVectors1: np.array, inVectors2: np.array)->np.array:
+        return gf.MakePeriodicDistanceMatrix(inVectors1, inVectors2, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+        # arrPeriodicDistance = np.zeros([len(inVector1), len(inVector2)])
+        # for j in range(len(inVector1)):
+        #     for k in range(len(inVector2)):
+        #         arrPeriodicDistance[j,k] = self.PeriodicMinimumDistance(inVector1[j],inVector2[k])
+        # return arrPeriodicDistance
+    def PeriodicMinimumDistance(self, inVector1: np.array, inVector2: np.array)->float:
+        return gf.PeriodicMinimumDistance(inVector1, inVector2, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+        #inVector2 = self.PeriodicShiftCloser(inVector1, inVector2)
+        #return np.linalg.norm(inVector2-inVector1, axis=0)
     def StandardiseOrientationData(self):
         self.__AtomData[:, [self.GetColumnNames().index('OrientationX'),self.GetColumnNames().index('OrientationY'),self.GetColumnNames().index('OrientationZ'), self.GetColumnNames().index('OrientationW')]]=np.apply_along_axis(gf.FCCQuaternionEquivalence,1,self.GetOrientationData()) 
     def GetOrientationData(self)->np.array:
@@ -305,15 +321,6 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def __GetCoordinates(self, strList: list):
         arrPoints = self.GetRows(strList)
         return arrPoints[:,self._intPositionX:self._intPositionZ+1]
-    def MakePeriodicDistanceMatrix(self, inVector1: np.array, inVector2: np.array)->np.array:
-        arrPeriodicDistance = np.zeros([len(inVector1), len(inVector2)])
-        for j in range(len(inVector1)):
-            for k in range(len(inVector2)):
-                arrPeriodicDistance[j,k] = self.PeriodicMinimumDistance(inVector1[j],inVector2[k])
-        return arrPeriodicDistance
-    def PeriodicMinimumDistance(self, inVector1: np.array, inVector2: np.array)->float:
-        inVector2 = self.PeriodicShiftCloser(inVector1, inVector2)
-        return np.linalg.norm(inVector2-inVector1, axis=0)
     def FindNonGrainMediod(self, inPoint: np.array, fltRadius: float, bln2D= True, region = 'cylinder'):
         arrReturn = np.ones(3)*self.CellHeight/2
         lstPointsIndices = []
@@ -778,10 +785,17 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
 class LAMMPSSummary(object):
     def __init__(self):
         self.__dctDefects = dict()
+        self.__GlobalJunctionLines = dict()
+        self.__GlobalGrainBoundaries = dict()
+        self.__CellVectors = gf.StandardBasisVectors(3)
+        self.__BasisConversion = gf.StandardBasisVectors(3)
+        self.__BoundaryTypes = ['pp','pp','pp']
     def GetDefectObject(self, fltTimeStep):
         return self.__dctDefects[fltTimeStep]
     def GetTimeSteps(self):
         return list(self.__dctDefects.keys())
+    def GetTimeStepPosition(self, fltTimeStep)->int:
+        return list(self.__dctDefects.keys()).index(fltTimeStep)
     def ReadInData(self, strFilename: str):
         with open(strFilename) as fdata:
             while True:
@@ -857,7 +871,92 @@ class LAMMPSSummary(object):
                         line = next(fdata).strip()
                         objGrainBoundary.SetTotalPE(eval(line))
                     objDefect.AddGrainBoundary(objGrainBoundary)
-        self.__dctDefects[intTimeStep] = objDefect            
+        if len(self.__dctDefects.keys()) == 0:
+            objDefect.SetGlobalJunctionLineIDs(objDefect.GetJunctionLineIDs())
+            objDefect.SetGlobalGrainBoundaryIDs(objDefect.GetGrainBoundaryIDs())
+            self.__dctDefects[intTimeStep] = objDefect
+        else:
+            intLastTimeStep = self.GetTimeSteps()[-1]
+            objPreviousDefect = self.__dctDefects[intLastTimeStep]
+            lstPreviousMeshPoints = []
+            lstPreviousGBIDs = objPreviousDefect.GetGrainBoundaryIDs() 
+            for j in lstPreviousGBIDs:
+                lstPreviousMeshPoints.append(objPreviousDefect.GetGrainBoundary(j).GetMeshPoints())
+            lstGlobalGrainBoundaries = []
+            lstGBIDs = objDefect.GetGrainBoundaryIDs()
+            intCounter = 0
+            while len(lstGBIDs) > intCounter:
+                k = lstGBIDs[intCounter]
+                intIndex = self.CorrelateGrainBoundaryMeshPoints(lstPreviousMeshPoints, objDefect.GetGrainBoundary(k).GetMeshPoints())
+                lstGlobalGrainBoundaries.append(lstPreviousGBIDs.pop(intIndex))
+                del lstPreviousMeshPoints[intIndex]
+                intCounter += 1
+            lstGlobalGrainBoundaries.append(lstGBIDs[0])
+            objDefect.SetGlobalGrainBoundaryIDs(lstGlobalGrainBoundaries) 
+            self.__dctDefects[intTimeStep] = objDefect
+    def SetCellVectors(self, inCellVectors: np.array):
+        self.__CellVectors = inCellVectors
+    def SetBasisConversion(self,inBasisConversion: np.array):
+        self.__BasisConversion = inBasisConversion
+    def SetBoundaryTypes(self, inList):
+        self.__BoundaryTypes
+    def CorrelateGrainBoundaryMeshPoints(self,dctPreviousMeshPoints, arrCurrentMeshPoints)->int: #checks to see which previous set of mesh points lie closest to the
+        lstDistances = [] #current set of mesh points
+        arrMean =np.mean(arrCurrentMeshPoints, axis= 0)
+        arrCurrentMeshPoints = gf.PeriodicShiftAllCloser(arrMean, arrCurrentMeshPoints, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+        for j in dctPreviousMeshPoints.keys():
+            arrCurrentPoints = gf.PeriodicShiftAllCloser(arrMean, j, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+            lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrCurrentMeshPoints, arrCurrentPoints),axis= 0)))
+            #lstDistances.append(len(np.argwhere(arrDistanceMatrix < 4.05/2)))
+        return np.argmin(lstDistances) 
+    def CorrelateMeshPoints(self,lstPreviousMeshPoints, arrCurrentMeshPoints)->int: #checks to see which previous set of mesh points lie closest to the
+        lstDistances = [] #current set of mesh points
+        for j in lstPreviousMeshPoints:
+            lstDistances.append(np.sum(np.amin(gf.MakePeriodicDistanceMatrix(arrCurrentMeshPoints, j, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes),axis= 0)))
+        return np.argmin(lstDistances)
+
+    def CorrelateGrainBoundaries(self, intGrainBoundary: int):
+        blnFirstTime = True
+        lstGrainBoundaryIDs = []
+        for i in self.GetTimeSteps():
+            lstDistances = []
+            if blnFirstTime:
+                lstGrainBoundaryIDs.append(intGrainBoundary)
+                blnFirstTime = False
+                arrPreviousPoints = self.GetDefectObject(i).GetGrainBoundary(intGrainBoundary).GetMeshPoints()
+                lstPreviousIDs = self.GetDefectObject(i).GetGrainBoundaryIDs() 
+            else:
+                lstCurrentIDs = self.GetDefectObject(i).GetGrainBoundaryIDs() 
+                if lstPreviousIDs != lstCurrentIDs:
+                    warnings.warn('At time step ' +  str(i) + ' there are ' + str(len(lstCurrentIDs)) + ' grain boundaries(s) and the previous timestep had ' + str(len(lstPreviousIDs)) + ' grain boundarie(s).')
+                for j in lstCurrentIDs:
+                    arrCheckPoints = self.GetDefectObject(i).GetGrainBoundary(j).GetMeshPoints()
+                    lstDistances.append(np.sum(np.amin(gf.MakePeriodicDistanceMatrix(arrPreviousPoints, arrCheckPoints, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes),axis= 0)))
+                intNewGrainBoundary = lstCurrentIDs[np.argmin(lstDistances)]
+                lstGrainBoundaryIDs.append(intNewGrainBoundary)
+                arrPreviousPoints = self.GetDefectObject(i).GetGrainBoundary(intNewGrainBoundary).GetMeshPoints()
+                lstPreviousIDs = lstCurrentIDs
+        self.__GlobalGrainBoundaries[intGrainBoundary] = np.array(lstGrainBoundaryIDs).astype('int')
+        return lstGrainBoundaryIDs
+    def CorrelateJunctionLines(self, intJunctionLine: int):
+        blnFirstTime = True
+        lstJunctionLineIDs =[]
+        lstPreviousIDs = []
+        for i in self.GetTimeSteps():
+            lstDistances = []
+            if blnFirstTime:
+                lstJunctionLineIDs.append(intJunctionLine)
+                blnFirstTime = False
+                arrPreviousPoints = self.GetDefectObject(i).GetJunctionLine(intJunctionLine).GetMeshPoints()
+            else:
+                lstCurrentIDs = self.GetDefectObject(i).GetJunctionLineIDs() 
+                for j in lstCurrentIDs:
+                    arrCheckPoints = self.GetDefectObject(i).GetJunctionLine(j).GetMeshPoints()
+                    lstDistances.append(np.sum(np.amin(gf.MakePeriodicDistanceMatrix(arrPreviousPoints, arrCheckPoints, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes),axis= 0)))
+                intNewJunctionLine = lstCurrentIDs[np.argmin(lstDistances)]
+                lstJunctionLineIDs.append(intNewJunctionLine)
+                arrPreviousPoints = self.GetDefectObject(i).GetJunctionLine(intNewJunctionLine).GetMeshPoints()
+        return lstJunctionLineIDs
 
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
@@ -982,7 +1081,6 @@ class QuantisedCuboidPoints(object):
         for j in self.__Coordinates:
             j = j.astype('int')
             arrBox  = self.__ExpandedGrains[gf.WrapAroundSlice(np.array([[j[0],j[0]+2],[j[1],j[1]+2],[j[2],j[2]+2]]),self.__ModArray)]
-            #blnConstantPlane = self.ConstantPlane(arrBox) #check to see if a horizontal or non-digaonal vertial plane is constant in the box
             lstValues = list(np.unique(arrBox))
             if len(lstValues) > 2:
                 self.__JunctionLinesArray[j[0],j[1],j[2]] = len(lstValues)
@@ -1042,62 +1140,6 @@ class QuantisedCuboidPoints(object):
                 tupPairs = (arrCurrent[tuple(zip(arrPointsLower[j[0]]))][0], arrCurrent[tuple(zip(arrPointsUpper[j[1]]))][0])
                 if tupPairs[0] != tupPairs[1]:
                     arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
-    def CheckPeriodicJunctionLines(self):
-        arrJLPoints = np.argwhere(self.__JunctionLinesArray > 0)
-        for j in range(3):
-            lstIndicesLower = np.where(arrJLPoints[:,j] == 0)[0]
-            arrPointsLower = arrJLPoints[lstIndicesLower]
-            lstIndicesUpper = np.where(arrJLPoints[:,j] == self.__ModArray[j]-1)[0]
-            arrPointsUpper  = arrJLPoints[lstIndicesUpper]
-            arrPointsUpper[:,j] = arrPointsUpper[:,j] - np.ones(len(arrPointsUpper))*self.__ModArray[j]
-            arrDistanceMatrix = spatial.distance_matrix(arrPointsLower, arrPointsUpper)
-            arrClosePoints = np.argwhere(arrDistanceMatrix < 2) 
-            for j in arrClosePoints:
-                tupPairs = (self.__JunctionLinesArray[tuple(zip(arrPointsLower[j[0]]))][0], self.__JunctionLinesArray[tuple(zip(arrPointsUpper[j[1]]))][0])
-                if tupPairs[0] != tupPairs[1]:
-                    self.__JunctionLinesArray[self.__JunctionLinesArray == max(tupPairs)] = min(tupPairs)             
-    def CheckPeriodicGrainBoundaries(self, lstGBNumbers = None):
-        if lstGBNumbers is None:
-            arrGBPoints = np.argwhere(self.__GrainBoundariesArray > 0)
-            blnCheckJunctionLines = True
-        else:
-            arrGBPoints = np.argwhere(np.isin(self.__GrainBoundariesArray == lstGBNumbers))
-            blnCheckJunctionLines = False
-        for j in range(3):
-            lstIndicesLower = np.where(arrGBPoints[:,j] == 0)[0]
-            arrPointsLower = arrGBPoints[lstIndicesLower]
-            lstIndicesUpper = np.where(arrGBPoints[:,j] == self.__ModArray[j]-1)[0]
-            arrPointsUpper  = arrGBPoints[lstIndicesUpper]
-            arrPointsUpper[:,j] = arrPointsUpper[:,j] - np.ones(len(arrPointsUpper))*self.__ModArray[j]
-            arrDistanceMatrix = spatial.distance_matrix(arrPointsLower, arrPointsUpper)
-            arrClosePoints = np.argwhere(arrDistanceMatrix < 2) #returns the indices of the other grain boundaries 
-            for k in arrClosePoints:
-                arrL =arrPointsLower[k[0]]
-                arrU =arrPointsUpper[k[1]] 
-                tupL =tuple(zip(arrL))
-                tupU =tuple(zip(arrU))
-                tupPairs = (self.__GrainBoundariesArray[tupL][0], self.__GrainBoundariesArray[tupU][0])
-                if tupPairs[0] != tupPairs[1]:
-                    if blnCheckJunctionLines:  
-                        lstBottomLeft = []
-                        for l in range(3):
-                            lstBottomLeft.append(min(arrL[l], arrU[l]).astype('int'))
-                        arrJLBox = self.__JunctionLinesArray[gf.WrapAroundSlice(np.array([[lstBottomLeft[0],lstBottomLeft[0]+2],[lstBottomLeft[1],lstBottomLeft[1]+2], [lstBottomLeft[2],lstBottomLeft[2]+2]]),self.__ModArray)]
-                        if np.all(arrJLBox == 0):
-                            self.__GrainBoundariesArray[self.__GrainBoundariesArray == max(tupPairs)] = min(tupPairs)
-                    else:
-                         self.__GrainBoundariesArray[self.__GrainBoundariesArray == max(tupPairs)] = min(tupPairs)    
-        # for j in lstValues:
-        #     x = np.argwhere(self.__GrainBoundariesArray == j)
-        #     if len(x) ==1:
-        #         x = x[0]
-        #         arrBox = self.__GrainBoundariesArray[gf.WrapAroundSlice(np.array([[x[0],x[0]+2],[x[1],x[1]+2], [x[2],x[2]+2]]),self.__ModArray)]
-        #         lstGrains = np.unique(arrBox).tolist()
-        #         lstGrains.remove(j)
-        #         if 0 in lstGrains:
-        #             lstGrains.remove(0)
-        #         if len(lstGrains) > 0:
-        #             self.__GrainBoundariesArray[self.__GrainBoundariesArray == j] = lstGrains[0]
     def ExpandGrains(self, n=3): 
         self.__ExpandedGrains = np.copy(self.__Grains)
         arrGBPoints = np.argwhere(self.__Grains == 0)
