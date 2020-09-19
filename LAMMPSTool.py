@@ -236,7 +236,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._intPositionY = int(self.GetColumnNames().index('y'))
         self._intPositionZ = int(self.GetColumnNames().index('z'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
-        self.__fltGrainTolerance = 1.96
+        self.__fltGrainTolerance = 3.14
         self.__DefectiveAtomIDs = []
         self.__NonDefectiveAtomIDs = []
         self.FindPlaneNormalVectors()
@@ -262,7 +262,8 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self.__OtherAtomIDs = list(self.GetAtomData()[lstOtherAtoms,0].astype('int'))
         self.FindDefectiveAtoms(fltTolerance)
         self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
-        self.__NonLatticeAtomIDs = list(np.where(np.isin(self.GetColumnByIndex(0).astype('int'), self.__LatticeAtomIDs, invert=True))[0])
+        setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
+        self.__NonLatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__LatticeAtomIDs))
     def GetLatticeAtomIDs(self):
         return self.__LatticeAtomIDs
     def GetNonLatticeAtomIDs(self):
@@ -272,10 +273,10 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
             fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
         fltMeanLatticeValue = np.mean(self.GetPTMAtoms()[:,self._intPE])
-        lstDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue +fltTolerance) | (self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue - fltTolerance))[0]
-        self.__DefectiveAtomIDs = list(self.GetAtomData()[lstDefectiveAtoms,0].astype('int'))
-        lstNonDefectiveAtoms = list(np.where(np.isin(self.GetColumnByIndex(0).astype('int'),self.__DefectiveAtomIDs, invert=True))[0])
+        lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue - fltTolerance))[0]
         self.__NonDefectiveAtomIDs = list(self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int'))
+        setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
+        self.__DefectiveAtomIDs = setAllLatticeAtomIDs.difference(self.__NonDefectiveAtomIDs)
     def GetOtherAtomIDs(self):
         return self.__OtherAtomIDs
     def GetPTMAtomIDs(self):
@@ -430,25 +431,27 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
     def LabelAtomsByGrain(self):
-        self.__QuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
+        objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
         lstGrainAtoms = self.GetLatticeAtomIDs()
         lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
-        lstGrainNumbers = self.__QuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4])
+        lstGrainNumbers = objQuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4])
         self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
-        self.__QuantisedCuboidPoints.FindJunctionLines()
-        self.__JunctionLineIDs = self.__QuantisedCuboidPoints.GetJunctionLineIDs()
+        objQuantisedCuboidPoints.FindJunctionLines()
+        self.__JunctionLineIDs = objQuantisedCuboidPoints.GetJunctionLineIDs()
         for i in self.__JunctionLineIDs:
-            self.__JunctionLines[i] = gl.GeneralJunctionLine(self.__QuantisedCuboidPoints.GetJunctionLinePoints(i),i)
-            self.__JunctionLines[i].SetAdjacentGrains(self.__QuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
-            self.__JunctionLines[i].SetAdjacentGrainBoundaries(self.__QuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
-            self.__JunctionLines[i].SetPeriodicDirections(self.__QuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
-        self.__GrainBoundaryIDs = self.__QuantisedCuboidPoints.GetGrainBoundaryIDs()
+            self.__JunctionLines[i] = gl.GeneralJunctionLine(objQuantisedCuboidPoints.GetJunctionLinePoints(i),i)
+            self.__JunctionLines[i].SetWrappedMeshPoints(self.MoveToSimulationCell(objQuantisedCuboidPoints.GetJunctionLinePoints(i)))
+            self.__JunctionLines[i].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
+            self.__JunctionLines[i].SetAdjacentGrainBoundaries(objQuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
+            self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
+        self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
         for k in self.__GrainBoundaryIDs:
-            self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(self.__QuantisedCuboidPoints.GetGrainBoundaryPoints(k),k)
-            self.__GrainBoundaries[k].SetAdjacentGrains(self.__QuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
-            self.__GrainBoundaries[k].SetAdjacentJunctionLines(self.__QuantisedCuboidPoints.GetAdjacentJunctionLines(k))
-            self.__GrainBoundaries[k].SetPeriodicDirections(self.__QuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
-            for l in self.__GrainBoundaries[k].GetMeshPoints():
+            self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),k)
+            self.__GrainBoundaries[k].SetWrappedMeshPoints(self.MoveToSimulationCell(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k)))
+            self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
+            self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
+            self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
+            for l in self.__GrainBoundaries[k].GetWrappedMeshPoints():
                 lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, 3*self.__LatticeParameter))
                 self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
         self.CheckBoundaries()   
@@ -796,7 +799,7 @@ class LAMMPSSummary(object):
         return list(self.__dctDefects.keys())
     def GetTimeStepPosition(self, fltTimeStep)->int:
         return list(self.__dctDefects.keys()).index(fltTimeStep)
-    def ReadInData(self, strFilename: str):
+    def ReadInData(self, strFilename: str, blnCorrelateDefects = False):
         with open(strFilename) as fdata:
             while True:
                 try:
@@ -871,92 +874,52 @@ class LAMMPSSummary(object):
                         line = next(fdata).strip()
                         objGrainBoundary.SetTotalPE(eval(line))
                     objDefect.AddGrainBoundary(objGrainBoundary)
-        if len(self.__dctDefects.keys()) == 0:
+        if len(self.__dctDefects.keys()) == 0 and blnCorrelateDefects:
             objDefect.SetGlobalJunctionLineIDs(objDefect.GetJunctionLineIDs())
             objDefect.SetGlobalGrainBoundaryIDs(objDefect.GetGrainBoundaryIDs())
             self.__dctDefects[intTimeStep] = objDefect
-        else:
+        elif blnCorrelateDefects:
             intLastTimeStep = self.GetTimeSteps()[-1]
-            objPreviousDefect = self.__dctDefects[intLastTimeStep]
-            lstPreviousMeshPoints = []
-            lstPreviousGBIDs = objPreviousDefect.GetGrainBoundaryIDs() 
-            for j in lstPreviousGBIDs:
-                lstPreviousMeshPoints.append(objPreviousDefect.GetGrainBoundary(j).GetMeshPoints())
+            lstPreviousGBIDs = self.__dctDefects[intLastTimeStep].GetGlobalGrainBoundaryIDs()
+            lstCurrentGBIDs = objDefect.GetGrainBoundaryIDs()
             lstGlobalGrainBoundaries = []
-            lstGBIDs = objDefect.GetGrainBoundaryIDs()
-            intCounter = 0
-            while len(lstGBIDs) > intCounter:
-                k = lstGBIDs[intCounter]
-                intIndex = self.CorrelateGrainBoundaryMeshPoints(lstPreviousMeshPoints, objDefect.GetGrainBoundary(k).GetMeshPoints())
-                lstGlobalGrainBoundaries.append(lstPreviousGBIDs.pop(intIndex))
-                del lstPreviousMeshPoints[intIndex]
-                intCounter += 1
-            lstGlobalGrainBoundaries.append(lstGBIDs[0])
-            objDefect.SetGlobalGrainBoundaryIDs(lstGlobalGrainBoundaries) 
-            self.__dctDefects[intTimeStep] = objDefect
+            while len(lstCurrentGBIDs) > 1:
+                k = lstCurrentGBIDs.pop(0)
+                intPreviousID = self.CorrelateMeshPoints(k, lstPreviousGBIDs, 'Grain Boundary')
+                lstGlobalGrainBoundaries.append(intPreviousID)
+                lstPreviousGBIDs.remove(intPreviousID)
+            lstGlobalGrainBoundaries.append(intPreviousID)
+            lstPreviousJLIDs = self.__dctDefects[intLastTimeStep].GetGlobalJunctionLineIDs()
+            lstCurrentJLIDs = objDefect.GetJunctionLineIDs()
+            lstGlobalJunctionLines = []
+            while len(lstCurrentJLIDs) > 1:
+                k = lstCurrentJLIDs.pop(0)
+                intPreviousID = self.CorrelateMeshPoints(k, lstPreviousGBIDs, 'Junction Line')
+                lstGlobalJunctionLines.append(intPreviousID)
+                lstPreviousJLIDs.remove(intPreviousID)
+            lstGlobalJunctionLines.append(intPreviousID)
+            objDefect.SetGlobalJunctionLineIDs(lstGlobalJunctionLines) 
+        self.__dctDefects[intTimeStep] = objDefect
     def SetCellVectors(self, inCellVectors: np.array):
         self.__CellVectors = inCellVectors
     def SetBasisConversion(self,inBasisConversion: np.array):
         self.__BasisConversion = inBasisConversion
     def SetBoundaryTypes(self, inList):
         self.__BoundaryTypes
-    def CorrelateGrainBoundaryMeshPoints(self,dctPreviousMeshPoints, arrCurrentMeshPoints)->int: #checks to see which previous set of mesh points lie closest to the
+    def ConvertPeriodicDirections(self, inPeriodicDirections)->list:
+        lstPeriodicity = ['f','f','f'] #assume fixed boundary types
+        for j in inPeriodicDirections:
+            lstPeriodicity[j] = 'pp'
+        return lstPeriodicity
+    def CorrelateMeshPoints(self,arrMeshPoints: np.array, lstPreviousGlobalIDs: list, strType: str)->int: #checks to see which previous set of mesh points lie closest to the
         lstDistances = [] #current set of mesh points
-        arrMean =np.mean(arrCurrentMeshPoints, axis= 0)
-        arrCurrentMeshPoints = gf.PeriodicShiftAllCloser(arrMean, arrCurrentMeshPoints, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
-        for j in dctPreviousMeshPoints.keys():
-            arrCurrentPoints = gf.PeriodicShiftAllCloser(arrMean, j, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
-            lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrCurrentMeshPoints, arrCurrentPoints),axis= 0)))
-            #lstDistances.append(len(np.argwhere(arrDistanceMatrix < 4.05/2)))
-        return np.argmin(lstDistances) 
-    def CorrelateMeshPoints(self,lstPreviousMeshPoints, arrCurrentMeshPoints)->int: #checks to see which previous set of mesh points lie closest to the
-        lstDistances = [] #current set of mesh points
-        for j in lstPreviousMeshPoints:
-            lstDistances.append(np.sum(np.amin(gf.MakePeriodicDistanceMatrix(arrCurrentMeshPoints, j, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes),axis= 0)))
-        return np.argmin(lstDistances)
-
-    def CorrelateGrainBoundaries(self, intGrainBoundary: int):
-        blnFirstTime = True
-        lstGrainBoundaryIDs = []
-        for i in self.GetTimeSteps():
-            lstDistances = []
-            if blnFirstTime:
-                lstGrainBoundaryIDs.append(intGrainBoundary)
-                blnFirstTime = False
-                arrPreviousPoints = self.GetDefectObject(i).GetGrainBoundary(intGrainBoundary).GetMeshPoints()
-                lstPreviousIDs = self.GetDefectObject(i).GetGrainBoundaryIDs() 
-            else:
-                lstCurrentIDs = self.GetDefectObject(i).GetGrainBoundaryIDs() 
-                if lstPreviousIDs != lstCurrentIDs:
-                    warnings.warn('At time step ' +  str(i) + ' there are ' + str(len(lstCurrentIDs)) + ' grain boundaries(s) and the previous timestep had ' + str(len(lstPreviousIDs)) + ' grain boundarie(s).')
-                for j in lstCurrentIDs:
-                    arrCheckPoints = self.GetDefectObject(i).GetGrainBoundary(j).GetMeshPoints()
-                    lstDistances.append(np.sum(np.amin(gf.MakePeriodicDistanceMatrix(arrPreviousPoints, arrCheckPoints, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes),axis= 0)))
-                intNewGrainBoundary = lstCurrentIDs[np.argmin(lstDistances)]
-                lstGrainBoundaryIDs.append(intNewGrainBoundary)
-                arrPreviousPoints = self.GetDefectObject(i).GetGrainBoundary(intNewGrainBoundary).GetMeshPoints()
-                lstPreviousIDs = lstCurrentIDs
-        self.__GlobalGrainBoundaries[intGrainBoundary] = np.array(lstGrainBoundaryIDs).astype('int')
-        return lstGrainBoundaryIDs
-    def CorrelateJunctionLines(self, intJunctionLine: int):
-        blnFirstTime = True
-        lstJunctionLineIDs =[]
-        lstPreviousIDs = []
-        for i in self.GetTimeSteps():
-            lstDistances = []
-            if blnFirstTime:
-                lstJunctionLineIDs.append(intJunctionLine)
-                blnFirstTime = False
-                arrPreviousPoints = self.GetDefectObject(i).GetJunctionLine(intJunctionLine).GetMeshPoints()
-            else:
-                lstCurrentIDs = self.GetDefectObject(i).GetJunctionLineIDs() 
-                for j in lstCurrentIDs:
-                    arrCheckPoints = self.GetDefectObject(i).GetJunctionLine(j).GetMeshPoints()
-                    lstDistances.append(np.sum(np.amin(gf.MakePeriodicDistanceMatrix(arrPreviousPoints, arrCheckPoints, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes),axis= 0)))
-                intNewJunctionLine = lstCurrentIDs[np.argmin(lstDistances)]
-                lstJunctionLineIDs.append(intNewJunctionLine)
-                arrPreviousPoints = self.GetDefectObject(i).GetJunctionLine(intNewJunctionLine).GetMeshPoints()
-        return lstJunctionLineIDs
+        for j in lstPreviousGlobalIDs:
+            if strType == 'Grain Boundary':
+                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGrainBoundary(j).GetMeshPoints()
+            elif strType == 'Junction Line':
+                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetJunctionLine(j).GetMeshPoints()
+            lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
+        return lstPreviousGlobalIDs[np.argmin(lstDistances)]    
 
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
@@ -994,13 +957,16 @@ class QuantisedCuboidPoints(object):
         self.__Coordinates = gf.CreateCuboidPoints(np.array([[0,nx-1],[0,ny-1],[0,nz-1]]))
         arrOut = objInterpolate(self.__Coordinates)
         arrOut = np.reshape(arrOut,arrModArray)
-        arrOut = gaussian(arrOut,1, mode='wrap',multichannel = False)
-        arrOut = arrOut > np.mean(arrOut) 
+        #arrOut = gaussian(arrOut,1, mode='wrap',multichannel = False)
+        arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
+        arrOut = arrOut > np.mean(arrOut)
         self.__BinaryArray = arrOut.astype('bool').astype('int')
-        self.__BinaryArray = remove_small_holes(self.__BinaryArray.astype('bool'), 4).astype('int')
+#        self.__BinaryArray = remove_small_holes(self.__BinaryArray.astype('bool'), 8).astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
         #self.__Grains  = measure.label(self.__BinaryArray == 0).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
+        if intGrainLabels <= 1:
+            warnings.warn('Only ' + str(intGrainLabels) + ' grain(s) detected')
         self.__Grains = np.asarray(self.__Grains)
         lstGrainLabels = list(np.unique(self.__Grains))
         lstGrainLabels.remove(0)
@@ -1012,6 +978,8 @@ class QuantisedCuboidPoints(object):
             self.MergeEquivalentGrains() #if two grains are periodically linked then merge them into one
            # self.ExtendArrayPeriodically(intWrapper)#extend the cuboid by intwrapper using a periodic copy
             self.ExpandGrains() #expand all the grains until the grain boundaries are dissolved
+    def GetDefectPositions(self):
+        return self.__DefectPositions
     def MergeEquivalentGrains(self):
         for j in self.__EquivalentGrains:
             if len(j) > 0:
@@ -1179,23 +1147,42 @@ class QuantisedCuboidPoints(object):
                     counter += 1
                 else:
                     n += 1
-        intNumberOfDefects = len(np.argwhere(self._QuantisedCuboidPoints__ExpandedGrains == 0))
+        intNumberOfDefects = len(np.argwhere(self.__ExpandedGrains == 0))
         if intNumberOfDefects > 0:
             warnings.warn('Error expanding grains. The ExpandedGrains array still has ' + str(intNumberOfDefects) + ' defect(s)')
     def GetExpandedGrains(self):
         return self.__ExpandedGrains
     def GetGrainBoundaryPoints(self, intGrainBoundaryID = None):
         if intGrainBoundaryID is None:
-            return np.matmul(np.matmul(np.argwhere(self.__GrainBoundariesArray.astype('int') != 0) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
+            return np.matmul(np.matmul(self.MergeMeshPoints(np.argwhere(self.__GrainBoundariesArray.astype('int') != 0)) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
         elif intGrainBoundaryID in self.__GrainBoundaryIDs: 
-            return np.matmul(np.matmul(np.argwhere(self.__GrainBoundariesArray.astype('int') == intGrainBoundaryID)+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
+            return np.matmul(np.matmul(self.MergeMeshPoints(np.argwhere(self.__GrainBoundariesArray.astype('int') == intGrainBoundaryID))+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
         else:
             warnings.warn(str(intGrainBoundaryID) + ' is an invalid grain boundary ID')
+    def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
+        lstPoints = []                                #previously split over the simulation cell boundary
+        clustering = DBSCAN(np.sqrt(3)).fit(inGridPoints)
+        arrValues = clustering.labels_
+        arrUniqueValues= np.unique(arrValues)
+        if len(arrUniqueValues) > 1:
+            for j in arrUniqueValues:
+                arrPointsToMove = inGridPoints[arrValues ==j]
+                for k in range(3):
+                    if np.any(inGridPoints[:,k] == 0) and np.any(inGridPoints[:,k] == self.__ModArray[k] -1):
+                        if np.any(arrPointsToMove[:,k] == self.__ModArray[k] -1) and not np.any(arrPointsToMove[:,k] == 0):
+                            arrTranslation = np.zeros(3)
+                            arrTranslation[k] = self.__ModArray[k]
+                            arrPointsToMove = arrPointsToMove - arrTranslation        
+                lstPoints.append(arrPointsToMove)
+        if len(lstPoints) > 0:
+            return np.concatenate(lstPoints)
+        else:
+            return inGridPoints
     def GetJunctionLinePoints(self, intJunctionLineID = None)->np.array:
         if intJunctionLineID is None:
-            return np.matmul(np.matmul(np.argwhere(self.__JunctionLinesArray.astype('int') != 0) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
+            return np.matmul(np.matmul(self.MergeMeshPoints(np.argwhere(self.__JunctionLinesArray.astype('int') != 0)) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
         elif intJunctionLineID in self.__JunctionLineIDs: 
-            return np.matmul(np.matmul(np.argwhere(self.__JunctionLinesArray.astype('int') == intJunctionLineID)+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
+            return np.matmul(np.matmul(self.MergeMeshPoints(np.argwhere(self.__JunctionLinesArray.astype('int') == intJunctionLineID))+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
         else:
             warnings.warn(str(intJunctionLineID) + ' is an invalid junction line ID')
     def GetJunctionLineIDs(self)->list:

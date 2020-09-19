@@ -7,8 +7,9 @@ Created on Fri May 31 10:38:14 2019
 import numpy as np
 import itertools as it
 import scipy as sc
-import shapely as sp
-import geopandas as gpd
+from sklearn.cluster import DBSCAN
+#import shapely as sp
+#import geopandas as gpd
 #All angles are assumed to be in radians
 def DegreesToRadians(inDegrees: float)->float:
         return inDegrees/180*np.pi
@@ -151,6 +152,20 @@ def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: flo
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(inPlane[:,:-1])), np.transpose(inPlane[:,-1]))
         arrPositions = np.argwhere(np.abs(arrPositions) < fltTolerance)[:,0]        
         return arrPositions    
+def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list, fltMinDistance = 0.5):
+        lstPoints = []
+        clustering = DBSCAN(fltMinDistance, 1).fit(inPoints)
+        arrValues = clustering.labels_
+        arrUniqueValues, arrCounts = np.unique(arrValues, return_counts=True)
+        intMaxClusterValue = arrUniqueValues[np.argmax(arrCounts)] # find the largest cluster
+        arrFixedPoint = np.mean(inPoints[arrValues ==intMaxClusterValue],axis=0) 
+        lstPoints.append(inPoints[arrValues ==intMaxClusterValue])
+        for j in arrValues:
+                if j != intMaxClusterValue:
+                        arrPointsToMove = inPoints[arrValues ==j]
+                        arrPointsToMove = PeriodicShiftAllCloser(arrFixedPoint, arrPointsToMove, inCellVectors, inBasisConversion, inBoundaryList)
+                        lstPoints.append(arrPointsToMove)
+        return np.concatenate(lstPoints)
 def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
         if len(np.shape(inVector)) > 1:
                 if np.shape(inVector)[1] == 2:
@@ -163,6 +178,10 @@ def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVect
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
         #arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
         return np.matmul(arrCoefficients, inMatrix) #return the wrapped vector in the standard basis
+def CheckVectorIsInSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
+        arrCellCoordinates = np.matmul(inVector, invMatrix)
+        arrModCoordinates = np.mod(arrCellCoordinates,np.ones(np.shape(arrCellCoordinates)))
+        return np.all(arrCellCoordinates == arrModCoordinates)
 def ExtendQuantisedVector(inVector: np.array, intAmount)->np.array: #extends 
         rtnVector = np.zeros([2])
         intMaxCol =np.argmax(np.abs(inVector))
@@ -182,15 +201,19 @@ def QuantisedVector(inVector: np.array)->np.array: #2D only for now!
                 arrReturn[j, 1-intCol] = np.round(j*fltRatio)   
         return arrReturn.astype('int')
 def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array: 
+        lstOfArrays =[]
+        lstOfArrays.append(inPositionVector)
         arrVector = np.array([inPositionVector])                        
         arrCellCoordinates = np.matmul(inPositionVector, inBasisConversion)
         for i,strBoundary in enumerate(inBoundaryList):
             if strBoundary == 'pp':
                  if  arrCellCoordinates[i] > 0.5:
-                     arrVector = np.append(arrVector, np.subtract(arrVector,inCellVectors[i]),axis=0)
+                     #arrVector = np.append(arrVector, np.subtract(arrVector,inCellVectors[i]),axis=0)
+                     lstOfArrays.append(np.subtract(arrVector,inCellVectors[i]))
                  elif arrCellCoordinates[i] <= 0.5:
-                     arrVector = np.append(arrVector, np.add(arrVector,inCellVectors[i]),axis=0)                  
-        return arrVector
+                     #arrVector = np.append(arrVector, np.add(arrVector,inCellVectors[i]),axis=0)                  
+                     lstOfArrays.append(np.add(arrVector,inCellVectors[i]))
+        return np.vstack(lstOfArrays)
 def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
         arrPoints = np.array(list(map(lambda x: PeriodicShiftCloser(inFixedPoint, x, inCellVectors, inBasisConversion, inBoundaryList), inAllPointsToShift)))
         return arrPoints

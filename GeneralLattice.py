@@ -283,11 +283,11 @@ class SimulationCell(object):
     def SetFileHeader(self, inString: str):
         self.__FileHeader = inString
     def WrapVectorIntoSimulationBox(self, inVector: np.array)->np.array:
-        #return gf.WrapVectorIntoSimulationCell(self.__BasisVectors, self.__InverseBasis, inVector)
-        arrCoefficients = np.matmul(inVector, self.__InverseUnitBasis) #find the coordinates in the simulation cell basis
-        arrVectorLengths = np.linalg.norm(self.__BasisVectors, axis = 1)
-        arrCoefficients = np.mod(arrCoefficients, arrVectorLengths) #move so that they lie inside cell 
-        return np.matmul(arrCoefficients, self.__UnitBasisVectors) #return the wrapped vector in the standard basis
+        return gf.WrapVectorIntoSimulationCell(self.__BasisVectors, self.__InverseBasis, inVector)
+        #arrCoefficients = np.matmul(inVector, self.__InverseUnitBasis) #find the coordinates in the simulation cell basis
+        #arrVectorLengths = np.linalg.norm(self.__BasisVectors, axis = 1)
+        #arrCoefficients = np.mod(arrCoefficients, arrVectorLengths) #move so that they lie inside cell 
+        #return np.matmul(arrCoefficients, self.__UnitBasisVectors) #return the wrapped vector in the standard basis
     def WriteLAMMPSDataFile(self,inFileName: str):        
         now = datetime.now()
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
@@ -336,7 +336,7 @@ class SimulationCell(object):
             self.__UnitBasisVectors = np.array(lstBasisVectors)
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
-    def WrapAllPointsIntoSimulationCell(self, intRound = 8)->np.array:
+    def WrapAllPointsIntoSimulationCell(self, intRound = 1)->np.array:
         lstUniqueRowindices = []
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
@@ -541,6 +541,13 @@ class DefectMeshObject(object):
         self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
         self.__Volume = 0
         self.__PE = 0
+        self.__WrappedMeshPoints = []
+    def GetMeshPoints(self):
+        return self.__MeshPoints
+    def GetWrappedMeshPoints(self):
+        return self.__WrappedMeshPoints
+    def SetWrappedMeshPoints(self, inPoints):
+        self.__WrappedMeshPoints = inPoints
     def SetGlobalID(self, intID):
         self.__GlobalID = intID
     def GetGlobalID(self, intID):
@@ -559,8 +566,8 @@ class DefectMeshObject(object):
     def RemoveAtomIDs(self, inList):
         setAtomIDs = set(self.__AtomIDs)
         self.__AtomIDs = list(setAtomIDs.difference(inList))
-    def GetMeshPoints(self):
-        return self.__MeshPoints
+    def SetMeshPoints(self, inPoints):
+        self.__MeshPoints = inPoints
     def AddAdjustedMeshPoint(self, inPoint: np.array):
         self.__AdjustedMeshPoints.append(inPoint)
     def GetAdjustedMeshPoints(self)->np.array:
