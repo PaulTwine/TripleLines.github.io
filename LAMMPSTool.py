@@ -911,13 +911,16 @@ class LAMMPSSummary(object):
         for j in inPeriodicDirections:
             lstPeriodicity[j] = 'pp'
         return lstPeriodicity
-    def CorrelateMeshPoints(self,arrMeshPoints: np.array, lstPreviousGlobalIDs: list, strType: str)->int: #checks to see which previous set of mesh points lie closest to the
-        lstDistances = [] #current set of mesh points
+    def CorrelateMeshPoints(self,arrMeshPoints: np.array, lstPreviousGlobalIDs: list, strType: str)->int: #checks to see which previous set of mesh points lie closest to the current mesh point
+        lstDistances = [] 
+        arrMean =np.mean(arrMeshPoints, axis=0)
         for j in lstPreviousGlobalIDs:
             if strType == 'Grain Boundary':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGrainBoundary(j).GetMeshPoints()
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetJunctionLine(j).GetMeshPoints()
+            arrTranslation = arrMean - self.PeriodicShiftCloser(np.mean(arrPreviousMeshPoints, axis=0), arrMean)
+            arrPreviousMeshPoints = arrPreviousMeshPoints - arrTranslation
             lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]    
 
