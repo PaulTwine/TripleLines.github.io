@@ -882,23 +882,29 @@ class LAMMPSSummary(object):
             intLastTimeStep = self.GetTimeSteps()[-1]
             lstPreviousGBIDs = self.__dctDefects[intLastTimeStep].GetGlobalGrainBoundaryIDs()
             lstCurrentGBIDs = objDefect.GetGrainBoundaryIDs()
+            if len(lstPreviousGBIDs) != len(lstCurrentGBIDs):
+                warnings.warn('Number of grain boundaries changed from ' + str(len(lstPreviousGBIDs)) + ' to ' + str(len(lstCurrentGBIDs)) + ' at time step ' + str(intTimeStep))
             lstGlobalGrainBoundaries = []
             while len(lstCurrentGBIDs) > 1:
-                k = lstCurrentGBIDs.pop(0)
-                intPreviousID = self.CorrelateMeshPoints(k, lstPreviousGBIDs, 'Grain Boundary')
+                intGBID = lstCurrentGBIDs.pop(0)
+                intPreviousID = self.CorrelateMeshPoints(objDefect.GetGrainBoundary(intGBID).GetMeshPoints(), lstPreviousGBIDs, 'Grain Boundary')
                 lstGlobalGrainBoundaries.append(intPreviousID)
                 lstPreviousGBIDs.remove(intPreviousID)
-            lstGlobalGrainBoundaries.append(intPreviousID)
+            lstGlobalGrainBoundaries.append(lstPreviousGBIDs[0])
             lstPreviousJLIDs = self.__dctDefects[intLastTimeStep].GetGlobalJunctionLineIDs()
             lstCurrentJLIDs = objDefect.GetJunctionLineIDs()
+            if len(lstPreviousJLIDs) != len(lstCurrentJLIDs):
+                warnings.warn('Number of junction lines changed from ' + str(len(lstPreviousJLIDs)) + ' to ' + str(len(lstCurrentJLIDs)) + ' at time step ' +
+                str(intTimeStep))
             lstGlobalJunctionLines = []
             while len(lstCurrentJLIDs) > 1:
-                k = lstCurrentJLIDs.pop(0)
-                intPreviousID = self.CorrelateMeshPoints(k, lstPreviousGBIDs, 'Junction Line')
+                intJLID = lstCurrentJLIDs.pop(0)
+                intPreviousID = self.CorrelateMeshPoints(objDefect.GetJunctionLine(intJLID).GetMeshPoints(), lstPreviousJLIDs, 'Junction Line')
                 lstGlobalJunctionLines.append(intPreviousID)
                 lstPreviousJLIDs.remove(intPreviousID)
-            lstGlobalJunctionLines.append(intPreviousID)
+            lstGlobalJunctionLines.append(lstPreviousJLIDs[0])
             objDefect.SetGlobalJunctionLineIDs(lstGlobalJunctionLines) 
+            objDefect.SetGlobalGrainBoundaryIDs(lstGlobalGrainBoundaries)
         self.__dctDefects[intTimeStep] = objDefect
     def SetCellVectors(self, inCellVectors: np.array):
         self.__CellVectors = inCellVectors
@@ -919,7 +925,8 @@ class LAMMPSSummary(object):
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGrainBoundary(j).GetMeshPoints()
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetJunctionLine(j).GetMeshPoints()
-            arrTranslation = arrMean - self.PeriodicShiftCloser(np.mean(arrPreviousMeshPoints, axis=0), arrMean)
+            arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
+            arrTranslation = arrPreviousMean - gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp'])
             arrPreviousMeshPoints = arrPreviousMeshPoints - arrTranslation
             lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]    

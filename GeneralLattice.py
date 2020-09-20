@@ -660,12 +660,12 @@ class DefectObject(object):
         return list(self.__dctGrainBoundaries.keys())
     def SetGlobalJunctionLineIDs(self, inList):
         self.__GlobalJunctionLineIDs = inList
-    def GetGlobalJunctionLineIDs(self, inList):
+    def GetGlobalJunctionLineIDs(self):
         return self.__GlobalJunctionLineIDs 
     def SetGlobalGrainBoundaryIDs(self, inList):
         self.__GlobalGrainBoundaryIDs = inList
         for intCounter,j in enumerate(inList):
             self.__dctGrainBoundaries[sorted(inList)[intCounter]].SetGlobalID(j)
-    def GetGlobalGrainBoundaryIDs(self, inList):
+    def GetGlobalGrainBoundaryIDs(self):
         return self.__GlobalGrainBoundaryIDs 
     
