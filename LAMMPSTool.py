@@ -874,10 +874,9 @@ class LAMMPSSummary(object):
                         line = next(fdata).strip()
                         objGrainBoundary.SetTotalPE(eval(line))
                     objDefect.AddGrainBoundary(objGrainBoundary)
-        if len(self.__dctDefects.keys()) == 0 and blnCorrelateDefects:
+        if len(list(self.__dctDefects.keys())) == 0 and blnCorrelateDefects: 
             objDefect.SetGlobalJunctionLineIDs(objDefect.GetJunctionLineIDs())
             objDefect.SetGlobalGrainBoundaryIDs(objDefect.GetGrainBoundaryIDs())
-            self.__dctDefects[intTimeStep] = objDefect
         elif blnCorrelateDefects:
             intLastTimeStep = self.GetTimeSteps()[-1]
             lstPreviousGBIDs = self.__dctDefects[intLastTimeStep].GetGlobalGrainBoundaryIDs()
@@ -926,9 +925,10 @@ class LAMMPSSummary(object):
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetJunctionLine(j).GetMeshPoints()
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
-            arrTranslation = arrPreviousMean - gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp'])
-            arrPreviousMeshPoints = arrPreviousMeshPoints - arrTranslation
-            lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
+            lstDistances.append(gf.PeriodicMinimumDistance(arrPreviousMean, arrMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes))
+            #arrTranslation = arrPreviousMean - gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp'])
+           # arrPreviousMeshPoints = gf.PeriodicShiftAllCloser(arrMean, arrPreviousMeshPoints,self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+           # lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]    
 
 class QuantisedCuboidPoints(object):
@@ -1185,7 +1185,11 @@ class QuantisedCuboidPoints(object):
                             arrPointsToMove = arrPointsToMove - arrTranslation        
                 lstPoints.append(arrPointsToMove)
         if len(lstPoints) > 0:
-            return np.concatenate(lstPoints)
+            rtnPoints = np.concatenate(lstPoints) 
+            clustering = DBSCAN(np.sqrt(3)).fit(rtnPoints)
+            if len(clustering.labels_) > 1:
+                warnings.warn('Merge points failed to form a contiguous shape there are ' + str(len(clustering.labels_) + ' cluster(s).'))
+            return rtnPoints
         else:
             return inGridPoints
     def GetJunctionLinePoints(self, intJunctionLineID = None)->np.array:
