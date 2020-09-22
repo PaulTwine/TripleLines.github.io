@@ -645,16 +645,14 @@ class DefectObject(object):
         self.__dctJunctionLines[objJunctionLine.GetID()] = objJunctionLine 
     def AddGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
         self.__dctGrainBoundaries[objGrainBoundary.GetID()] = objGrainBoundary
-    def GetJunctionLine(self, intKey: int, blnGlobal = False):
-        if blnGlobal:
-            return self.__dctJunctionLines[self.__GlobalJunctionLineIDs[intKey-1]]
-        else:
-            return self.__dctJunctionLines[intKey]
-    def GetGrainBoundary(self, intKey: int, blnGlobal= False):
-        if blnGlobal:
-            return self.__dctGrainBoundaries[self.__GlobalGrainBoundaryIDs[intKey-1]]
-        else:
-            return self.__dctGrainBoundaries[intKey]
+    def GetGlobalJunctionLine(self, intGlobalKey: int):
+        return self.__dctJunctionLines[self.__GlobalJunctionLineIDs[intGlobalKey-1]]
+    def GetJunctionLine(self, intLocalKey: int):
+        return self.__dctJunctionLines[intLocalKey]
+    def GetGrainBoundary(self, intLocalKey):
+        return self.__dctGrainBoundaries[intLocalKey]
+    def GetGlobalGrainBoundary(self, intGlobalKey: int):
+        return self.__dctGrainBoundaries[self.__GlobalGrainBoundaryIDs[intGlobalKey-1]]      
     def GetJunctionLineIDs(self):
         return list(self.__dctJunctionLines.keys())
     def GetGrainBoundaryIDs(self):

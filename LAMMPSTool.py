@@ -921,14 +921,14 @@ class LAMMPSSummary(object):
         arrMean =np.mean(arrMeshPoints, axis=0)
         for j in lstPreviousGlobalIDs:
             if strType == 'Grain Boundary':
-                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGrainBoundary(j).GetMeshPoints()
+                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetMeshPoints()
             elif strType == 'Junction Line':
-                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetJunctionLine(j).GetMeshPoints()
+                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
-            lstDistances.append(gf.PeriodicMinimumDistance(arrPreviousMean, arrMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes))
-            #arrTranslation = arrPreviousMean - gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp'])
-           # arrPreviousMeshPoints = gf.PeriodicShiftAllCloser(arrMean, arrPreviousMeshPoints,self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
-           # lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
+            arrTranslation = arrPreviousMean - gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp'])
+            #arrPreviousMeshPoints = gf.PeriodicShiftAllCloser(arrMean, arrPreviousMeshPoints,self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+            arrPreviousMeshPoints = arrPreviousMeshPoints +arrTranslation
+            lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]    
 
 class QuantisedCuboidPoints(object):
@@ -1171,7 +1171,7 @@ class QuantisedCuboidPoints(object):
             warnings.warn(str(intGrainBoundaryID) + ' is an invalid grain boundary ID')
     def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
         lstPoints = []                                #previously split over the simulation cell boundary
-        clustering = DBSCAN(np.sqrt(3)).fit(inGridPoints)
+        clustering = DBSCAN(2).fit(inGridPoints)
         arrValues = clustering.labels_
         arrUniqueValues= np.unique(arrValues)
         if len(arrUniqueValues) > 1:
@@ -1186,9 +1186,9 @@ class QuantisedCuboidPoints(object):
                 lstPoints.append(arrPointsToMove)
         if len(lstPoints) > 0:
             rtnPoints = np.concatenate(lstPoints) 
-            clustering = DBSCAN(np.sqrt(3)).fit(rtnPoints)
+            clustering = DBSCAN(2).fit(rtnPoints)
             if len(clustering.labels_) > 1:
-                warnings.warn('Merge points failed to form a contiguous shape there are ' + str(len(clustering.labels_) + ' cluster(s).'))
+                warnings.warn('Merge points failed to form a contiguous shape there are ' + str(len(clustering.labels_)) + ' cluster(s).')
             return rtnPoints
         else:
             return inGridPoints
