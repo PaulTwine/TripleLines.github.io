@@ -925,9 +925,9 @@ class LAMMPSSummary(object):
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
-            arrTranslation = arrPreviousMean - gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp'])
+            arrTranslation = gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp']) -arrPreviousMean
             #arrPreviousMeshPoints = gf.PeriodicShiftAllCloser(arrMean, arrPreviousMeshPoints,self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
-            arrPreviousMeshPoints = arrPreviousMeshPoints +arrTranslation
+            arrPreviousMeshPoints = arrPreviousMeshPoints + arrTranslation
             lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]    
 
@@ -1187,8 +1187,9 @@ class QuantisedCuboidPoints(object):
         if len(lstPoints) > 0:
             rtnPoints = np.concatenate(lstPoints) 
             clustering = DBSCAN(2).fit(rtnPoints)
-            if len(clustering.labels_) > 1:
-                warnings.warn('Merge points failed to form a contiguous shape there are ' + str(len(clustering.labels_)) + ' cluster(s).')
+            intClusters = np.unique(clustering.labels_) 
+            if len(intClusters) > 1:
+                warnings.warn('Merge points failed to form a contiguous shape there are ' + str(intClusters) + ' cluster(s).')
             return rtnPoints
         else:
             return inGridPoints
