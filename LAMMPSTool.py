@@ -1171,7 +1171,7 @@ class QuantisedCuboidPoints(object):
             warnings.warn(str(intGrainBoundaryID) + ' is an invalid grain boundary ID')
     def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
         lstPoints = []                                #previously split over the simulation cell boundary
-        clustering = DBSCAN(2).fit(inGridPoints)
+        clustering = DBSCAN(2,1).fit(inGridPoints)
         arrValues = clustering.labels_
         arrUniqueValues= np.unique(arrValues)
         if len(arrUniqueValues) > 1:
@@ -1186,9 +1186,9 @@ class QuantisedCuboidPoints(object):
                 lstPoints.append(arrPointsToMove)
         if len(lstPoints) > 0:
             rtnPoints = np.concatenate(lstPoints) 
-            clustering = DBSCAN(2).fit(rtnPoints)
-            intClusters = np.unique(clustering.labels_) 
-            if len(intClusters) > 1:
+            clustering = DBSCAN(2,1).fit(rtnPoints)
+            intClusters = len(np.unique(clustering.labels_)) 
+            if intClusters > 1:
                 warnings.warn('Merge points failed to form a contiguous shape there are ' + str(intClusters) + ' cluster(s).')
             return rtnPoints
         else:
