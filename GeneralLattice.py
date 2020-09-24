@@ -551,7 +551,7 @@ class DefectMeshObject(object):
         self.__WrappedMeshPoints = inPoints
     def SetGlobalID(self, intID):
         self.__GlobalID = intID
-    def GetGlobalID(self, intID):
+    def GetGlobalID(self):
         return self.__GlobalID 
     def GetID(self):
         return self.__ID
@@ -639,34 +639,31 @@ class DefectObject(object):
         self.__TimeStep = fltTimeStep
         self.__dctJunctionLines = dict()
         self.__dctGrainBoundaries = dict()
-        self.__GlobalJunctionLineIDs = []
-        self.__GlobalGrainBoundaryIDs = []
+        self.__dctGlobalJunctionLines = dict()
+        self.__dctGlobalGrainBoundaries =dict()
     def AddJunctionLine(self, objJunctionLine: GeneralJunctionLine):
         self.__dctJunctionLines[objJunctionLine.GetID()] = objJunctionLine 
     def AddGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
         self.__dctGrainBoundaries[objGrainBoundary.GetID()] = objGrainBoundary
+    def AddGlobalJunctionLine(self, objJunctionLine: GeneralJunctionLine):
+        self.__dctGlobalJunctionLines[objJunctionLine.GetGlobalID()] = objJunctionLine
+    def AddGlobalGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
+        self.__dctGlobalGrainBoundaries[objGrainBoundary.GetGlobalID()] = objGrainBoundary    
     def GetGlobalJunctionLine(self, intGlobalKey: int):
-        return self.__dctJunctionLines[self.__GlobalJunctionLineIDs[intGlobalKey-1]]
+        return self.__dctGlobalJunctionLines[intGlobalKey]
     def GetJunctionLine(self, intLocalKey: int):
         return self.__dctJunctionLines[intLocalKey]
     def GetGrainBoundary(self, intLocalKey):
         return self.__dctGrainBoundaries[intLocalKey]
     def GetGlobalGrainBoundary(self, intGlobalKey: int):
-        return self.__dctGrainBoundaries[self.__GlobalGrainBoundaryIDs[intGlobalKey-1]]      
+        return self.__dctGlobalGrainBoundaries[intGlobalKey]      
     def GetJunctionLineIDs(self):
         return list(self.__dctJunctionLines.keys())
     def GetGrainBoundaryIDs(self):
         return list(self.__dctGrainBoundaries.keys())
-    def SetGlobalJunctionLineIDs(self, inList: list):
-        self.__GlobalJunctionLineIDs = inList
-        for intCounter,j in enumerate(inList):
-            self.__dctJunctionLines[intCounter+1].SetGlobalID(j)
     def GetGlobalJunctionLineIDs(self):
-        return cp.copy(self.__GlobalJunctionLineIDs) 
-    def SetGlobalGrainBoundaryIDs(self, inList):
-        self.__GlobalGrainBoundaryIDs = inList
-        for intCounter,j in enumerate(inList):
-            self.__dctGrainBoundaries[intCounter+1].SetGlobalID(j)
+        return list(self.__dctGlobalJunctionLines.keys()) 
     def GetGlobalGrainBoundaryIDs(self):
-        return cp.copy(self.__GlobalGrainBoundaryIDs)
+        return list(self.__dctGlobalGrainBoundaries.keys())
     
+  

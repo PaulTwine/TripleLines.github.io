@@ -9,11 +9,13 @@ from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 from skimage.filters import gaussian
 from skimage import measure
 from sklearn.cluster import DBSCAN
+import hdbscan
 import shapely as sp
 import copy
 import warnings
 from functools import reduce
 from sklearn.metrics import mean_squared_error
+from sklearn.metrics.pairwise import pairwise_distances
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter: float, objAnalysis: object):
@@ -875,35 +877,36 @@ class LAMMPSSummary(object):
                         objGrainBoundary.SetTotalPE(eval(line))
                     objDefect.AddGrainBoundary(objGrainBoundary)
         if len(list(self.__dctDefects.keys())) == 0 and blnCorrelateDefects: 
-            objDefect.SetGlobalJunctionLineIDs(objDefect.GetJunctionLineIDs())
-            objDefect.SetGlobalGrainBoundaryIDs(objDefect.GetGrainBoundaryIDs())
+            for i in objDefect.GetGrainBoundaryIDs():
+                objDefect.GetGrainBoundary(i).SetGlobalID(i)
+                objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(i))
+            for j in objDefect.GetJunctionLineIDs():
+                objDefect.GetJunctionLine(j).SetGlobalID(j)
+                objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(j))    
         elif blnCorrelateDefects:
             intLastTimeStep = self.GetTimeSteps()[-1]
-            lstPreviousGBIDs = self.__dctDefects[intLastTimeStep].GetGlobalGrainBoundaryIDs()
+            lstPreviousGlobalGBIDs = self.__dctDefects[intLastTimeStep].GetGlobalGrainBoundaryIDs()
             lstCurrentGBIDs = objDefect.GetGrainBoundaryIDs()
-            if len(lstPreviousGBIDs) != len(lstCurrentGBIDs):
-                warnings.warn('Number of grain boundaries changed from ' + str(len(lstPreviousGBIDs)) + ' to ' + str(len(lstCurrentGBIDs)) + ' at time step ' + str(intTimeStep))
-            lstGlobalGrainBoundaries = []
-            while len(lstCurrentGBIDs) > 1:
+            if len(lstPreviousGlobalGBIDs) != len(lstCurrentGBIDs):
+                warnings.warn('Number of grain boundaries changed from ' + str(len(lstPreviousGlobalGBIDs)) + ' to ' + str(len(lstCurrentGBIDs)) + ' at time step ' + str(intTimeStep))
+            lstGBIDs = lstPreviousGlobalGBIDs
+            while len(lstCurrentGBIDs) > 0:
                 intGBID = lstCurrentGBIDs.pop(0)
-                intPreviousID = self.CorrelateMeshPoints(objDefect.GetGrainBoundary(intGBID).GetMeshPoints(), lstPreviousGBIDs, 'Grain Boundary')
-                lstGlobalGrainBoundaries.append(intPreviousID)
-                lstPreviousGBIDs.remove(intPreviousID)
-            lstGlobalGrainBoundaries.append(lstPreviousGBIDs[0])
-            lstPreviousJLIDs = self.__dctDefects[intLastTimeStep].GetGlobalJunctionLineIDs()
+                intPreviousID = self.CorrelateMeshPoints(objDefect.GetGrainBoundary(intGBID).GetMeshPoints(), lstGBIDs, 'Grain Boundary')
+                objDefect.GetGrainBoundary(intGBID).SetGlobalID(intPreviousID)
+                objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(intGBID))
+                lstGBIDs.remove(intPreviousID)
+            lstPreviousGlobalJLIDs = self.__dctDefects[intLastTimeStep].GetGlobalJunctionLineIDs()
             lstCurrentJLIDs = objDefect.GetJunctionLineIDs()
-            if len(lstPreviousJLIDs) != len(lstCurrentJLIDs):
-                warnings.warn('Number of junction lines changed from ' + str(len(lstPreviousJLIDs)) + ' to ' + str(len(lstCurrentJLIDs)) + ' at time step ' +
-                str(intTimeStep))
-            lstGlobalJunctionLines = []
-            while len(lstCurrentJLIDs) > 1:
+            if len(lstPreviousGlobalJLIDs) != len(lstCurrentJLIDs):
+                warnings.warn('Number of junction lines changed from ' + str(len(lstPreviousGlobalJLIDs)) + ' to ' + str(len(lstCurrentJLIDs)) + ' at time step ' + str(intTimeStep))
+            lstJLIDs = np.copy(lstPreviousGlobalJLIDs).tolist()
+            while len(lstCurrentJLIDs) > 0:
                 intJLID = lstCurrentJLIDs.pop(0)
-                intPreviousID = self.CorrelateMeshPoints(objDefect.GetJunctionLine(intJLID).GetMeshPoints(), lstPreviousJLIDs, 'Junction Line')
-                lstGlobalJunctionLines.append(intPreviousID)
-                lstPreviousJLIDs.remove(intPreviousID)
-            lstGlobalJunctionLines.append(lstPreviousJLIDs[0])
-            objDefect.SetGlobalJunctionLineIDs(lstGlobalJunctionLines) 
-            objDefect.SetGlobalGrainBoundaryIDs(lstGlobalGrainBoundaries)
+                intPreviousID = self.CorrelateMeshPoints(objDefect.GetJunctionLine(intJLID).GetMeshPoints(), lstJLIDs, 'Junction Line')
+                objDefect.GetJunctionLine(intJLID).SetGlobalID(intPreviousID)
+                objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(intJLID))
+                lstJLIDs.remove(intPreviousID)
         self.__dctDefects[intTimeStep] = objDefect
     def SetCellVectors(self, inCellVectors: np.array):
         self.__CellVectors = inCellVectors
@@ -917,19 +920,28 @@ class LAMMPSSummary(object):
             lstPeriodicity[j] = 'pp'
         return lstPeriodicity
     def CorrelateMeshPoints(self,arrMeshPoints: np.array, lstPreviousGlobalIDs: list, strType: str)->int: #checks to see which previous set of mesh points lie closest to the current mesh point
-        lstDistances = [] 
-        arrMean =np.mean(arrMeshPoints, axis=0)
+        lstDistances = []
+        arrMean = np.mean(arrMeshPoints, axis= 0) 
+        arrTranslation = gf.WrapVectorIntoSimulationCell(self.__CellVectors, self.__BasisConversion,arrMean) - arrMean
+        arrMean += arrTranslation
+        arrMeshPoints += arrTranslation 
         for j in lstPreviousGlobalIDs:
             if strType == 'Grain Boundary':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetMeshPoints()
+                lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetPeriodicDirections())
+                lstBoundaries = ['pp','pp','f']
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
+                lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetPeriodicDirections())
+                lstBoundaries = ['pp','pp','f']
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
-            arrTranslation = gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, ['pp','pp','pp']) -arrPreviousMean
-            #arrPreviousMeshPoints = gf.PeriodicShiftAllCloser(arrMean, arrPreviousMeshPoints,self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
-            arrPreviousMeshPoints = arrPreviousMeshPoints + arrTranslation
-            lstDistances.append(np.mean(np.amin(spatial.distance_matrix(arrMeshPoints, arrPreviousMeshPoints),axis= 0)))
-        return lstPreviousGlobalIDs[np.argmin(lstDistances)]    
+            arrTranslation = gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion,lstBoundaries)-arrPreviousMean
+            arrPreviousMean += arrTranslation
+            arrPreviousMeshPoints += arrTranslation
+            flt1 = spatial.distance.directed_hausdorff(arrMeshPoints,arrPreviousMeshPoints)[0]
+            flt2 = spatial.distance.directed_hausdorff(arrPreviousMeshPoints,arrMeshPoints)[0]
+            lstDistances.append(max(flt1,flt2))
+        return lstPreviousGlobalIDs[np.argmin(lstDistances)]   
 
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
@@ -967,13 +979,10 @@ class QuantisedCuboidPoints(object):
         self.__Coordinates = gf.CreateCuboidPoints(np.array([[0,nx-1],[0,ny-1],[0,nz-1]]))
         arrOut = objInterpolate(self.__Coordinates)
         arrOut = np.reshape(arrOut,arrModArray)
-        #arrOut = gaussian(arrOut,1, mode='wrap',multichannel = False)
         arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
         arrOut = arrOut > np.mean(arrOut)
         self.__BinaryArray = arrOut.astype('bool').astype('int')
-#        self.__BinaryArray = remove_small_holes(self.__BinaryArray.astype('bool'), 8).astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
-        #self.__Grains  = measure.label(self.__BinaryArray == 0).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
         if intGrainLabels <= 1:
             warnings.warn('Only ' + str(intGrainLabels) + ' grain(s) detected')
@@ -1169,28 +1178,64 @@ class QuantisedCuboidPoints(object):
             return np.matmul(np.matmul(self.MergeMeshPoints(np.argwhere(self.__GrainBoundariesArray.astype('int') == intGrainBoundaryID))+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
         else:
             warnings.warn(str(intGrainBoundaryID) + ' is an invalid grain boundary ID')
+#  def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
+#         lstPoints = []   #previously split over the simulation cell boundary
+#         arrDistanceMatrix = pairwise_distances(inGridPoints, metric = 'chebyshev')
+#         clustering = hdbscan.HDBSCAN(metric = 'precomputed', min_samples =)
+#         clustering.fit(arrDistanceMatrix)
+#         arrValues = clustering.labels_
+#         arrUniqueValues= np.unique(arrValues)
+#         if len(arrUniqueValues) > 1:
+#             for j in arrUniqueValues:
+#                 arrPointsToMove = inGridPoints[arrValues ==j]
+#                 for k in range(3):
+#                     if np.any(inGridPoints[:,k] == 0) and np.any(inGridPoints[:,k] == self.__ModArray[k] -1):
+#                         if np.any(arrPointsToMove[:,k] == self.__ModArray[k] -1) and not np.any(arrPointsToMove[:,k] == 0):
+#                             arrTranslation = np.zeros(3)
+#                             arrTranslation[k] = self.__ModArray[k]
+#                             arrPointsToMove = arrPointsToMove - arrTranslation        
+#                 lstPoints.append(arrPointsToMove)
+#         if len(lstPoints) > 0:
+#             rtnPoints = np.concatenate(lstPoints) 
+#             arrMatrix = pairwise_distances(rtnPoints,metric = 'chebyshev')
+#             clustering.fit(arrMatrix)
+#             intClusters = len(np.unique(clustering.labels_)) 
+#             if intClusters > 1:
+#                 warnings.warn('Merge points may have failed to form a contiguous shape as there are ' + str(intClusters) + ' cluster(s).')
+#             return rtnPoints
+#         else:
+#             return inGridPoints
     def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
-        lstPoints = []                                #previously split over the simulation cell boundary
-        clustering = DBSCAN(2,1).fit(inGridPoints)
-        arrValues = clustering.labels_
-        arrUniqueValues= np.unique(arrValues)
-        if len(arrUniqueValues) > 1:
-            for j in arrUniqueValues:
-                arrPointsToMove = inGridPoints[arrValues ==j]
+        lstPoints = []   #previously split over the simulation cell boundary
+        arrZeros = np.zeros(self.__ModArray)
+        for i in inGridPoints:
+            arrZeros[i[0],i[1],i[2]] = 1
+        arrLabelled,intLabels = ndimage.measurements.label(arrZeros, np.ones([3,3,3]))
+        if intLabels > 1:
+            arrConnected = np.zeros(3)
+            for h in range(3):
+                if list(np.unique(inGridPoints[:,h])) == list(range(self.__ModArray[h])):
+                    arrConnected[h] = 1 #if there is a contiguous path across along a coordinate direction
+            for j in range(1,intLabels+1):
+                arrPointsToMove = np.argwhere(arrLabelled == j)
                 for k in range(3):
-                    if np.any(inGridPoints[:,k] == 0) and np.any(inGridPoints[:,k] == self.__ModArray[k] -1):
-                        if np.any(arrPointsToMove[:,k] == self.__ModArray[k] -1) and not np.any(arrPointsToMove[:,k] == 0):
-                            arrTranslation = np.zeros(3)
-                            arrTranslation[k] = self.__ModArray[k]
-                            arrPointsToMove = arrPointsToMove - arrTranslation        
+                    if arrConnected[k] == 0 and np.any(arrPointsToMove[:,k] == self.__ModArray[k] -1) and np.all(arrPointsToMove[:,k] != 0):
+                        arrTranslation = np.zeros(3)
+                        arrTranslation[k] = self.__ModArray[k]
+                        arrPointsToMove = arrPointsToMove - arrTranslation
                 lstPoints.append(arrPointsToMove)
         if len(lstPoints) > 0:
-            rtnPoints = np.concatenate(lstPoints) 
-            clustering = DBSCAN(2,1).fit(rtnPoints)
-            intClusters = len(np.unique(clustering.labels_)) 
-            if intClusters > 1:
-                warnings.warn('Merge points failed to form a contiguous shape there are ' + str(intClusters) + ' cluster(s).')
-            return rtnPoints
+            rtnPoints = np.concatenate(lstPoints).astype('int') 
+            # for k in range(3):
+            #     if min(rtnPoints[:,k]) < 0:
+            #         rtnPoints += self.__ModArray[k]
+            # arrZeros = np.zeros([np.shape()]
+            # for l in rtnPoints:
+            #     arrZeros[l[0],l[1],l[2]] = 1
+            # arrLabelled,intLabels = ndimage.measurements.label(arrZeros, np.ones([3,3,3]))
+            # if intLabels > 1:
+            #     warnings.warn('Merge points may have failed to form a contiguous shape as there are ' + str(intLabels) + ' cluster(s).')
+            return np.concatenate(lstPoints)
         else:
             return inGridPoints
     def GetJunctionLinePoints(self, intJunctionLineID = None)->np.array:
