@@ -929,11 +929,9 @@ class LAMMPSSummary(object):
             if strType == 'Grain Boundary':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetMeshPoints()
                 lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetPeriodicDirections())
-                lstBoundaries = ['pp','pp','f']
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
                 lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetPeriodicDirections())
-                lstBoundaries = ['pp','pp','f']
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
             arrTranslation = gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion,lstBoundaries)-arrPreviousMean
             arrPreviousMean += arrTranslation
@@ -1110,11 +1108,13 @@ class QuantisedCuboidPoints(object):
             self.__GrainBoundariesArray += arrReturn
             self.CheckPeriodicity(arrPoints, 'GrainBoundary')
             intMaxGBNumber += intGBs
-    def CheckPeriodicity(self, inPoints: np.array, strType: str):
+    def CheckPeriodicity(self, inPoints: np.array, strType: str, inArray = None):
         if strType == 'JunctionLine':
             arrCurrent = self.__JunctionLinesArray
         elif strType == 'GrainBoundary':
             arrCurrent = self.__GrainBoundariesArray
+        elif strType == 'PassArray':
+            arrCurrent = inArray
         for j in range(3):
             lstIndicesLower = np.where(inPoints[:,j] == 0)[0]
             arrPointsLower = inPoints[lstIndicesLower]
@@ -1178,64 +1178,39 @@ class QuantisedCuboidPoints(object):
             return np.matmul(np.matmul(self.MergeMeshPoints(np.argwhere(self.__GrainBoundariesArray.astype('int') == intGrainBoundaryID))+np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion)
         else:
             warnings.warn(str(intGrainBoundaryID) + ' is an invalid grain boundary ID')
-#  def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
-#         lstPoints = []   #previously split over the simulation cell boundary
-#         arrDistanceMatrix = pairwise_distances(inGridPoints, metric = 'chebyshev')
-#         clustering = hdbscan.HDBSCAN(metric = 'precomputed', min_samples =)
-#         clustering.fit(arrDistanceMatrix)
-#         arrValues = clustering.labels_
-#         arrUniqueValues= np.unique(arrValues)
-#         if len(arrUniqueValues) > 1:
-#             for j in arrUniqueValues:
-#                 arrPointsToMove = inGridPoints[arrValues ==j]
-#                 for k in range(3):
-#                     if np.any(inGridPoints[:,k] == 0) and np.any(inGridPoints[:,k] == self.__ModArray[k] -1):
-#                         if np.any(arrPointsToMove[:,k] == self.__ModArray[k] -1) and not np.any(arrPointsToMove[:,k] == 0):
-#                             arrTranslation = np.zeros(3)
-#                             arrTranslation[k] = self.__ModArray[k]
-#                             arrPointsToMove = arrPointsToMove - arrTranslation        
-#                 lstPoints.append(arrPointsToMove)
-#         if len(lstPoints) > 0:
-#             rtnPoints = np.concatenate(lstPoints) 
-#             arrMatrix = pairwise_distances(rtnPoints,metric = 'chebyshev')
-#             clustering.fit(arrMatrix)
-#             intClusters = len(np.unique(clustering.labels_)) 
-#             if intClusters > 1:
-#                 warnings.warn('Merge points may have failed to form a contiguous shape as there are ' + str(intClusters) + ' cluster(s).')
-#             return rtnPoints
-#         else:
-#             return inGridPoints
     def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
-        lstPoints = []   #previously split over the simulation cell boundary
-        arrZeros = np.zeros(self.__ModArray)
-        for i in inGridPoints:
-            arrZeros[i[0],i[1],i[2]] = 1
-        arrLabelled,intLabels = ndimage.measurements.label(arrZeros, np.ones([3,3,3]))
-        if intLabels > 1:
-            arrConnected = np.zeros(3)
-            for h in range(3):
-                if list(np.unique(inGridPoints[:,h])) == list(range(self.__ModArray[h])):
-                    arrConnected[h] = 1 #if there is a contiguous path across along a coordinate direction
-            for j in range(1,intLabels+1):
-                arrPointsToMove = np.argwhere(arrLabelled == j)
-                for k in range(3):
-                    if arrConnected[k] == 0 and np.any(arrPointsToMove[:,k] == self.__ModArray[k] -1) and np.all(arrPointsToMove[:,k] != 0):
-                        arrTranslation = np.zeros(3)
-                        arrTranslation[k] = self.__ModArray[k]
-                        arrPointsToMove = arrPointsToMove - arrTranslation
-                lstPoints.append(arrPointsToMove)
-        if len(lstPoints) > 0:
-            rtnPoints = np.concatenate(lstPoints).astype('int') 
-            # for k in range(3):
-            #     if min(rtnPoints[:,k]) < 0:
-            #         rtnPoints += self.__ModArray[k]
-            # arrZeros = np.zeros([np.shape()]
-            # for l in rtnPoints:
-            #     arrZeros[l[0],l[1],l[2]] = 1
-            # arrLabelled,intLabels = ndimage.measurements.label(arrZeros, np.ones([3,3,3]))
-            # if intLabels > 1:
-            #     warnings.warn('Merge points may have failed to form a contiguous shape as there are ' + str(intLabels) + ' cluster(s).')
-            return np.concatenate(lstPoints)
+        lstPoints = []   #previously split over the simulation cell boundaries
+        clustering = hdbscan.HDBSCAN(metric = 'chebyshev')
+        clustering.fit(inGridPoints)
+        arrLabels = clustering.labels_
+        intLabels = len(np.unique(arrLabels))
+        if intLabels > 1: 
+            arrConnected = np.ones(3) #assumes the defect is connected in all three directions
+            lstPoints.append(inGridPoints)
+            arrTotal = np.copy(inGridPoints)
+            for j in range(3):
+                arrTranslation = np.zeros(3)
+                if list(np.unique(inGridPoints[:,j])) != list(range(self.__ModArray[j])): #check the points don't span the entire cell
+                    arrConnected[j] = 0 #sets this direction as not connected
+                    arrTranslation[j] = self.__ModArray[j]
+                    lstPoints.append(arrTotal + arrTranslation)
+                    lstPoints.append(arrTotal - arrTranslation)
+                    arrTotal = np.concatenate(lstPoints)
+            for k in range(3): #only include a wrapper of length half the cell size extended in each co-ordinate direction
+                if arrConnected[k] == 0:
+                    arrNearPoints = np.where((arrTotal[:,k] >= -self.__ModArray[k]/2) & (arrTotal[:,k] < 3*self.__ModArray[k]/2))[0]
+                    arrTotal = arrTotal[arrNearPoints]  
+            clustering = hdbscan.HDBSCAN(metric = 'chebyshev')
+            clustering.fit(arrTotal)
+            arrLabels = clustering.labels_
+            arrUniqueValues, arrCounts = np.unique(arrLabels, return_counts = True)
+            intMaxValue = max(arrCounts)
+            arrMaxLabels = arrUniqueValues[arrCounts == intMaxValue]
+            lstDistances = []
+            for l in arrMaxLabels:
+                arrPoints = arrTotal[arrLabels == l]
+                lstDistances.append(np.linalg.norm(np.mean(arrPoints,axis=0) - 0.5*self.__ModArray))
+            return arrTotal[arrLabels == arrMaxLabels[np.argmin(lstDistances)]]
         else:
             return inGridPoints
     def GetJunctionLinePoints(self, intJunctionLineID = None)->np.array:
