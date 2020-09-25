@@ -9,7 +9,7 @@ from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 from skimage.filters import gaussian
 from skimage import measure
 from sklearn.cluster import DBSCAN
-import hdbscan
+#import hdbscan
 import shapely as sp
 import copy
 import warnings
@@ -1180,28 +1180,31 @@ class QuantisedCuboidPoints(object):
             warnings.warn(str(intGrainBoundaryID) + ' is an invalid grain boundary ID')
     def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
         lstPoints = []   #previously split over the simulation cell boundaries
-        clustering = hdbscan.HDBSCAN(metric = 'chebyshev')
-        clustering.fit(inGridPoints)
+        arrDistanceMatrix = pairwise_distances(inGridPoints)
+        clustering = DBSCAN(eps=2, metric = 'precomputed').fit(arrDistanceMatrix)
         arrLabels = clustering.labels_
         intLabels = len(np.unique(arrLabels))
         if intLabels > 1: 
             arrConnected = np.ones(3) #assumes the defect is connected in all three directions
-            lstPoints.append(inGridPoints)
+            lstPoints = []
             arrTotal = np.copy(inGridPoints)
             for j in range(3):
                 arrTranslation = np.zeros(3)
                 if list(np.unique(inGridPoints[:,j])) != list(range(self.__ModArray[j])): #check the points don't span the entire cell
                     arrConnected[j] = 0 #sets this direction as not connected
                     arrTranslation[j] = self.__ModArray[j]
+                    lstPoints.append(arrTotal)
                     lstPoints.append(arrTotal + arrTranslation)
                     lstPoints.append(arrTotal - arrTranslation)
                     arrTotal = np.concatenate(lstPoints)
+                    lstPoints = []
+            arrTotal = np.unique(arrTotal,axis = 0)
             for k in range(3): #only include a wrapper of length half the cell size extended in each co-ordinate direction
                 if arrConnected[k] == 0:
                     arrNearPoints = np.where((arrTotal[:,k] >= -self.__ModArray[k]/2) & (arrTotal[:,k] < 3*self.__ModArray[k]/2))[0]
                     arrTotal = arrTotal[arrNearPoints]  
-            clustering = hdbscan.HDBSCAN(metric = 'chebyshev')
-            clustering.fit(arrTotal)
+            arrDistanceMatrix = arrDistanceMatrix = pairwise_distances(arrTotal)    
+            clustering = DBSCAN(eps=2, metric = 'precomputed').fit(arrDistanceMatrix)
             arrLabels = clustering.labels_
             arrUniqueValues, arrCounts = np.unique(arrLabels, return_counts = True)
             intMaxValue = max(arrCounts)
