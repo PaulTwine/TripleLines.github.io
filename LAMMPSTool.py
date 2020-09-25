@@ -1181,7 +1181,7 @@ class QuantisedCuboidPoints(object):
     def MergeMeshPoints(self, inGridPoints: np.array):#This merges grain boundaries or junction lines so they form one group of points when they were
         lstPoints = []   #previously split over the simulation cell boundaries
         arrDistanceMatrix = pairwise_distances(inGridPoints)
-        clustering = DBSCAN(eps=2, metric = 'precomputed').fit(arrDistanceMatrix)
+        clustering = DBSCAN(eps=2, metric = 'precomputed', min_samples = 1).fit(arrDistanceMatrix)
         arrLabels = clustering.labels_
         intLabels = len(np.unique(arrLabels))
         if intLabels > 1: 
@@ -1201,10 +1201,10 @@ class QuantisedCuboidPoints(object):
             arrTotal = np.unique(arrTotal,axis = 0)
             for k in range(3): #only include a wrapper of length half the cell size extended in each co-ordinate direction
                 if arrConnected[k] == 0:
-                    arrNearPoints = np.where((arrTotal[:,k] >= -self.__ModArray[k]/2) & (arrTotal[:,k] < 3*self.__ModArray[k]/2))[0]
+                    arrNearPoints = np.where((arrTotal[:,k] >= -self.__ModArray[k]/2) & (arrTotal[:,k] <= 3*self.__ModArray[k]/2))[0]
                     arrTotal = arrTotal[arrNearPoints]  
             arrDistanceMatrix = arrDistanceMatrix = pairwise_distances(arrTotal)    
-            clustering = DBSCAN(eps=2, metric = 'precomputed').fit(arrDistanceMatrix)
+            clustering = DBSCAN(eps=2, metric = 'precomputed',min_samples = 1).fit(arrDistanceMatrix)
             arrLabels = clustering.labels_
             arrUniqueValues, arrCounts = np.unique(arrLabels, return_counts = True)
             intMaxValue = max(arrCounts)
