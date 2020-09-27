@@ -798,7 +798,7 @@ class LAMMPSSummary(object):
     def GetDefectObject(self, fltTimeStep):
         return self.__dctDefects[fltTimeStep]
     def GetTimeSteps(self):
-        return list(self.__dctDefects.keys())
+        return sorted(list(self.__dctDefects.keys()))
     def GetTimeStepPosition(self, fltTimeStep)->int:
         return list(self.__dctDefects.keys()).index(fltTimeStep)
     def ReadInData(self, strFilename: str, blnCorrelateDefects = False):
@@ -922,23 +922,26 @@ class LAMMPSSummary(object):
     def CorrelateMeshPoints(self,arrMeshPoints: np.array, lstPreviousGlobalIDs: list, strType: str)->int: #checks to see which previous set of mesh points lie closest to the current mesh point
         lstDistances = []
         arrMean = np.mean(arrMeshPoints, axis= 0) 
-        arrTranslation = gf.WrapVectorIntoSimulationCell(self.__CellVectors, self.__BasisConversion,arrMean) - arrMean
-        arrMean += arrTranslation
-        arrMeshPoints += arrTranslation 
+        #arrMovedMean =  gf.WrapVectorIntoSimulationCell(self.__CellVectors, self.__BasisConversion,arrMean) 
+       # arrTranslation = gf.PeriodicShiftCloser(np.zeros(3), arrMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes) - arrMean
+        #arrMeshPoints = arrMeshPoints + (arrMovedMean - arrMean)
         for j in lstPreviousGlobalIDs:
             if strType == 'Grain Boundary':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetMeshPoints()
-                lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetPeriodicDirections())
+               # lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetPeriodicDirections())
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
-                lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetPeriodicDirections())
+               # lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetPeriodicDirections())
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
-            arrTranslation = gf.PeriodicShiftCloser(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion,lstBoundaries)-arrPreviousMean
-            arrPreviousMean += arrTranslation
-            arrPreviousMeshPoints += arrTranslation
+            fltDistance, arrEquivalentVector, arrPeriodicShift = gf.PeriodicEquivalentMovement(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+            arrPreviousMeshPoints = arrPreviousMeshPoints - arrPeriodicShift
             flt1 = spatial.distance.directed_hausdorff(arrMeshPoints,arrPreviousMeshPoints)[0]
             flt2 = spatial.distance.directed_hausdorff(arrPreviousMeshPoints,arrMeshPoints)[0]
             lstDistances.append(max(flt1,flt2))
+        fltMin = min(lstDistances)
+        if fltMin > 8.1:
+            warnings.warn('Possible error as the Hausdorff distance is ' + str(min(lstDistances)) + ' at time step ' + str(self.GetTimeSteps()[-1])
+            + ' for ' + str(strType) + ' ' + str(j))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]   
 
 class QuantisedCuboidPoints(object):
@@ -1201,7 +1204,7 @@ class QuantisedCuboidPoints(object):
             arrTotal = np.unique(arrTotal,axis = 0)
             for k in range(3): #only include a wrapper of length half the cell size extended in each co-ordinate direction
                 if arrConnected[k] == 0:
-                    arrNearPoints = np.where((arrTotal[:,k] >= -self.__ModArray[k]/2) & (arrTotal[:,k] <= 3*self.__ModArray[k]/2))[0]
+                    arrNearPoints = np.where((arrTotal[:,k] >= -self.__ModArray[k]/2) & (arrTotal[:,k] < 3*self.__ModArray[k]/2))[0]
                     arrTotal = arrTotal[arrNearPoints]  
             arrDistanceMatrix = arrDistanceMatrix = pairwise_distances(arrTotal)    
             clustering = DBSCAN(eps=2, metric = 'precomputed',min_samples = 1).fit(arrDistanceMatrix)

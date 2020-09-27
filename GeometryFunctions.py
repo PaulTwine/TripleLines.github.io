@@ -8,6 +8,7 @@ import numpy as np
 import itertools as it
 import scipy as sc
 from sklearn.cluster import DBSCAN
+import warnings
 #import shapely as sp
 #import geopandas as gpd
 #All angles are assumed to be in radians
@@ -166,7 +167,7 @@ def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisCo
                         arrPointsToMove = PeriodicShiftAllCloser(arrFixedPoint, arrPointsToMove, inCellVectors, inBasisConversion, inBoundaryList)
                         lstPoints.append(arrPointsToMove)
         return np.concatenate(lstPoints)
-def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
+def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
         if len(np.shape(inVector)) > 1:
                 if np.shape(inVector)[1] == 2:
                         inMatrix = inMatrix[:2,:2]
@@ -177,7 +178,10 @@ def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVect
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
         #arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
-        return np.matmul(arrCoefficients, inMatrix) #return the wrapped vector in the standard basis
+        if blnReturnCellCoordinates:
+                return np.matmul(arrCoefficients, inMatrix),arrCoefficients #return the wrapped vector in the standard basis
+        else:        
+                return np.matmul(arrCoefficients, inMatrix)
 def CheckVectorIsInSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
         arrCellCoordinates = np.matmul(inVector, invMatrix)
         arrModCoordinates = np.mod(arrCellCoordinates,np.ones(np.shape(arrCellCoordinates)))
@@ -200,25 +204,33 @@ def QuantisedVector(inVector: np.array)->np.array: #2D only for now!
                 arrReturn[j,intCol] = j
                 arrReturn[j, 1-intCol] = np.round(j*fltRatio)   
         return arrReturn.astype('int')
-def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array: 
-        lstOfArrays =[]
-        lstOfArrays.append(inPositionVector)
-        arrVector = np.array([inPositionVector])                        
-        arrCellCoordinates = np.matmul(inPositionVector, inBasisConversion)
+def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnInsideCell=False)->np.array: 
+       
+        #inPositionVector, arrCellCoordinates = WrapVectorIntoSimulationCell(inCellVectors, inBasisConversion,inVector, True)
+        # if np.any(np.round(inPositionVector,5) != np.round(inVector,5)) and blnPositionVector:
+        #         warnings.warn('PeriodicEquivalents called on vector outside simulation cell')
+        arrCoefficients = np.matmul(inPositionVector, inBasisConversion) #find the coordinates in the simulation cell basis
+        arrVector = np.copy(inPositionVector)
+        lstOfArrays = []  
         for i,strBoundary in enumerate(inBoundaryList):
-            if strBoundary == 'pp':
-                 if  arrCellCoordinates[i] > 0.5:
-                     #arrVector = np.append(arrVector, np.subtract(arrVector,inCellVectors[i]),axis=0)
-                     lstOfArrays.append(np.subtract(arrVector,inCellVectors[i]))
-                 elif arrCellCoordinates[i] <= 0.5:
-                     #arrVector = np.append(arrVector, np.add(arrVector,inCellVectors[i]),axis=0)                  
-                     lstOfArrays.append(np.add(arrVector,inCellVectors[i]))
-        return np.vstack(lstOfArrays)
-def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
-        arrPoints = np.array(list(map(lambda x: PeriodicShiftCloser(inFixedPoint, x, inCellVectors, inBasisConversion, inBoundaryList), inAllPointsToShift)))
+                if strBoundary == 'pp':
+                        lstOfArrays.append(arrVector)
+                        if blnInsideCell: #limits the search to points within +/- 0.5 of each periodic vecotr
+                                if  arrCoefficients[i] > 0.5:
+                                        lstOfArrays.append(arrVector - inCellVectors[i])
+                                elif arrCoefficients[i] <= 0.5:
+                                        lstOfArrays.append(arrVector+ inCellVectors[i])
+                        else:
+                                lstOfArrays.append(arrVector+inCellVectors[i])
+                                lstOfArrays.append(arrVector-inCellVectors[i])
+                        arrVector = np.vstack(lstOfArrays)
+                        lstOfArrays = []
+        return arrVector
+def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnNearyBy = False)->np.array:
+        arrPoints = np.array(list(map(lambda x: PeriodicShiftCloser(inFixedPoint, x, inCellVectors, inBasisConversion, inBoundaryList, blnNearyBy), inAllPointsToShift)))
         return arrPoints
-def PeriodicShiftCloser(inFixedPoint: np.array, inPointToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
-        arrPeriodicVectors = PeriodicEquivalents(inPointToShift, inCellVectors, inBasisConversion, inBoundaryList)
+def PeriodicShiftCloser(inFixedPoint: np.array, inPointToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnNearyBy=False)->np.array:
+        arrPeriodicVectors = PeriodicEquivalents(inPointToShift, inCellVectors, inBasisConversion, inBoundaryList, blnNearyBy)
         fltDistances = list(map(np.linalg.norm, np.subtract(arrPeriodicVectors, inFixedPoint)))
         return arrPeriodicVectors[np.argmin(fltDistances)]
 def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
@@ -230,6 +242,30 @@ def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCel
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
         return np.linalg.norm(inVector2-inVector1, axis=0)
+def PeriodicEquivalentMovement(inVector1, inVector2,inCellVectors, inBasisConversion, inBoundaryList, intAccuracy = 5):
+        intDim = len(inVector1)
+       # arrUnitBasis = np.array(list(map(lambda x: NormaliseVector(x), inCellVectors)))
+        arrTranslation = inVector2- inVector1
+        arrCoefficients = np.matmul(arrTranslation,inBasisConversion)
+        arrIntegers = np.round(arrCoefficients,0)
+      #  arrDecimals = np.mod(arrCoefficients, np.ones(intDim)) 
+        arrDecimals = arrCoefficients - arrIntegers
+        arrOriginalDecimals = np.copy(arrDecimals)
+        lstOfArrays = []
+        arrChange = np.zeros([intDim**3,intDim])
+        for i, value in enumerate(inBoundaryList):
+                lstOfArrays.append(arrDecimals)
+                arrChange =np.zeros(intDim)
+                arrChange[i] = 1
+                if value =='pp':
+                        lstOfArrays.append(arrDecimals - arrChange)
+                        lstOfArrays.append(arrDecimals + arrChange)
+                arrDecimals = np.vstack(lstOfArrays)
+                lstOfArrays = []
+        arrDistances = np.array(list(map(lambda x: np.sqrt(InnerProduct(x,x,inCellVectors)),arrDecimals)))
+        intMin = np.argmin(arrDistances)
+        arrIntegerMove = arrIntegers + (arrDecimals[intMin] - arrOriginalDecimals)
+        return arrDistances[intMin], np.matmul(arrIntegers + arrDecimals[intMin], inCellVectors), np.matmul(arrIntegerMove, inCellVectors)
 def PowerRule(r, a,b):
         return b*r**a
 def LinearRule(r,m,c):

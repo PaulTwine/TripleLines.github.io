@@ -544,9 +544,9 @@ class DefectMeshObject(object):
         self.__PE = 0
         self.__WrappedMeshPoints = []
     def GetMeshPoints(self):
-        return self.__MeshPoints
+        return np.copy(self.__MeshPoints)
     def GetWrappedMeshPoints(self):
-        return self.__WrappedMeshPoints
+        return np.copy(self.__WrappedMeshPoints)
     def SetWrappedMeshPoints(self, inPoints):
         self.__WrappedMeshPoints = inPoints
     def SetGlobalID(self, intID):
