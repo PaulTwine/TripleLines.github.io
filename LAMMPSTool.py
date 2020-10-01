@@ -3,7 +3,7 @@ import numpy as np
 import GeometryFunctions as gf
 import GeneralLattice as gl
 from scipy import spatial, optimize, ndimage, stats 
-from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes, remove_small_objects, skeletonize_3d
+from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes, remove_small_objects, skeletonize_3d, binary_dilation
 from scipy.cluster.vq import kmeans,vq
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 from skimage.filters import gaussian
@@ -1008,6 +1008,7 @@ class QuantisedCuboidPoints(object):
         self.__JunctionLines = []
         nx,ny,nz = np.shape(arrValues)
         self.__ModArray = arrModArray
+        self.__Dilations = 0
         arrCoordinates = (np.linspace(0,nx-1,nx),np.linspace(0,ny-1,ny),
                              np.linspace(0,nz-1,nz))
         for m in range(len(arrCuboidPoints)):
@@ -1021,7 +1022,19 @@ class QuantisedCuboidPoints(object):
         arrOut = objInterpolate(self.__Coordinates)
         arrOut = np.reshape(arrOut,arrModArray)
         arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
-        arrOut = arrOut > np.mean(arrOut)
+        arrOut = (arrOut > np.mean(arrOut))
+        arrOut = arrOut.astype('bool').astype('int') # convert to binary
+        arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
+        intDilations = 0
+        while intConnections != 1:
+            arrOut = (arrOut > 0)
+            arrOut = arrOut.astype('bool').astype('int') # convert to binary
+            arrOut = binary_dilation(arrOut, np.ones([3,3,3]))
+            arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
+            intDilations += 1
+        if intDilations > 0:
+            warnings.warn('The process took ' +  str(intDilations) + ' binary dilation(s) to form a connected defective array.')
+        self.__Dilations = intDilations
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
@@ -1204,7 +1217,7 @@ class QuantisedCuboidPoints(object):
             if len(arrBox) > 0:
                 arrValues, arrCounts = np.unique(arrBox, return_counts = True)
                 intGrain = arrValues[np.argmax(arrCounts)]
-                if len(np.argwhere(arrValues == intGrain)) ==1 or n > 5:
+                if len(np.argwhere(arrValues == intGrain)) ==1 or n > 5 + self.__Dilations:
                     self.__ExpandedGrains[l[0],l[1],l[2]] = intGrain
                     counter += 1
                 else:
