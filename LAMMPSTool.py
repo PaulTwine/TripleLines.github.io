@@ -10,7 +10,7 @@ from skimage.filters import gaussian
 from skimage import measure
 from sklearn.cluster import DBSCAN
 #import hdbscan
-import shapely as sp
+#import shapely as sp
 import copy
 import warnings
 from functools import reduce
@@ -238,7 +238,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._intPositionY = int(self.GetColumnNames().index('y'))
         self._intPositionZ = int(self.GetColumnNames().index('z'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
-        self.__fltGrainTolerance = 3.14
+        self.__fltGrainTolerance = 1.96
         self.__DefectiveAtomIDs = []
         self.__NonDefectiveAtomIDs = []
         self.FindPlaneNormalVectors()
@@ -299,8 +299,6 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         return self.GetAtomsByID(self.__DefectiveAtomIDs)
     def GetNonPTMAtoms(self):
         return self.GetAtomsByID(self.__NonPTMAtomIDs)
-    # def GetUnknownAtoms(self):
-    #     return self.GetRows(self.__UnknownAtoms) 
     def GetPTMAtoms(self):
         return self.GetAtomsByID(self.__PTMAtomIDs)  
     def GetOtherAtoms(self):
@@ -430,9 +428,15 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__LatticeParameter = fltLatticeParameter
         self.__GrainLabels = []
         self.__JunctionLineIDs = []
+        self.__GrainBoundaryIDs = [] 
+        self.__blnPEAssigned = False
+        self.__blnVolumeAssigned = False
+        self.__blnAdjustedMeshPointsAssigned = False
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
-    def LabelAtomsByGrain(self):
+    def LabelAtomsByGrain(self, fltRadius = None):
+        if fltRadius is None:
+            fltRadius = 3*self.__LatticeParameter
         objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
         lstGrainAtoms = self.GetLatticeAtomIDs()
         lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
@@ -454,7 +458,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
             for l in self.__GrainBoundaries[k].GetWrappedMeshPoints():
-                lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, 3*self.__LatticeParameter))
+                lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, fltRadius))
                 self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
         self.CheckBoundaries()   
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
@@ -473,11 +477,23 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__JunctionLines[i].SetTotalPE(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intPE)))
         for j in self.__GrainBoundaryIDs:
             self.__GrainBoundaries[j].SetTotalPE(np.sum(self.GetColumnByIDs(self.__GrainBoundaries[j].GetAtomIDs(),self._intPE)))
+        self.__blnPEAssigned = True
     def AssignVolumes(self):
         for i in self.__JunctionLineIDs:
             self.__JunctionLines[i].SetVolume(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intVolume)))
         for j in self.__GrainBoundaryIDs:
             self.__GrainBoundaries[j].SetVolume(np.sum(self.GetColumnByIDs(self.__GrainBoundaries[j].GetAtomIDs(),self._intVolume)))
+        self.__blnVolumeAssigned = True
+    def AssignAdjustedMeshPoints(self):
+        for i in self.__JunctionLineIDs:
+            arrMeshPoints = self.__JunctionLines[i].GetMeshPoints()
+            arrAdjustedMeshPoints = np.array(list(map(lambda x: np.mean(self.GetAtomsByID(self.FindSphericalAtoms(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,0:4],x,3*self.__LatticeParameter, True))[:,1:4],axis=0), arrMeshPoints)))
+            self.__JunctionLines[i].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+        for j in self.__GrainBoundaryIDs:
+            arrMeshPoints = self.__GrainBoundaries[j].GetMeshPoints()
+            arrAdjustedMeshPoints = np.array(list(map(lambda x: np.mean(self.GetAtomsByID(self.FindSphericalAtoms(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,0:4],x,3*self.__LatticeParameter, True))[:,1:4],axis=0), arrMeshPoints)))
+            self.__GrainBoundaries[i].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+        self.__blnAdjustedMeshPointsAssigned = True
     def MakeGrainTrees(self):
         lstGrainLabels = self.__GrainLabels
         if 0 in lstGrainLabels:
@@ -686,10 +702,15 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('{} \n'.format(self.__JunctionLines[i].GetPeriodicDirections()))
                 fdata.write('Atom IDs \n')
                 fdata.write('{} \n'.format(self.__JunctionLines[i].GetAtomIDs()))
-                fdata.write('Volume \n')
-                fdata.write('{} \n'.format(self.__JunctionLines[i].GetVolume()))
-                fdata.write('PE \n')
-                fdata.write('{} \n'.format(self.__JunctionLines[i].GetTotalPE()))
+                if self.__blnVolumeAssigned: #optional data writing should be put here with a boolean flag
+                    fdata.write('Volume \n')
+                    fdata.write('{} \n'.format(self.__JunctionLines[i].GetVolume()))
+                if self.__blnPEAssigned:
+                    fdata.write('PE \n')
+                    fdata.write('{} \n'.format(self.__JunctionLines[i].GetTotalPE()))
+                if self.__blnAdjustedMeshPointsAssigned:
+                    fdata.write('Adjusted Mesh Points \n')
+                    fdata.write('{} \n'.format(self.__JunctionLines[i].GetAdjustedMeshPoints().tolist()))
             for k in self.__GrainBoundaryIDs:
                 fdata.write('Grain Boundary \n')
                 fdata.write('{} \n'.format(k))
@@ -703,10 +724,15 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetPeriodicDirections()))
                 fdata.write('Atom IDs \n')
                 fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAtomIDs()))
-                fdata.write('Volume \n')
-                fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetVolume()))
-                fdata.write('PE \n')
-                fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetTotalPE()))
+                if self.__blnVolumeAssigned: #optional data writing should be put here with a boolean flag
+                    fdata.write('Volume \n')
+                    fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetVolume()))
+                if self.__blnPEAssigned:
+                    fdata.write('PE \n')
+                    fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetTotalPE()))
+                if self.__blnAdjustedMeshPointsAssigned:
+                    fdata.write('Adjusted Mesh Points \n')
+                    fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAdjustedMeshPoints().tolist()))
             fdata.write('Grain Numbers \n')
             fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).astype('int').tolist()))
     def ReadInDefectData(self, strFilename: str):
@@ -747,6 +773,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         if line == "PE":
                             line = next(fdata).strip()
                             objJunctionLine.SetTotalPE(eval(line))
+                        if line == "Adjusted Mesh Points":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetAdjustedMeshPoints(eval(line))
                         self.__JunctionLines[intJL] = objJunctionLine
                     elif line == "Grain Boundary":
                         intGB = int(next(fdata).strip())
@@ -779,6 +808,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         if line == "PE":
                             line = next(fdata).strip()
                             objGrainBoundary.SetTotalPE(eval(line))
+                        if line == "Adjusted Mesh Points":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetAdjustedMeshPoints(eval(line))
                         self.__GrainBoundaries[intGB] = objGrainBoundary
                     elif line == "Grain Numbers": 
                         line = next(fdata).strip()
@@ -843,6 +875,9 @@ class LAMMPSSummary(object):
                     if line == "PE":
                         line = next(fdata).strip()
                         objJunctionLine.SetTotalPE(eval(line))
+                    if line == "Adjusted Mesh Points":
+                        line = next(fdata).strip()
+                        objJunctionLine.SetAdjustedMeshPoints(eval(line))
                     objDefect.AddJunctionLine(objJunctionLine)
                 if line == "Grain Boundary":
                     intGB = int(next(fdata).strip())
@@ -875,6 +910,9 @@ class LAMMPSSummary(object):
                     if line == "PE":
                         line = next(fdata).strip()
                         objGrainBoundary.SetTotalPE(eval(line))
+                    if line == "Adjusted Mesh Points":
+                        line = next(fdata).strip()
+                        objGrainBoundary.SetAdjustedMeshPoints(eval(line))
                     objDefect.AddGrainBoundary(objGrainBoundary)
         if len(list(self.__dctDefects.keys())) == 0 and blnCorrelateDefects: 
             for i in objDefect.GetGrainBoundaryIDs():
@@ -890,9 +928,11 @@ class LAMMPSSummary(object):
             if len(lstPreviousGlobalGBIDs) != len(lstCurrentGBIDs):
                 warnings.warn('Number of grain boundaries changed from ' + str(len(lstPreviousGlobalGBIDs)) + ' to ' + str(len(lstCurrentGBIDs)) + ' at time step ' + str(intTimeStep))
             lstGBIDs = lstPreviousGlobalGBIDs
+            lstMapToGlobalGB = []
             while len(lstCurrentGBIDs) > 0:
                 intGBID = lstCurrentGBIDs.pop(0)
                 intPreviousID = self.CorrelateMeshPoints(objDefect.GetGrainBoundary(intGBID).GetMeshPoints(), lstGBIDs, 'Grain Boundary')
+                lstMapToGlobalGB.append(intPreviousID)
                 objDefect.GetGrainBoundary(intGBID).SetGlobalID(intPreviousID)
                 objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(intGBID))
                 lstGBIDs.remove(intPreviousID)
@@ -933,7 +973,7 @@ class LAMMPSSummary(object):
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
                # lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetPeriodicDirections())
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
-            fltDistance, arrEquivalentVector, arrPeriodicShift = gf.PeriodicEquivalentMovement(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)
+            arrPeriodicShift = gf.PeriodicEquivalentMovement(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)[2]
             arrPreviousMeshPoints = arrPreviousMeshPoints - arrPeriodicShift
             flt1 = spatial.distance.directed_hausdorff(arrMeshPoints,arrPreviousMeshPoints)[0]
             flt2 = spatial.distance.directed_hausdorff(arrPreviousMeshPoints,arrMeshPoints)[0]

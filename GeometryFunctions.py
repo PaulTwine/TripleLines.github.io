@@ -167,6 +167,12 @@ def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisCo
                         arrPointsToMove = PeriodicShiftAllCloser(arrFixedPoint, arrPointsToMove, inCellVectors, inBasisConversion, inBoundaryList)
                         lstPoints.append(arrPointsToMove)
         return np.concatenate(lstPoints)
+def IsVectorOutsideSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array):
+        arrCoefficients = np.matmul(inVector, invMatrix)
+        if np.any(arrCoefficients >= 1) or np.an(arrCoefficients < 0):
+                return True
+        else:
+                return False
 def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
         if len(np.shape(inVector)) > 1:
                 if np.shape(inVector)[1] == 2:
@@ -177,7 +183,6 @@ def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVect
                 invMatrix = invMatrix[:2,:2]                
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
-        #arrCoefficients = np.where(abs(arrCoefficients-1) < 0.000001, 0 ,arrCoefficients)
         if blnReturnCellCoordinates:
                 return np.matmul(arrCoefficients, inMatrix),arrCoefficients #return the wrapped vector in the standard basis
         else:        
@@ -205,10 +210,6 @@ def QuantisedVector(inVector: np.array)->np.array: #2D only for now!
                 arrReturn[j, 1-intCol] = np.round(j*fltRatio)   
         return arrReturn.astype('int')
 def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnInsideCell=False)->np.array: 
-       
-        #inPositionVector, arrCellCoordinates = WrapVectorIntoSimulationCell(inCellVectors, inBasisConversion,inVector, True)
-        # if np.any(np.round(inPositionVector,5) != np.round(inVector,5)) and blnPositionVector:
-        #         warnings.warn('PeriodicEquivalents called on vector outside simulation cell')
         arrCoefficients = np.matmul(inPositionVector, inBasisConversion) #find the coordinates in the simulation cell basis
         arrVector = np.copy(inPositionVector)
         lstOfArrays = []  
@@ -244,11 +245,9 @@ def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVecto
         return np.linalg.norm(inVector2-inVector1, axis=0)
 def PeriodicEquivalentMovement(inVector1, inVector2,inCellVectors, inBasisConversion, inBoundaryList, intAccuracy = 5):
         intDim = len(inVector1)
-       # arrUnitBasis = np.array(list(map(lambda x: NormaliseVector(x), inCellVectors)))
         arrTranslation = inVector2- inVector1
         arrCoefficients = np.matmul(arrTranslation,inBasisConversion)
         arrIntegers = np.round(arrCoefficients,0)
-      #  arrDecimals = np.mod(arrCoefficients, np.ones(intDim)) 
         arrDecimals = arrCoefficients - arrIntegers
         arrOriginalDecimals = np.copy(arrDecimals)
         lstOfArrays = []
@@ -264,7 +263,7 @@ def PeriodicEquivalentMovement(inVector1, inVector2,inCellVectors, inBasisConver
                 lstOfArrays = []
         arrDistances = np.array(list(map(lambda x: np.sqrt(InnerProduct(x,x,inCellVectors)),arrDecimals)))
         intMin = np.argmin(arrDistances)
-        arrIntegerMove = arrIntegers + (arrDecimals[intMin] - arrOriginalDecimals)
+        arrIntegerMove = arrIntegers + (arrDecimals[intMin] - arrOriginalDecimals) #returns real distance, shortest vector, periodic part of movement
         return arrDistances[intMin], np.matmul(arrIntegers + arrDecimals[intMin], inCellVectors), np.matmul(arrIntegerMove, inCellVectors)
 def PowerRule(r, a,b):
         return b*r**a

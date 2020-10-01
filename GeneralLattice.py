@@ -1,6 +1,6 @@
 import numpy as np
 import GeometryFunctions as gf
-import LatticeShapes as ls
+#import LatticeShapes as ls
 import LatticeDefinitions as ld
 import scipy as sc
 from sympy.parsing.sympy_parser import parse_expr
@@ -238,14 +238,18 @@ class SimulationCell(object):
         self.Dimensions = len(inBoxVectors[0])
         self.BoundaryTypes = ['p']*self.Dimensions #assume periodic boundary conditions as a default
         self.SetOrigin(np.zeros(self.Dimensions))
-        self.GrainList = [] #list of RealGrain objects which form the simulation cell
+        self.dctGrains = dict() #dictionary of RealGrain objects which form the simulation cell
         self.SetParallelpipedVectors(inBoxVectors)
         self.blnPointsAreWrapped = False
         self.__FileHeader = ''
-    def AddGrain(self,inGrain):
-        self.GrainList.append(inGrain)
-    def GetGrain(self, intGrainIndex: int):
-        return self.GrainList[intGrainIndex]
+        self.GrainList = []
+    def AddGrain(self,inGrain, strName = None):
+        if strName is None:
+            strName = str(len(self.dctGrains.keys())+1)
+        self.dctGrains[strName] = inGrain
+        self.GrainList = list(self.dctGrains.keys())
+    def GetGrain(self, strName: str):
+        return self.dctGrains[strName]
     def GetNumberOfGrains(self)->int:
         return len(self.GrainList)
     def GetTotalNumberOfAtoms(self):
@@ -254,17 +258,16 @@ class SimulationCell(object):
         else: 
             intNumberOfAtoms = 0
             for j in self.GrainList:
-                intNumberOfAtoms += j.GetNumberOfAtoms()
+                intNumberOfAtoms += self.GetGrain(j).GetNumberOfAtoms()
         return intNumberOfAtoms
     def GetRealBasisVectors(self):
         return self.__BasisVectors
-    def SetBoundaryTypes(self,inPosition: int, inString: str): #boundaries can be periodic 'p' or fixed 'f'
-        if (inString == 'p' or inString == 'f'): 
-            self.BoundaryTypes[inPosition] = inString    
+    def SetBoundaryTypes(self,inList: list): #boundaries can be periodic 'p' or fixed 'f'
+        self.BoundaryTypes = inList    
     def GetNumberOfAtomTypes(self):
         lstAtomTypes = []
         for j in self.GrainList:
-            intCurrentAtomType = j.GetAtomType()
+            intCurrentAtomType = self.GetGrain(j).GetAtomType()
             if intCurrentAtomType not in lstAtomTypes: 
                 lstAtomTypes.append(intCurrentAtomType)
         return len(lstAtomTypes)
@@ -285,10 +288,6 @@ class SimulationCell(object):
         self.__FileHeader = inString
     def WrapVectorIntoSimulationBox(self, inVector: np.array)->np.array:
         return gf.WrapVectorIntoSimulationCell(self.__BasisVectors, self.__InverseBasis, inVector)
-        #arrCoefficients = np.matmul(inVector, self.__InverseUnitBasis) #find the coordinates in the simulation cell basis
-        #arrVectorLengths = np.linalg.norm(self.__BasisVectors, axis = 1)
-        #arrCoefficients = np.mod(arrCoefficients, arrVectorLengths) #move so that they lie inside cell 
-        #return np.matmul(arrCoefficients, self.__UnitBasisVectors) #return the wrapped vector in the standard basis
     def WriteLAMMPSDataFile(self,inFileName: str):        
         now = datetime.now()
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
@@ -311,8 +310,8 @@ class SimulationCell(object):
             else:
                 count = 1
                 for j in self.GrainList:
-                    for position in j.GetRealPoints():
-                        fdata.write('{} {} {} {} {}\n'.format(count,j.GetAtomType(), *position))
+                    for position in self.GetGrain(j).GetRealPoints():
+                        fdata.write('{} {} {} {} {}\n'.format(count,self.GetGrain(j).GetAtomType(), *position))
                         count = count + 1
     def SetOrigin(self,inOrigin: np.array):
         self.__Origin = inOrigin
@@ -342,30 +341,18 @@ class SimulationCell(object):
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
         i = 0
-        for objGrain in self.GrainList:
-            for fltPoint in objGrain.GetRealPoints():
-                arrAllAtomTypes[i] = objGrain.GetAtomType()
+        for j in self.GrainList:
+            for fltPoint in self.GetGrain(j).GetRealPoints():
+                arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
         arrAllAtoms = np.round(self.WrapVectorIntoSimulationBox(arrAllAtoms),intRound)
         self.__UniqueRealPoints,lstUniqueRowindices = np.unique(arrAllAtoms,axis=0,return_index=True)
         self.__AtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
         self.blnPointsAreWrapped = True
-    def ApplySimulationCellConstraint(self):
-        lstPlanes = []
-        if self.Dimensions == 3:
-            lstPlanes.append(gf.FindPlane(self.__BoxVectors[0], self.__BoxVectors[2], self.__Origin))
-            lstPlanes.append(gf.FindPlane(-self.__BoxVectors[0], self.__BoxVectors[2], self.__BoxVectors[1]))
-            lstPlanes.append(gf.FindPlane(-self.__BoxVectors[1], self.__BoxVectors[2], self.__Origin))
-            lstPlanes.append(gf.FindPlane(self.__BoxVectors[1], self.__BoxVectors[2], self.__BoxVectors[0]))
-            lstPlanes.append(gf.FindPlane(self.__BoxVectors[0], self.__BoxVectors[1], self.__BoxVectors[2]))
-            lstPlanes.append(gf.FindPlane(-self.__BoxVectors[0], self.__BoxVectors[1], self.__BoxVectors[0]))
-            for j in lstPlanes:
-                for k in self.GrainList:
-                    k.LinearConstrainRealPoints(j)
     def PlotSimulationCellAtoms(self):
         if self.blnPointsAreWrapped:
-            return zip(*self.__UniqueRealPoints)
+            return tuple(zip(*self.__UniqueRealPoints))
     def RemovePlaneOfAtoms(self, inPlane: np.array, fltTolerance: float):
         arrPointsOnPlane = gf.CheckLinearEquality(np.round(self.__UniqueRealPoints,10), inPlane,fltTolerance)
         self.__UniqueRealPoints = np.delete(self.__UniqueRealPoints,arrPointsOnPlane, axis=0)   
@@ -374,165 +361,6 @@ class SimulationCell(object):
             return self.__UniqueRealPoints
         else:
             raise("Error: Points need to be wrapped into simulation cell")
-        
-
-class GrainBoundaryCurve(object):
-    def __init__(self, arrTripleLineStart: np.array, arrTripleLineEnd: np.array, lstTripleLineIDs: list, arrNonLatticeAtoms: np.array, fltHeight: float, fltSmoothness = 0.5):
-        self.__StartPoint = arrTripleLineStart[0:2]
-        self.__EndPoint = arrTripleLineEnd[0:2]
-        self.__GBID = lstTripleLineIDs #this must have the list in the correct order
-        self.__AlongAxis = self.__EndPoint -self.__StartPoint
-        self.__AlongAxisLength = np.linalg.norm(self.__AlongAxis, axis=0)
-        self.__AlongUnitVector = self.__AlongAxis/self.__AlongAxisLength
-        self.__AcrossAxis = np.cross(np.array([0,0,1]),np.array([self.__AlongUnitVector[0], self.__AlongUnitVector[1],0]))[0:2]
-        self.__AcrossUnitVector = gf.NormaliseVector(self.__AcrossAxis)
-        self.__Height = fltHeight
-        arrProjection = np.zeros([len(arrNonLatticeAtoms),2])
-        arrNonLatticeAtoms = arrNonLatticeAtoms[:,0:2] - self.__StartPoint
-        for intPosition, arrVector in enumerate(arrNonLatticeAtoms):
-            arrProjection[intPosition] = self.__ProjectPoint(arrVector)
-        arrProjection = arrProjection[np.where((arrProjection[:,0] >0) 
-                              & (arrProjection[:,0] < self.__AlongAxisLength))]
-        arrProjection = np.append(np.array([[0,0]]), arrProjection, axis=0)
-        arrProjection = np.append(arrProjection,np.array([self.__ProjectPoint(self.__AlongAxis)]), axis=0)
-        arrProjection = arrProjection[np.unique(arrProjection[:,0], return_index=True)[1]]
-        arrProjection = arrProjection/self.__AlongAxisLength
-        arrWeights = np.ones(len(arrProjection))
-        arrWeights[0] = 100 #fixes the two boundary conditions so the curve goes through both triple points
-        arrWeights[-1] = 100
-        #self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights,s=fltSmoothness)
-        self.__objSpline = sc.interpolate.UnivariateSpline(arrProjection[:,0] , arrProjection[:,1],arrWeights)
-    def __ProjectPoint(self, in2DPoint)->np.array: #assumes position vector is measured from arrTripleLineStart
-        return np.array([np.dot(in2DPoint,self.__AlongUnitVector), np.cross(self.__AlongUnitVector,in2DPoint)])
-    def GetPoints(self, fltSeparation: float, bln3D = False)->np.array:
-        intIncrement = int(np.floor(self.__AlongAxisLength/fltSeparation))
-        arrLinespace = np.linspace(0,1,intIncrement)
-        arrPointsOut = np.zeros([len(arrLinespace),2])
-        for intCounter, fltTValue in enumerate(arrLinespace):
-            arrPointsOut[intCounter] = self.__StartPoint + fltTValue*self.__AlongAxis + self.__AlongAxisLength*self.__objSpline(fltTValue)*self.__AcrossUnitVector
-        if bln3D == True:
-            arr3DPoints = np.ones([len(arrPointsOut),3])*self.__Height
-            arr3DPoints[:,0:2] = arrPointsOut
-            arrPointsOut = arr3DPoints
-        return arrPointsOut
-    def GetID(self)->list:
-        return self.__GBID
-    def GetVectorDirection(self,strTripleLineID:str, fltSeparation, bln3D = False)->np.array:      
-        if self.__GBID.index(strTripleLineID) == 0: #then the triple line is at the start
-            return self.GetPoints(fltSeparation,bln3D)[1] -self.GetPoints(fltSeparation,bln3D)[0] 
-        elif self.__GBID.index(strTripleLineID) == 1: #then the triple line is at the end 
-            return self.GetPoints(fltSeparation,bln3D)[-2] -self.GetPoints(fltSeparation,bln3D)[-1]
-        else:
-            raise("error invalid triple line ID")
-
-class TripleLine(object):
-    def __init__(self, strID: str ,arrCentre: np.array, arrLine: np.array):
-        self.__ID = str(strID)
-        self.__Centre = arrCentre
-        self.__Axis = arrLine
-        self.__Radius = 0
-        self.__AtomIDs = []
-        self.__AdjacentGrainBoundaries = []
-        self.__AdjacentTripleLines = []
-        self.__EquivalentTripleLines = []
-        self.__FitParameters = []
-    def GetID(self)->str:
-        return self.__ID
-    def SetID(self, strID):
-        self.__ID = strID
-    def GetCentre(self)->np.array:
-        return self.__Centre
-    def SetCentre(self, inCentre:np.array):
-        self.__Centre = inCentre
-    def GetAxis(self):
-        return self.__Axis
-    def GetAtomIDs(self)->list:
-        return self.__AtomIDs
-    def SetAtomIDs(self, inList: list):
-        self.__AtomIDs = inList
-    def GetRadius(self)->float:
-        return self.__Radius 
-    def SetRadius(self, fltRadius: float):
-        self.__Radius = fltRadius
-    def GetNumberOfAtoms(self):
-        return len(self.__AtomIDs)
-    def SetAdjacentGrainBoundaries(self, inList, blnAppend = True):
-        if blnAppend and len(self.__AdjacentGrainBoundaries) > 0:
-            if isinstance(inList, str):
-                self.__AdjacentGrainBoundaries.append(inList)
-            else:
-                self.__AdjacentGrainBoundaries.extend(inList)
-        else:
-            if isinstance(inList, str):
-                inList = [inList]
-            self.__AdjacentGrainBoundaries = inList
-        self.__AdjacentGrainBoundaries = list(np.unique(self.__AdjacentGrainBoundaries))
-    def GetAdjacentGrainBoundaries(self):
-        return self.__AdjacentGrainBoundaries
-    def SetAdjacentTripleLines(self, inList, blnAppend = True):
-        if blnAppend and len(self.__AdjacentTripleLines) > 0:
-            if isinstance(inList, str):
-                self.__AdjacentTripleLines.append(inList)
-            else:
-                self.__AdjacentTripleLines.extend(inList)
-        else:
-            if isinstance(inList, str):
-                inList = [inList]
-            self.__AdjacentTripleLines = inList
-        self.__AdjacentTripleLines = sorted(list(np.unique(self.__AdjacentTripleLines)),key = lambda x: int(x[2:]))
-    def GetAdjacentTripleLines(self):
-        return self.__AdjacentTripleLines
-    def SetEquivalentTripleLines(self, inList, blnAppend = True):
-        if blnAppend and len(self.__EquivalentTripleLines)>0:
-            self.__EquivalentTripleLines.append(inList)
-        else:
-            if isinstance(inList, str):
-                inList = [inList]
-            self.__EquivalentTripleLines = inList
-        self.__EquivalentTripleLines = sorted(list(np.unique(self.__EquivalentTripleLines)),key = lambda x: int(x[2:]))
-    def GetEquivalentTripleLines(self):
-        return self.__EquivalentTripleLines
-    def SetFitParameters(self, inArray: np.array):
-        self.__FitParameters.append(inArray)
-    def GetFitParameters(self, blnMean = True)->np.array:
-        if blnMean:
-            return np.mean(np.vstack(self.__FitParameters), axis =0)
-    def GetTheoreticalEnergyPerAtom(self)->float:
-        arrParameters = self.GetFitParameters(blnMean=True)
-        return arrParameters[0]/(self.__Radius+arrParameters[1])+arrParameters[2]
-
-class UniqueTripleLine(TripleLine):
-    def __init__(self, strID: str, arrCentre: np.array, arrLine: np.array):
-        self.__UniqueAdjacentTripleLines =[]
-        self.__UniqueAdjacentGrainBoundaries= []
-        TripleLine.__init__(self,strID, arrCentre, arrLine)
-    def SetUniqueAdjacentTripleLines(self, inList, blnAppend = True):
-        if blnAppend and len(self.__UniqueAdjacentTripleLines) > 0:
-            if isinstance(inList, str):
-                self.__UniqueAdjacentTripleLines.append(inList)
-            else:
-                self.__UniqueAdjacentTripleLines.extend(inList)
-        else:
-            if isinstance(inList, str):
-                inList = [inList]
-            self.__UniqueAdjacentTripleLines = inList
-        self.__UniqueAdjacentTripleLines = sorted(list(np.unique(self.__UniqueAdjacentTripleLines)),key = lambda x: int(x[3:]))
-    def GetUniqueAdjacentTripleLines(self):
-        return self.__UniqueAdjacentTripleLines
-    def SetUniqueAdjacentGrainBoundaries(self, inList, blnAppend = True):
-        if blnAppend and len(self.__UniqueAdjacentGrainBoundaries) > 0:
-            if isinstance(inList, str):
-                self.__UniqueAdjacentGrainBoundaries.append(inList)
-            else:
-                self.__UniqueAdjacentGrainBoundaries.extend(inList)
-        else:
-            if isinstance(inList, str):
-                inList = [inList]
-            self.__UniqueAdjacentGrainBoundaries = inList
-        self.__UniqueAdjacentGrainBoundaries = list(np.unique(self.__UniqueAdjacentGrainBoundaries))
-    def GetUniqueAdjacentGrainBoundaries(self):
-        return self.__UniqueAdjacentGrainBoundaries
-
 
 class DefectMeshObject(object):
     def __init__(self,inMeshPoints: np.array, intID: int):
@@ -569,10 +397,10 @@ class DefectMeshObject(object):
         self.__AtomIDs = list(setAtomIDs.difference(inList))
     def SetMeshPoints(self, inPoints):
         self.__MeshPoints = inPoints
-    def AddAdjustedMeshPoint(self, inPoint: np.array):
-        self.__AdjustedMeshPoints.append(inPoint)
+    def SetAdjustedMeshPoints(self, inPoints: np.array):
+        self.__AdjustedMeshPoints = inPoints
     def GetAdjustedMeshPoints(self)->np.array:
-        return np.vstack(self.__AdjustedMeshPoints)
+        return np.copy(self.__AdjustedMeshPoints)
     def SetVolume(self, fltVolume):
         self.__Volume = fltVolume 
     def GetVolume(self):
@@ -629,11 +457,7 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentJunctionLines = inList
     def GetAdjacentJunctionLines(self)->list:
         return cp.copy(self.__AdjacentJunctionLines)
-    def SetGlobalAdjacentJunctionLines(self, inList):
-        self.__GlobalAdjacentJunctionLines = inList
-    def GetGlobalAdjacentJunctionLines(self):
-        return cp.copy(self.__GlobalAdjacentJunctionLines)
-
+   
 class DefectObject(object):
     def __init__(self, fltTimeStep: float):
         self.__TimeStep = fltTimeStep
@@ -641,6 +465,11 @@ class DefectObject(object):
         self.__dctGrainBoundaries = dict()
         self.__dctGlobalJunctionLines = dict()
         self.__dctGlobalGrainBoundaries =dict()
+        self.__MapToGlobalID = []
+    def SetMapToGlobalID(self, inList):
+        self.__MapToGlobalID = inList
+    def GetMapToGlobalID(self):
+        return cp.copy(self.__MapToGlobalID)
     def AddJunctionLine(self, objJunctionLine: GeneralJunctionLine):
         self.__dctJunctionLines[objJunctionLine.GetID()] = objJunctionLine 
     def AddGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
@@ -665,5 +494,13 @@ class DefectObject(object):
         return list(self.__dctGlobalJunctionLines.keys()) 
     def GetGlobalGrainBoundaryIDs(self):
         return list(self.__dctGlobalGrainBoundaries.keys())
-    
-  
+    def GetAdjacentGlobalGrainBoundaries(self, intGlobalJunctionLine: int)->list:
+        lstGlobalAdjacentGrainBoundaries = []
+        for j in self.GetGlobalJunctionLine(intGlobalJunctionLine).GetAdjacentGrainBoundaries():
+            lstGlobalAdjacentGrainBoundaries.append(self.GetGrainBoundary(j).GetGlobalID())
+        return lstGlobalAdjacentGrainBoundaries
+    def GetAdjacentGlobalJunctionLines(self, intGlobalGrainBoundary: int)->list:
+        lstGlobalAdjacentJunctionLines = []
+        for j in self.GetGlobalGrainBoundary(intGlobalGrainBoundary).GetAdjacentJunctionLines():
+            lstGlobalAdjacentJunctionLines.append(self.GetJunctionLine(j).GetGlobalID())
+        return lstGlobalAdjacentJunctionLines
