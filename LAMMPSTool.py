@@ -974,7 +974,7 @@ class LAMMPSSummary(object):
             flt2 = spatial.distance.directed_hausdorff(arrPreviousMeshPoints,arrMeshPoints)[0]
             lstDistances.append(max(flt1,flt2))
         fltMin = min(lstDistances)
-        if fltMin > 2*self.__LatticeParameter:
+        if fltMin > 8.1:
             warnings.warn('Possible error as the time correlated Hausdorff distance is ' + str(min(lstDistances)) + ' at time step ' + str(self.GetTimeSteps()[-1]) + ' for ' + str(strType) + ' ' + str(j))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]   
 
@@ -1017,17 +1017,31 @@ class QuantisedCuboidPoints(object):
         arrOut = np.reshape(arrOut,arrModArray)
         intConnections = 0
         intIterations = 0
+        arrTotal = np.zeros(self.__ModArray)
         while intConnections != 1:
             arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
             arrOut = (arrOut > np.mean(arrOut))
             arrOut = arrOut.astype('bool').astype('int') # convert to binary
             arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
-            arrOut = arrOut.astype('float')
+            arrOut = arrOut.astype('bool').astype('float')
             intIterations += 1
-        if intIterations > 0:
+        if intIterations > 1:
             warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a connected defective array.')
         self.__Iterations = intIterations
-        arrOut = ndimage.binary_fill_holes(arrOut, np.ones([3,3,3]))
+        arrPoints = np.argwhere(arrOut == 0)
+        for j in arrPoints:
+            n=1
+            if self.BoxIsNotWrapped(j, n):
+                arrBox = arrOut[j[0]-n:j[0]+n+1,j[1]-n:j[1]+n+1, j[2]-n:j[2]+n+1]
+            else:
+                arrBox = arrOut[gf.WrapAroundSlice(np.array([[j[0]-n,j[0]+n+1],[j[1]-n,j[1]+n+1], [j[2]-n,j[2]+n+1]]),self.__ModArray)]
+                arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
+            arrNeighbours = np.argwhere(arrBox != 0) - np.ones(3)
+            if len(arrNeighbours) > 0:
+                arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
+                arrSums = arrSums[np.all(arrSums == 0, axis=1)]
+                if len(arrSums) >0:
+                    arrOut[j[0],j[1],j[2]] = 1
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
