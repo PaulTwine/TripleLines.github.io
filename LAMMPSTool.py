@@ -238,7 +238,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._intPositionY = int(self.GetColumnNames().index('y'))
         self._intPositionZ = int(self.GetColumnNames().index('z'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
-        self.__fltGrainTolerance = 1.96
+        self.__fltGrainTolerance = 3.14
         self.__DefectiveAtomIDs = []
         self.__NonDefectiveAtomIDs = []
         self.FindPlaneNormalVectors()
@@ -492,7 +492,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         for j in self.__GrainBoundaryIDs:
             arrMeshPoints = self.__GrainBoundaries[j].GetMeshPoints()
             arrAdjustedMeshPoints = np.array(list(map(lambda x: np.mean(self.GetAtomsByID(self.FindSphericalAtoms(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,0:4],x,3*self.__LatticeParameter, True))[:,1:4],axis=0), arrMeshPoints)))
-            self.__GrainBoundaries[i].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+            self.__GrainBoundaries[j].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
         self.__blnAdjustedMeshPointsAssigned = True
     def MakeGrainTrees(self):
         lstGrainLabels = self.__GrainLabels
@@ -962,16 +962,11 @@ class LAMMPSSummary(object):
     def CorrelateMeshPoints(self,arrMeshPoints: np.array, lstPreviousGlobalIDs: list, strType: str)->int: #checks to see which previous set of mesh points lie closest to the current mesh point
         lstDistances = []
         arrMean = np.mean(arrMeshPoints, axis= 0) 
-        #arrMovedMean =  gf.WrapVectorIntoSimulationCell(self.__CellVectors, self.__BasisConversion,arrMean) 
-       # arrTranslation = gf.PeriodicShiftCloser(np.zeros(3), arrMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes) - arrMean
-        #arrMeshPoints = arrMeshPoints + (arrMovedMean - arrMean)
         for j in lstPreviousGlobalIDs:
             if strType == 'Grain Boundary':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetMeshPoints()
-               # lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetPeriodicDirections())
             elif strType == 'Junction Line':
                 arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
-               # lstBoundaries = self.ConvertPeriodicDirections(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetPeriodicDirections())
             arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
             arrPeriodicShift = gf.PeriodicEquivalentMovement(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)[2]
             arrPreviousMeshPoints = arrPreviousMeshPoints - arrPeriodicShift
@@ -979,9 +974,8 @@ class LAMMPSSummary(object):
             flt2 = spatial.distance.directed_hausdorff(arrPreviousMeshPoints,arrMeshPoints)[0]
             lstDistances.append(max(flt1,flt2))
         fltMin = min(lstDistances)
-        if fltMin > 8.1:
-            warnings.warn('Possible error as the Hausdorff distance is ' + str(min(lstDistances)) + ' at time step ' + str(self.GetTimeSteps()[-1])
-            + ' for ' + str(strType) + ' ' + str(j))
+        if fltMin > 2*self.__LatticeParameter:
+            warnings.warn('Possible error as the time correlated Hausdorff distance is ' + str(min(lstDistances)) + ' at time step ' + str(self.GetTimeSteps()[-1]) + ' for ' + str(strType) + ' ' + str(j))
         return lstPreviousGlobalIDs[np.argmin(lstDistances)]   
 
 class QuantisedCuboidPoints(object):
@@ -1008,7 +1002,7 @@ class QuantisedCuboidPoints(object):
         self.__JunctionLines = []
         nx,ny,nz = np.shape(arrValues)
         self.__ModArray = arrModArray
-        self.__Dilations = 0
+        self.__Iterations = 0
         arrCoordinates = (np.linspace(0,nx-1,nx),np.linspace(0,ny-1,ny),
                              np.linspace(0,nz-1,nz))
         for m in range(len(arrCuboidPoints)):
@@ -1021,20 +1015,19 @@ class QuantisedCuboidPoints(object):
         self.__Coordinates = gf.CreateCuboidPoints(np.array([[0,nx-1],[0,ny-1],[0,nz-1]]))
         arrOut = objInterpolate(self.__Coordinates)
         arrOut = np.reshape(arrOut,arrModArray)
-        arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
-        arrOut = (arrOut > np.mean(arrOut))
-        arrOut = arrOut.astype('bool').astype('int') # convert to binary
-        arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
-        intDilations = 0
+        intConnections = 0
+        intIterations = 0
         while intConnections != 1:
-            arrOut = (arrOut > 0)
+            arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
+            arrOut = (arrOut > np.mean(arrOut))
             arrOut = arrOut.astype('bool').astype('int') # convert to binary
-            arrOut = binary_dilation(arrOut, np.ones([3,3,3]))
             arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
-            intDilations += 1
-        if intDilations > 0:
-            warnings.warn('The process took ' +  str(intDilations) + ' binary dilation(s) to form a connected defective array.')
-        self.__Dilations = intDilations
+            arrOut = arrOut.astype('float')
+            intIterations += 1
+        if intIterations > 0:
+            warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a connected defective array.')
+        self.__Iterations = intIterations
+        arrOut = ndimage.binary_fill_holes(arrOut, np.ones([3,3,3]))
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
@@ -1183,7 +1176,13 @@ class QuantisedCuboidPoints(object):
                 tupPairs = (arrCurrent[tuple(zip(arrPointsLower[j[0]]))][0], arrCurrent[tuple(zip(arrPointsUpper[j[1]]))][0])
                 if tupPairs[0] != tupPairs[1]:
                     arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
-    def ExpandGrains(self, n=3): 
+    def BoxIsNotWrapped(self, inPoint: np.array, n: int)->bool:
+        if np.all(np.mod(inPoint -n*np.ones(3), self.__ModArray) == inPoint-n*np.ones(3)) and np.all(np.mod(inPoint +(n+1)*np.ones(3), self.__ModArray) == inPoint+(n+1)*np.ones(3)):
+            return True
+        else:
+            return False
+    def ExpandGrains(self, n=3):
+        n += 2*self.__Iterations 
         self.__ExpandedGrains = np.copy(self.__Grains)
         arrGBPoints = np.argwhere(self.__Grains == 0)
         arrGBPoints = arrGBPoints.astype('int')
@@ -1192,8 +1191,9 @@ class QuantisedCuboidPoints(object):
         arrDistances = np.reshape(np.array(list(map(np.linalg.norm, arrIndices))),(2*n+1,2*n+1,2*n+1))
         if len(arrGBPoints) > 0 :
             for j in arrGBPoints:
-                if np.all(np.mod(j -n*np.ones(3), self.__ModArray) == j-n*np.ones(3)) and np.all(np.mod(j +(n+1)*np.ones(3), self.__ModArray) == j+(n+1)*np.ones(3)):
-                        arrBox = self.__Grains[j[0]-n:j[0]+n+1,j[1]-n:j[1]+n+1, j[2]-n:j[2]+n+1]
+                #if np.all(np.mod(j -n*np.ones(3), self.__ModArray) == j-n*np.ones(3)) and np.all(np.mod(j +(n+1)*np.ones(3), self.__ModArray) == j+(n+1)*np.ones(3)):
+                if self.BoxIsNotWrapped(j, n):
+                    arrBox = self.__Grains[j[0]-n:j[0]+n+1,j[1]-n:j[1]+n+1, j[2]-n:j[2]+n+1]
                 else:
                     arrBox = self.__Grains[gf.WrapAroundSlice(np.array([[j[0]-n,j[0]+n+1],[j[1]-n,j[1]+n+1], [j[2]-n,j[2]+n+1]]),self.__ModArray)]
                     arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
@@ -1208,16 +1208,19 @@ class QuantisedCuboidPoints(object):
         else:
             warnings.warn("Unable to find any defective regions")
         arrGBPoints = np.argwhere(self.__ExpandedGrains == 0)
-        n = 1
+        n = 3
         counter = 0
         while (counter < len(arrGBPoints)): 
             l = arrGBPoints[counter]
-            arrBox = self.__ExpandedGrains[gf.WrapAroundSlice(np.array([[l[0]-n,l[0]+n+1],[l[1]-n,l[1]+n+1], [l[2]-n,l[2]+n+1]]),self.__ModArray)]
+            if self.BoxIsNotWrapped(l,n):
+                arrBox = self.__ExpandedGrains[l[0]-n:l[0]+n+1,l[1]-n:l[1]+n+1, l[2]-n:l[2]+n+1]
+            else:
+                arrBox = self.__ExpandedGrains[gf.WrapAroundSlice(np.array([[l[0]-n,l[0]+n+1],[l[1]-n,l[1]+n+1], [l[2]-n,l[2]+n+1]]),self.__ModArray)]
             arrBox = arrBox[arrBox != 0]
             if len(arrBox) > 0:
                 arrValues, arrCounts = np.unique(arrBox, return_counts = True)
                 intGrain = arrValues[np.argmax(arrCounts)]
-                if len(np.argwhere(arrValues == intGrain)) ==1 or n > 5 + self.__Dilations:
+                if len(np.argwhere(arrValues == intGrain)) ==1 or n >  np.round(min(self.__ModArray)/2,0).astype('int'):
                     self.__ExpandedGrains[l[0],l[1],l[2]] = intGrain
                     counter += 1
                 else:
