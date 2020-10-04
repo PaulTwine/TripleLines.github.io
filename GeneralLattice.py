@@ -370,13 +370,8 @@ class DefectMeshObject(object):
         self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
         self.__Volume = 0
         self.__PE = 0
-        self.__WrappedMeshPoints = []
     def GetMeshPoints(self):
         return np.copy(self.__MeshPoints)
-    def GetWrappedMeshPoints(self):
-        return np.copy(self.__WrappedMeshPoints)
-    def SetWrappedMeshPoints(self, inPoints):
-        self.__WrappedMeshPoints = inPoints
     def SetGlobalID(self, intID):
         self.__GlobalID = intID
     def GetGlobalID(self):
@@ -400,7 +395,7 @@ class DefectMeshObject(object):
     def SetAdjustedMeshPoints(self, inPoints: np.array):
         self.__AdjustedMeshPoints = inPoints
     def GetAdjustedMeshPoints(self)->np.array:
-        return np.copy(self.__AdjustedMeshPoints)
+        return self.__AdjustedMeshPoints
     def SetVolume(self, fltVolume):
         self.__Volume = fltVolume 
     def GetVolume(self):
