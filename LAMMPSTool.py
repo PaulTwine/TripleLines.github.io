@@ -218,7 +218,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._intPositionY = int(self.GetColumnNames().index('y'))
         self._intPositionZ = int(self.GetColumnNames().index('z'))
         self.CellHeight = np.linalg.norm(self.GetCellVectors()[2])
-        self.__fltGrainTolerance = 3.14
+        self.__fltGrainTolerance = 1.96
         self.__DefectiveAtomIDs = []
         self.__NonDefectiveAtomIDs = []
         self.FindPlaneNormalVectors()
@@ -414,7 +414,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__blnAdjustedMeshPointsAssigned = False
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
-    def LabelAtomsByGrain(self, fltRadius = None):
+    def LabelAtomsByGrain(self, fltTolerance = 1.96, fltRadius = None):
         if fltRadius is None:
             fltRadius = 3*self.__LatticeParameter
         objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
@@ -424,6 +424,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
         objQuantisedCuboidPoints.FindJunctionLines()
         self.__JunctionLineIDs = objQuantisedCuboidPoints.GetJunctionLineIDs()
+        self.FindDefectiveAtoms(fltTolerance) #here you can choose a more strict criteria for defective atoms 
         for i in self.__JunctionLineIDs:
             self.__JunctionLines[i] = gl.GeneralJunctionLine(objQuantisedCuboidPoints.GetJunctionLinePoints(i),i)
           #  self.__JunctionLines[i].SetWrappedMeshPoints(self.MoveToSimulationCell(objQuantisedCuboidPoints.GetJunctionLinePoints(i)))
