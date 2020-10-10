@@ -400,6 +400,9 @@ class DefectMeshObject(object):
         self.__Volume = fltVolume 
     def GetVolume(self):
         return self.__Volume
+    def GetVolumePerAtom(self):
+        if self.GetNumberOfAtoms() > 0: 
+            return self.__Volume/self.GetNumberOfAtoms()
     def GetAtomicDensity(self):
         if self.__Volume > 0 and len(self.__AtomIDs) > 0:
             return len(self.__AtomIDs)/self.__Volume
