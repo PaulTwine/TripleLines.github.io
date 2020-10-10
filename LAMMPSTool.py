@@ -427,14 +427,12 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.FindDefectiveAtoms(fltTolerance) #here you can choose a more strict criteria for defective atoms 
         for i in self.__JunctionLineIDs:
             self.__JunctionLines[i] = gl.GeneralJunctionLine(objQuantisedCuboidPoints.GetJunctionLinePoints(i),i)
-          #  self.__JunctionLines[i].SetWrappedMeshPoints(self.MoveToSimulationCell(objQuantisedCuboidPoints.GetJunctionLinePoints(i)))
             self.__JunctionLines[i].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
             self.__JunctionLines[i].SetAdjacentGrainBoundaries(objQuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
             self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
         self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
         for k in self.__GrainBoundaryIDs:
             self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),k)
-        #    self.__GrainBoundaries[k].SetWrappedMeshPoints(self.MoveToSimulationCell(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k)))
             self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
@@ -938,7 +936,8 @@ class LAMMPSSummary(object):
                 lstMapToGlobalGB.append(intPreviousID)
                 objDefect.GetGrainBoundary(intGBID).SetGlobalID(intPreviousID)
                 objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(intGBID))
-                lstGBIDs.remove(intPreviousID)
+                if intPreviousID in lstGBIDs:
+                    lstGBIDs.remove(intPreviousID)
             lstPreviousGlobalJLIDs = self.__dctDefects[intLastTimeStep].GetGlobalJunctionLineIDs()
             lstCurrentJLIDs = objDefect.GetJunctionLineIDs()
             if len(lstPreviousGlobalJLIDs) != len(lstCurrentJLIDs):
@@ -949,7 +948,8 @@ class LAMMPSSummary(object):
                 intPreviousID = self.CorrelateMeshPoints(objDefect.GetJunctionLine(intJLID).GetMeshPoints(), lstJLIDs, 'Junction Line')
                 objDefect.GetJunctionLine(intJLID).SetGlobalID(intPreviousID)
                 objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(intJLID))
-                lstJLIDs.remove(intPreviousID)
+                if intPreviousID in lstJLIDs:
+                    lstJLIDs.remove(intPreviousID)
         self.__dctDefects[intTimeStep] = objDefect
     def SetCellVectors(self, inCellVectors: np.array):
         self.__CellVectors = inCellVectors
@@ -976,11 +976,16 @@ class LAMMPSSummary(object):
             flt1 = spatial.distance.directed_hausdorff(arrMeshPoints,arrPreviousMeshPoints)[0]
             flt2 = spatial.distance.directed_hausdorff(arrPreviousMeshPoints,arrMeshPoints)[0]
             lstDistances.append(max(flt1,flt2))
-        fltMin = min(lstDistances)
-        if fltMin > 8.1:
-            warnings.warn('Possible error as the time correlated Hausdorff distance is ' + str(min(lstDistances)) + ' at time step ' + str(self.GetTimeSteps()[-1]) + ' for ' + str(strType) + ' ' + str(j))
-        return lstPreviousGlobalIDs[np.argmin(lstDistances)]   
-
+        if len(lstDistances) > 0:    
+            fltMin = min(lstDistances)
+            if fltMin > 8.1:
+                warnings.warn('Possible error as the time correlated Hausdorff distance is ' + str(min(lstDistances)) + ' at time step ' + str(self.GetTimeSteps()[-1]) + ' for ' + str(strType) + ' ' + str(j))
+            return lstPreviousGlobalIDs[np.argmin(lstDistances)]
+        elif strType == 'Grain Boundary':
+            return max(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundaryIDs())+1   
+        elif strType == 'Junction Line':
+            return max(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLineIDs())+1   
+        
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
         arrCuboidCellVectors = np.matmul(inCellVectors,inBasisConversion)
@@ -1040,13 +1045,17 @@ class QuantisedCuboidPoints(object):
                 arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
             arrNeighbours = np.argwhere(arrBox != 0) - np.ones(3)
             if len(arrNeighbours) > 0:
-                arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
-                arrSums = arrSums[np.all(arrSums == 0, axis=1)]
-                if len(arrSums) >0:
+                arrProjections = np.matmul(arrNeighbours, np.transpose(arrNeighbours))
+                if np.any(arrProjections < 0):
                     arrOut[j[0],j[1],j[2]] = 1
+                # arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
+                # arrSums = arrSums[np.all(arrSums == 0, axis=1)]
+                # if len(arrSums) >0:
+                #     arrOut[j[0],j[1],j[2]] = 1
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
-        self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
+        self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.array([[[0,0,0],[0,1,0],[0,0,0]],[[0,1,0],[1,1,1],[0,1,0]],[[0,0,0],[0,1,0],[0,0,0]]])) #don't allow the same grain to connect diagonally
+        #self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
         if intGrainLabels <= 1:
             warnings.warn('Only ' + str(intGrainLabels) + ' grain(s) detected')
         self.__Grains = np.asarray(self.__Grains)
