@@ -1043,15 +1043,15 @@ class QuantisedCuboidPoints(object):
             else:
                 arrBox = arrOut[gf.WrapAroundSlice(np.array([[j[0]-n,j[0]+n+1],[j[1]-n,j[1]+n+1], [j[2]-n,j[2]+n+1]]),self.__ModArray)]
                 arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
-            arrNeighbours = np.argwhere(arrBox != 0) - np.ones(3)
+            arrNeighbours = np.argwhere(arrBox > 0) - np.ones(3)
             if len(arrNeighbours) > 0:
-                arrProjections = np.matmul(arrNeighbours, np.transpose(arrNeighbours))
-                if np.any(arrProjections < 0):
-                    arrOut[j[0],j[1],j[2]] = 1
-                # arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
-                # arrSums = arrSums[np.all(arrSums == 0, axis=1)]
-                # if len(arrSums) >0:
+                # arrProjections = np.matmul(arrNeighbours, np.transpose(arrNeighbours))
+                # if np.any(arrProjections < 0):
                 #     arrOut[j[0],j[1],j[2]] = 1
+                arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
+                arrSums = arrSums[np.all(arrSums == 0, axis=1)]
+                if len(arrSums) >0:
+                    arrOut[j[0],j[1],j[2]] = 1
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.array([[[0,0,0],[0,1,0],[0,0,0]],[[0,1,0],[1,1,1],[0,1,0]],[[0,0,0],[0,1,0],[0,0,0]]])) #don't allow the same grain to connect diagonally
