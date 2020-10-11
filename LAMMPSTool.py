@@ -1171,6 +1171,7 @@ class QuantisedCuboidPoints(object):
             lstValues.remove(0)
         self.__GrainBoundaryIDs = lstValues
     def FindPeriodicGrainBoundaries(self,inGBArray: np.array):
+        inGBArray = inGBArray.astype('int')
         intMaxGBNumber = 0
         lstValues = list(np.unique(inGBArray))
         if 0 in lstValues:
@@ -1178,9 +1179,10 @@ class QuantisedCuboidPoints(object):
         for j in lstValues:
             arrPoints = np.argwhere(inGBArray == j)
             arrReturn, intGBs = ndimage.measurements.label(inGBArray == j, np.ones([3,3,3]))
+            arrReturn = self.CheckPeriodicity(arrPoints, 'PassArray', arrReturn)
             arrReturn[arrReturn > 0 ] += intMaxGBNumber
             self.__GrainBoundariesArray += arrReturn
-            self.CheckPeriodicity(arrPoints, 'GrainBoundary')
+            #self.CheckPeriodicity(arrPoints, 'GrainBoundary')
             intMaxGBNumber += intGBs
     def CheckPeriodicity(self, inPoints: np.array, strType: str, inArray = None):
         if strType == 'JunctionLine':
@@ -1190,17 +1192,30 @@ class QuantisedCuboidPoints(object):
         elif strType == 'PassArray':
             arrCurrent = inArray
         for j in range(3):
-            lstIndicesLower = np.where(inPoints[:,j] == 0)[0]
-            arrPointsLower = inPoints[lstIndicesLower]
-            lstIndicesUpper = np.where(inPoints[:,j] == self.__ModArray[j]-1)[0]
-            arrPointsUpper  = inPoints[lstIndicesUpper]
-            arrPointsUpper[:,j] = arrPointsUpper[:,j] - np.ones(len(arrPointsUpper))*self.__ModArray[j]
-            arrDistanceMatrix = spatial.distance_matrix(arrPointsLower, arrPointsUpper)
-            arrClosePoints = np.argwhere(arrDistanceMatrix < 2) #allows 3d diagonal connectivity
-            for j in arrClosePoints:
-                tupPairs = (arrCurrent[tuple(zip(arrPointsLower[j[0]]))][0], arrCurrent[tuple(zip(arrPointsUpper[j[1]]))][0])
-                if tupPairs[0] != tupPairs[1]:
-                    arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
+            lstIndicesLower = np.where(inPoints[:,j] == self.__ModArray[j]-1)[0]
+            inPoints[lstIndicesLower, j*np.ones(len(lstIndicesLower)).astype('int')] = -1
+        arrDistanceMatrix = spatial.distance_matrix(inPoints,inPoints)
+        arrClosePoints = np.argwhere(arrDistanceMatrix < 2) #allows 3d diagonal connectivity
+        arrCurrent = arrCurrent.astype('int')
+        for j in arrClosePoints:
+            tupPairs = (arrCurrent[tuple(zip(inPoints[j[0]]))][0], arrCurrent[tuple(zip(inPoints[j[1]]))][0])
+            if tupPairs[0] != tupPairs[1]:
+                arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
+        return arrCurrent
+        # for j in range(3):
+        #     lstIndicesLower = np.where(inPoints[:,j] == 0)[0]
+        #     arrPointsLower = inPoints[lstIndicesLower]
+        #     lstIndicesUpper = np.where(inPoints[:,j] == self.__ModArray[j]-1)[0]
+        #     arrPointsUpper  = inPoints[lstIndicesUpper]
+        #     arrPointsUpper[:,j] = arrPointsUpper[:,j] - np.ones(len(arrPointsUpper))*self.__ModArray[j]
+        #     arrDistanceMatrix = spatial.distance_matrix(arrPointsLower, arrPointsUpper)
+        #     arrClosePoints = np.argwhere(arrDistanceMatrix < 2) #allows 3d diagonal connectivity
+        #     arrCurrent = arrCurrent.astype('int')
+        #     for j in arrClosePoints:
+        #         tupPairs = (arrCurrent[tuple(zip(arrPointsLower[j[0]]))][0], arrCurrent[tuple(zip(arrPointsUpper[j[1]]))][0])
+        #         if tupPairs[0] != tupPairs[1]:
+        #             arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
+        #return arrCurrent
     def BoxIsNotWrapped(self, inPoint: np.array, n: int)->bool:
         if np.all(np.mod(inPoint -n*np.ones(3), self.__ModArray) == inPoint-n*np.ones(3)) and np.all(np.mod(inPoint +(n+1)*np.ones(3), self.__ModArray) == inPoint+(n+1)*np.ones(3)):
             return True
