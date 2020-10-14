@@ -489,7 +489,7 @@ class DefectObject(object):
     def GetGrainBoundaryIDs(self):
         return list(self.__dctGrainBoundaries.keys())
     def GetGlobalJunctionLineIDs(self):
-        return list(self.__dctGlobalJunctionLines.keys()) 
+        return list(self.__dctGlobalJunctionLines.keys())
     def GetGlobalGrainBoundaryIDs(self):
         return list(self.__dctGlobalGrainBoundaries.keys())
     def GetAdjacentGlobalGrainBoundaries(self, intGlobalJunctionLine: int)->list:

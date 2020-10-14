@@ -916,7 +916,7 @@ class LAMMPSSummary(object):
                         objGrainBoundary.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
                     objDefect.AddGrainBoundary(objGrainBoundary)
         if len(list(self.__dctDefects.keys())) == 0 and blnCorrelateDefects: 
-            for i in objDefect.GetGrainBoundaryIDs():
+            for i in objDefect.GetGrainBoundaryIDs(): #global IDs are set from the first time step
                 objDefect.GetGrainBoundary(i).SetGlobalID(i)
                 objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(i))
             for j in objDefect.GetJunctionLineIDs():
@@ -924,32 +924,61 @@ class LAMMPSSummary(object):
                 objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(j))    
         elif blnCorrelateDefects:
             intLastTimeStep = self.GetTimeSteps()[-1]
-            lstPreviousGlobalGBIDs = self.__dctDefects[intLastTimeStep].GetGlobalGrainBoundaryIDs()
+            objPreviousDefect = self.__dctDefects[intLastTimeStep]
+            lstGB = []
             lstCurrentGBIDs = objDefect.GetGrainBoundaryIDs()
-            if len(lstPreviousGlobalGBIDs) != len(lstCurrentGBIDs):
-                warnings.warn('Number of grain boundaries changed from ' + str(len(lstPreviousGlobalGBIDs)) + ' to ' + str(len(lstCurrentGBIDs)) + ' at time step ' + str(intTimeStep))
-            lstGBIDs = lstPreviousGlobalGBIDs
-            lstMapToGlobalGB = []
-            while len(lstCurrentGBIDs) > 0:
-                intGBID = lstCurrentGBIDs.pop(0)
-                intPreviousID = self.CorrelateMeshPoints(objDefect.GetGrainBoundary(intGBID).GetMeshPoints(), lstGBIDs, 'Grain Boundary')
-                lstMapToGlobalGB.append(intPreviousID)
-                objDefect.GetGrainBoundary(intGBID).SetGlobalID(intPreviousID)
-                objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(intGBID))
-                if intPreviousID in lstGBIDs:
-                    lstGBIDs.remove(intPreviousID)
-            lstPreviousGlobalJLIDs = self.__dctDefects[intLastTimeStep].GetGlobalJunctionLineIDs()
+            for j in lstCurrentGBIDs:
+                lstGB.append(objDefect.GetGrainBoundary(j).GetMeshPoints())
+            lstPreviousGB = []
+            lstPreviousGBIDs = objPreviousDefect.GetGlobalGrainBoundaryIDs()
+            for k in lstPreviousGBIDs:
+                lstPreviousGB.append(objPreviousDefect.GetGlobalGrainBoundary(k).GetMeshPoints())
+            arrHausdorff = self.MakeHausdorffDistanceMatrix(lstGB, lstPreviousGB) #periodic Hausdroff distance used to match global defects
+            if len(lstPreviousGBIDs) != len(lstCurrentGBIDs):
+                 warnings.warn('Number of grain boundaries changed from ' + str(len(lstPreviousGBIDs)) + ' to ' + str(len(lstCurrentGBIDs)) 
+                 + 'at time step ' + str(intTimeStep)) 
+            while (len(lstCurrentGBIDs) > 0 and len(lstPreviousGBIDs) > 0):
+                tupCurrentPrevious = np.unravel_index(arrHausdorff.argmin(), arrHausdorff.shape)
+                intCurrent = int(tupCurrentPrevious[0])
+                intPrevious = int(tupCurrentPrevious[1])
+                objDefect.GetGrainBoundary(lstCurrentGBIDs[intCurrent]).SetGlobalID(lstPreviousGBIDs[intPrevious])
+                objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(lstCurrentGBIDs[intCurrent]))
+                del lstCurrentGBIDs[intCurrent]
+                del lstPreviousGBIDs[intPrevious]
+                arrHausdorff = np.delete(arrHausdorff, intCurrent, axis = 0)
+                arrHausdorff = np.delete(arrHausdorff, intPrevious, axis = 1)
+            while len(lstCurrentGBIDs) > 0: #there are more current GBs than previous GBs
+                intID = lstCurrentGBIDs.pop(0)
+                intLastGlobalID = max(objDefect.GetGlobalGrainBoundaryIDs())
+                objDefect.GetGrainBoundary(intID).SetGlobalID(intLastGlobalID + 1)
+                objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(intID))
+            lstJL = []
             lstCurrentJLIDs = objDefect.GetJunctionLineIDs()
-            if len(lstPreviousGlobalJLIDs) != len(lstCurrentJLIDs):
-                warnings.warn('Number of junction lines changed from ' + str(len(lstPreviousGlobalJLIDs)) + ' to ' + str(len(lstCurrentJLIDs)) + ' at time step ' + str(intTimeStep))
-            lstJLIDs = np.copy(lstPreviousGlobalJLIDs).tolist()
-            while len(lstCurrentJLIDs) > 0:
-                intJLID = lstCurrentJLIDs.pop(0)
-                intPreviousID = self.CorrelateMeshPoints(objDefect.GetJunctionLine(intJLID).GetMeshPoints(), lstJLIDs, 'Junction Line')
-                objDefect.GetJunctionLine(intJLID).SetGlobalID(intPreviousID)
-                objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(intJLID))
-                if intPreviousID in lstJLIDs:
-                    lstJLIDs.remove(intPreviousID)
+            for l in lstCurrentJLIDs:
+                lstJL.append(objDefect.GetJunctionLine(l).GetMeshPoints())
+            lstPreviousJL = []
+            lstPreviousJLIDs = objPreviousDefect.GetGlobalJunctionLineIDs()
+            for m in lstPreviousJLIDs:
+                lstPreviousJL.append(objPreviousDefect.GetGlobalJunctionLine(m).GetMeshPoints())
+            arrHausdorff = self.MakeHausdorffDistanceMatrix(lstJL, lstPreviousJL) #periodic Hausdroff distance used to match global defects
+            if len(lstPreviousJLIDs) != len(lstCurrentJLIDs):
+                 warnings.warn('Number of junction lines changed from ' + str(len(lstPreviousJLIDs)) + ' to ' + str(len(lstCurrentJLIDs)) 
+                 + ' at time step ' + str(intTimeStep)) 
+            while (len(lstCurrentJLIDs) > 0 and len(lstPreviousJLIDs) > 0):
+                tupCurrentPrevious = np.unravel_index(arrHausdorff.argmin(), arrHausdorff.shape)
+                intCurrent = int(tupCurrentPrevious[0])
+                intPrevious = int(tupCurrentPrevious[1])
+                objDefect.GetJunctionLine(lstCurrentJLIDs[intCurrent]).SetGlobalID(lstPreviousJLIDs[intPrevious])
+                objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(lstCurrentJLIDs[intCurrent]))
+                del lstCurrentJLIDs[intCurrent]
+                del lstPreviousJLIDs[intPrevious]
+                arrHausdorff = np.delete(arrHausdorff, intCurrent, axis = 0)
+                arrHausdorff = np.delete(arrHausdorff, intPrevious, axis = 1)
+            while len(lstCurrentJLIDs) > 0: #there are more current GBs than previous GBs
+                intID = lstCurrentJLIDs.pop(0)
+                intLastGlobalID = max(objDefect.GetGlobalJunctionLineIDs())
+                objDefect.GetJunctionLine(intID).SetGlobalID(intLastGlobalID + 1)
+                objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(intID))
         self.__dctDefects[intTimeStep] = objDefect
     def SetCellVectors(self, inCellVectors: np.array):
         self.__CellVectors = inCellVectors
@@ -962,30 +991,16 @@ class LAMMPSSummary(object):
         for j in inPeriodicDirections:
             lstPeriodicity[j] = 'pp'
         return lstPeriodicity
-    def CorrelateMeshPoints(self,arrMeshPoints: np.array, lstPreviousGlobalIDs: list, strType: str)->int: #checks to see which previous set of mesh points lie closest to the current mesh point
-        lstDistances = []
-        arrMean = np.mean(arrMeshPoints, axis= 0) 
-        for j in lstPreviousGlobalIDs:
-            if strType == 'Grain Boundary':
-                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundary(j).GetMeshPoints()
-            elif strType == 'Junction Line':
-                arrPreviousMeshPoints =  self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLine(j).GetMeshPoints()
-            arrPreviousMean = np.mean(arrPreviousMeshPoints, axis= 0)
-            arrPeriodicShift = gf.PeriodicEquivalentMovement(arrMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)[2]
-            arrPreviousMeshPoints = arrPreviousMeshPoints - arrPeriodicShift
-            flt1 = spatial.distance.directed_hausdorff(arrMeshPoints,arrPreviousMeshPoints)[0]
-            flt2 = spatial.distance.directed_hausdorff(arrPreviousMeshPoints,arrMeshPoints)[0]
-            lstDistances.append(max(flt1,flt2))
-        if len(lstDistances) > 0:    
-            fltMin = min(lstDistances)
-            if fltMin > 8.1:
-                warnings.warn('Possible error as the time correlated Hausdorff distance is ' + str(min(lstDistances)) + ' at time step ' + str(self.GetTimeSteps()[-1]) + ' for ' + str(strType) + ' ' + str(j))
-            return lstPreviousGlobalIDs[np.argmin(lstDistances)]
-        elif strType == 'Grain Boundary':
-            return max(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalGrainBoundaryIDs())+1   
-        elif strType == 'Junction Line':
-            return max(self.__dctDefects[self.GetTimeSteps()[-1]].GetGlobalJunctionLineIDs())+1   
-        
+    def MakeHausdorffDistanceMatrix(self, lstOfCurrentMeshPoints: list,lstOfPreviousMeshPoints: list)-> np.array:
+        arrDistanceMatrix = np.zeros([len(lstOfCurrentMeshPoints), len(lstOfPreviousMeshPoints)])
+        for intCurrent,arrCurrent in enumerate(lstOfCurrentMeshPoints):
+            arrCurrentMean = np.mean(arrCurrent, axis = 0)
+            for intPrevious,arrPrevious in enumerate(lstOfPreviousMeshPoints):
+                arrPreviousMean = np.mean(arrPrevious, axis = 0)
+                arrPeriodicShift = gf.PeriodicEquivalentMovement(arrCurrentMean, arrPreviousMean, self.__CellVectors, self.__BasisConversion, self.__BoundaryTypes)[2]
+                arrPrevious = arrPrevious - arrPeriodicShift
+                arrDistanceMatrix[intCurrent, intPrevious] = max(spatial.distance.directed_hausdorff(arrCurrent, arrPrevious)[0], spatial.distance.directed_hausdorff(arrPrevious, arrCurrent)[0]) #Hausdorff distance is not symmetric in general and so choose the larger of the two measure.
+        return arrDistanceMatrix
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
         arrCuboidCellVectors = np.matmul(inCellVectors,inBasisConversion)
@@ -1045,11 +1060,8 @@ class QuantisedCuboidPoints(object):
                 arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
             arrNeighbours = np.argwhere(arrBox > 0) - np.ones(3)
             if len(arrNeighbours) > 0:
-                # arrProjections = np.matmul(arrNeighbours, np.transpose(arrNeighbours))
-                # if np.any(arrProjections < 0):
-                #     arrOut[j[0],j[1],j[2]] = 1
                 arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
-                arrSums = arrSums[np.all(arrSums == 0, axis=1)]
+                arrSums = arrSums[np.all(arrSums == 0, axis=1)] #if there are any opposite cubes 
                 if len(arrSums) >0:
                     arrOut[j[0],j[1],j[2]] = 1
         self.__BinaryArray = arrOut.astype('bool').astype('int')
@@ -1136,7 +1148,6 @@ class QuantisedCuboidPoints(object):
     def FindJunctionLines(self):
         arrGrainBoundaries = np.zeros(self.__ModArray) #temporary array 
         arrJunctionLines = np.zeros(self.__ModArray)
-       # self.__GrainBoundariesArray = np.zeros(self.__ModArray)
         lstGrainBoundaryList = []
         for j in self.__Coordinates:
             j = j.astype('int')
@@ -1183,7 +1194,6 @@ class QuantisedCuboidPoints(object):
             arrReturn = self.CheckPeriodicity(arrPoints, arrReturn)
             arrReturn[arrReturn > 0 ] += intMaxGBNumber
             self.__GrainBoundariesArray += arrReturn
-            #self.CheckPeriodicity(arrPoints, 'GrainBoundary')
             intMaxGBNumber += intGBs
     def CheckPeriodicity(self, inPoints: np.array, arrCurrent: np.array):
         arrMovedPoints = np.copy(inPoints)
@@ -1198,7 +1208,7 @@ class QuantisedCuboidPoints(object):
             if tupPairs[0] != tupPairs[1]:
                 arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
         return arrCurrent
-    def BoxIsNotWrapped(self, inPoint: np.array, n: int)->bool:
+    def BoxIsNotWrapped(self, inPoint: np.array, n: int)->bool: # checks to see if a box array lies inside the simulation cell without wrapping
         if np.all(np.mod(inPoint -n*np.ones(3), self.__ModArray) == inPoint-n*np.ones(3)) and np.all(np.mod(inPoint +(n+1)*np.ones(3), self.__ModArray) == inPoint+(n+1)*np.ones(3)):
             return True
         else:
@@ -1213,7 +1223,6 @@ class QuantisedCuboidPoints(object):
         arrDistances = np.reshape(np.array(list(map(np.linalg.norm, arrIndices))),(2*n+1,2*n+1,2*n+1))
         if len(arrGBPoints) > 0 :
             for j in arrGBPoints:
-                #if np.all(np.mod(j -n*np.ones(3), self.__ModArray) == j-n*np.ones(3)) and np.all(np.mod(j +(n+1)*np.ones(3), self.__ModArray) == j+(n+1)*np.ones(3)):
                 if self.BoxIsNotWrapped(j, n):
                     arrBox = self.__Grains[j[0]-n:j[0]+n+1,j[1]-n:j[1]+n+1, j[2]-n:j[2]+n+1]
                 else:
