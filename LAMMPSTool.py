@@ -1090,6 +1090,10 @@ class QuantisedCuboidPoints(object):
                     self.__Grains[self.__Grains == k] = j[0]
         lstValues = list(np.unique(self.__Grains))
         lstValues.remove(0)
+        for intIndex, intValue in enumerate(lstValues):
+            self.__Grains[self.__Grains == intValue] = intIndex+1 
+        lstValues = list(np.unique(self.__Grains))
+        lstValues.remove(0)
         self.__GrainLabels = lstValues        
     def ExtendArrayPeriodically(self, intWrapperWidth: int):
         n = intWrapperWidth
@@ -1149,19 +1153,20 @@ class QuantisedCuboidPoints(object):
         arrGrainBoundaries = np.zeros(self.__ModArray) #temporary array 
         arrJunctionLines = np.zeros(self.__ModArray)
         lstGrainBoundaryList = []
+        lstJunctionLineList = []
         for j in self.__Coordinates:
             j = j.astype('int')
             arrBox  = self.__ExpandedGrains[gf.WrapAroundSlice(np.array([[j[0],j[0]+2],[j[1],j[1]+2],[j[2],j[2]+2]]),self.__ModArray)]
             lstValues = list(np.unique(arrBox))
             if len(lstValues) > 2:
-                arrJunctionLines[j[0],j[1],j[2]] = len(lstValues)
+                if lstValues not in lstJunctionLineList:
+                    lstJunctionLineList.append(lstValues)
+                arrJunctionLines[j[0],j[1],j[2]] = 1 + lstJunctionLineList.index(lstValues)
             elif len(lstValues) ==2:
                 if lstValues not in lstGrainBoundaryList:
                     lstGrainBoundaryList.append(lstValues)
                 arrGrainBoundaries[j[0],j[1],j[2]] = 1 + lstGrainBoundaryList.index(lstValues)
-        arrJunctionLines, intJLs = ndimage.measurements.label(arrJunctionLines, np.ones([3,3,3]))
-        arrJLPoints = np.argwhere(arrJunctionLines > 0)
-        self.__JunctionLinesArray = self.CheckPeriodicity(arrJLPoints,arrJunctionLines)
+        self.__JunctionLinesArray = self.FindPeriodicBoundaries(arrJunctionLines)
         lstValues = list(np.unique(self.__JunctionLinesArray)) #renumber the array sequentially for convenience starting at 1
         if 0 in lstValues:
             lstValues.remove(0)
@@ -1171,8 +1176,7 @@ class QuantisedCuboidPoints(object):
         if 0 in lstValues:
             lstValues.remove(0)
         self.__JunctionLineIDs = lstValues
-        self.FindPeriodicGrainBoundaries(arrGrainBoundaries)
-        self.__GrainBoundariesArray = self.__GrainBoundariesArray.astype('int')
+        self.__GrainBoundariesArray = self.FindPeriodicBoundaries(arrGrainBoundaries)
         lstValues = list(np.unique(self.__GrainBoundariesArray)) #renumber the array sequentially for convenience starting at 1
         if 0 in lstValues:
             lstValues.remove(0)
@@ -1182,19 +1186,21 @@ class QuantisedCuboidPoints(object):
         if 0 in lstValues:
             lstValues.remove(0)
         self.__GrainBoundaryIDs = lstValues
-    def FindPeriodicGrainBoundaries(self,inGBArray: np.array):
-        inGBArray = inGBArray.astype('int')
-        intMaxGBNumber = 0
-        lstValues = list(np.unique(inGBArray))
+    def FindPeriodicBoundaries(self,inArray: np.array):
+        inArray = inArray.astype('int')
+        intMaxNumber = 0
+        lstValues = list(np.unique(inArray))
+        arrUpdatedValues = np.zeros(np.shape(inArray))
         if 0 in lstValues:
             lstValues.remove(0)
         for j in lstValues:
-            arrPoints = np.argwhere(inGBArray == j)
-            arrReturn, intGBs = ndimage.measurements.label(inGBArray == j, np.ones([3,3,3]))
+            arrPoints = np.argwhere(inArray == j)
+            arrReturn, intLabels = ndimage.measurements.label(inArray == j, np.ones([3,3,3]))
             arrReturn = self.CheckPeriodicity(arrPoints, arrReturn)
-            arrReturn[arrReturn > 0 ] += intMaxGBNumber
-            self.__GrainBoundariesArray += arrReturn
-            intMaxGBNumber += intGBs
+            arrReturn[arrReturn > 0 ] += intLabels
+            arrUpdatedValues += arrReturn
+            intMaxNumber += intLabels
+        return arrUpdatedValues.astype('int')
     def CheckPeriodicity(self, inPoints: np.array, arrCurrent: np.array):
         arrMovedPoints = np.copy(inPoints)
         for j in range(3):
