@@ -936,7 +936,7 @@ class LAMMPSSummary(object):
             arrHausdorff = self.MakeHausdorffDistanceMatrix(lstGB, lstPreviousGB) #periodic Hausdroff distance used to match global defects
             if len(lstPreviousGBIDs) != len(lstCurrentGBIDs):
                  warnings.warn('Number of grain boundaries changed from ' + str(len(lstPreviousGBIDs)) + ' to ' + str(len(lstCurrentGBIDs)) 
-                 + 'at time step ' + str(intTimeStep)) 
+                 + ' at time step ' + str(intTimeStep)) 
             while (len(lstCurrentGBIDs) > 0 and len(lstPreviousGBIDs) > 0):
                 tupCurrentPrevious = np.unravel_index(arrHausdorff.argmin(), arrHausdorff.shape)
                 intCurrent = int(tupCurrentPrevious[0])
@@ -1197,7 +1197,7 @@ class QuantisedCuboidPoints(object):
             arrPoints = np.argwhere(inArray == j)
             arrReturn, intLabels = ndimage.measurements.label(inArray == j, np.ones([3,3,3]))
             arrReturn = self.CheckPeriodicity(arrPoints, arrReturn)
-            arrReturn[arrReturn > 0 ] += intLabels
+            arrReturn[arrReturn > 0 ] += intMaxNumber
             arrUpdatedValues += arrReturn
             intMaxNumber += intLabels
         return arrUpdatedValues.astype('int')
