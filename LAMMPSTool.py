@@ -173,8 +173,8 @@ class LAMMPSTimeStep(object):
         return self.__Dimensions
     def GetCellCentre(self):
         return self.__CellCentre
-    def PeriodicEquivalents(self, inPositionVector: np.array)->np.array: #Moved to GeometryFunctions.py for access from other   
-        return gf.PeriodicEquivalents(inPositionVector,  self.__CellVectors,self.__BasisConversion, self.__BoundaryTypes)
+    def PeriodicEquivalents(self, inPositionVector: np.array, blnInsideCell = True)->np.array: #Moved to GeometryFunctions.py for access from other   
+        return gf.PeriodicEquivalents(inPositionVector,  self.__CellVectors,self.__BasisConversion, self.__BoundaryTypes, blnInsideCell)
     def MoveToSimulationCell(self, inPositionVector: np.array)->np.array:
         return gf.WrapVectorIntoSimulationCell(self.__CellBasis, self.__BasisConversion, inPositionVector)
     def PeriodicShiftAllCloser(self, inFixedPoint: np.array, inAllPointsToShift: np.array)->np.array:
@@ -243,9 +243,9 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self.__NonPTMAtomIDs = list(self.GetAtomData()[lstNonPTMAtoms,0].astype('int'))
         self.__OtherAtomIDs = list(self.GetAtomData()[lstOtherAtoms,0].astype('int'))
         self.FindDefectiveAtoms(fltTolerance)
-        self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
-        setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
-        self.__NonLatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__LatticeAtomIDs))
+        # self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
+        # setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
+        # self.__NonLatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__LatticeAtomIDs))
     def GetLatticeAtomIDs(self):
         return self.__LatticeAtomIDs
     def GetNonLatticeAtomIDs(self):
@@ -259,6 +259,9 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self.__NonDefectiveAtomIDs = list(self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int'))
         setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
         self.__DefectiveAtomIDs = setAllLatticeAtomIDs.difference(self.__NonDefectiveAtomIDs)
+        self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
+        setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
+        self.__NonLatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__LatticeAtomIDs))
     def GetOtherAtomIDs(self):
         return self.__OtherAtomIDs
     def GetPTMAtomIDs(self):
@@ -412,19 +415,26 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__blnPEAssigned = False
         self.__blnVolumeAssigned = False
         self.__blnAdjustedMeshPointsAssigned = False
+        self.__intGrainNumber = -1 #set to a dummy value to check 
+    def GetUnassignedGrainAtomIDs(self):
+        if self.__intGrainNumber == -1:
+            warnings.warn('Grain labels not set.')
+        else: 
+            lstUnassignedAtoms = np.where(self.GetColumnByIndex(self.__intGrainNumber) ==-1)[0]
+            return list(self.GetAtomData()[lstUnassignedAtoms,0].astype('int'))
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
     def LabelAtomsByGrain(self, fltTolerance = 1.96, fltRadius = None):
         if fltRadius is None:
             fltRadius = 3*self.__LatticeParameter
         objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
+        self.FindDefectiveAtoms(fltTolerance = 3.14)
         lstGrainAtoms = self.GetLatticeAtomIDs()
         lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
-        lstGrainNumbers = objQuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4])
+        lstGrainNumbers = objQuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4],True)
         self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
         objQuantisedCuboidPoints.FindJunctionLines()
         self.__JunctionLineIDs = objQuantisedCuboidPoints.GetJunctionLineIDs()
-        self.FindDefectiveAtoms(fltTolerance) #here you can choose a more strict criteria for defective atoms 
         for i in self.__JunctionLineIDs:
             self.__JunctionLines[i] = gl.GeneralJunctionLine(objQuantisedCuboidPoints.GetJunctionLinePoints(i),i)
             self.__JunctionLines[i].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
@@ -439,7 +449,33 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             for l in self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()):
                 lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, fltRadius))
                 self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
-        self.CheckBoundaries()   
+        self.RefineGrainLabels()
+    def RefineGrainLabels(self): #try to assign any lattice atoms with -1 grain number to a grain.
+        lstOfOldIDs = []
+        self.MakeGrainTrees() #this will include defects with grain number 0 and 
+        lstOfIDs = self.GetUnassignedGrainAtomIDs()
+        intCounter = 0
+        while (lstOfIDs != lstOfOldIDs) and intCounter < 10:
+            arrAtoms = self.GetAtomsByID(lstOfIDs)[:,0:4]
+            lstGrainLabels = self.__GrainLabels
+            if 0 in lstGrainLabels:
+                lstGrainLabels.remove(0)
+            if -1 in lstGrainLabels:
+                lstGrainLabels.remove(-1)
+            arrDistances = np.zeros([len(lstOfIDs), len(lstGrainLabels)])
+            for intPosition,intLabel in enumerate(lstGrainLabels):
+                arrDistances[:,intPosition] = self.__Grains[intLabel].query(arrAtoms[:,1:4],1,distance_upper_bound = 1.05*4.05/np.sqrt(2))[0]
+            for j in range(len(lstGrainLabels)):
+                arrRows = np.where((arrDistances[:,j] == np.min(arrDistances, axis = 1)) & (np.isfinite(arrDistances[:,j])))[0]
+                arrGrainNumbers = lstGrainLabels[j]*np.ones(len(arrRows)).astype('int')
+                arrNewIDs = arrAtoms[arrRows, 0]
+                self.SetColumnByIDs(arrNewIDs, self.__intGrainNumber, arrGrainNumbers)
+            self.MakeGrainTrees() #this will include defects with grain number 0 and 
+            lstOfOldIDs = lstOfIDs
+            lstOfIDs = self.GetUnassignedGrainAtomIDs()
+            intCounter += 1
+        if len(lstOfIDs) > 0:
+            warnings.warn(str(len(lstOfIDs)) + ' grain atom(s) have been assigned a grain number of -1 after ' + str(intCounter) + ' iterations.')
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
         if 'GrainNumber' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainNumber')
@@ -493,40 +529,6 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         for k in self.__GrainLabels:
             lstIDs = self.GetGrainAtomIDs(k)
             self.__Grains[k] = spatial.KDTree(self.GetAtomsByID(lstIDs)[:,1:4])
-    def CheckBoundaries(self):
-        lstGrains = self.__GrainLabels
-        if 0 in lstGrains:
-            lstGrains.remove(0)
-        lstNextAtoms = list(set(self.GetLatticeAtomIDs()).intersection(set(self.GetGrainAtomIDs(0))))
-        lstAtoms = []
-        self.MakeGrainTrees()
-        while len(set(lstNextAtoms).difference(lstAtoms)) > 0:
-            lstAtoms = lstNextAtoms
-            arrAtoms = np.array(lstAtoms)
-            arrPoints = self.GetAtomsByID(lstAtoms)[:,1:4]
-            clustering = DBSCAN(1.01*self.__LatticeParameter/np.sqrt(2), 1).fit(arrPoints)
-            arrValues = clustering.labels_
-            lstUniqueValues = np.unique(arrValues)
-            for i in lstUniqueValues:
-                intMax = 0
-                intGrain = 0
-                arrCluster = arrPoints[arrValues == i]
-                arrClusterIDs = arrAtoms[arrValues == i]
-                for k in lstGrains:
-                    arrDistances = self.__Grains[k].query(arrCluster, k=12, distance_upper_bound= 1.01*self.__LatticeParameter/np.sqrt(2))[0]
-                    intCurrent = len(arrDistances[arrDistances < 1.01*self.__LatticeParameter/np.sqrt(2)])
-                    if intCurrent > intMax:
-                        intMax = intCurrent
-                        intGrain = k
-                    elif intCurrent == intMax and intMax > 0:
-                        intGrain = 0
-                if intGrain > 0:
-                    self.SetColumnByIDs(list(arrClusterIDs), self.__intGrainNumber, intGrain*np.ones(len(arrClusterIDs)))
-            lstNextAtoms = list(set(self.GetLatticeAtomIDs()).intersection(set(self.GetGrainAtomIDs(0))))
-            self.MakeGrainTrees()
-        if len(lstNextAtoms) > 0:
-            warnings.warn(str(len(lstNextAtoms)) + ' grain atom(s) have been assigned a grain number of -1')
-            self.SetColumnByIDs(lstNextAtoms, self.__intGrainNumber, -1**np.ones(len(lstNextAtoms)))
     def FinaliseGrainBoundaries(self):
         lstGBIDs =  list(np.copy(self.__GrainBoundaryIDs))
         while len(lstGBIDs) > 0:
@@ -559,6 +561,13 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                             self.__GrainBoundaries[intGBID].AddAtomIDs([intAtomID])
                         elif lstClosestGrains == self.__GrainBoundaries[i].GetAdjacentGrains():
                             self.__GrainBoundaries[i].AddAtomIDs([intAtomID])
+    def GetRemainingDefectAtomIDs(self):
+        setRemainingDefectIDs = set(self.GetNonLatticeAtomIDs())
+        for j in self.__JunctionLineIDs:
+            setRemainingDefectIDs = setRemainingDefectIDs.difference(self.__JunctionLines[j].GetAtomIDs())
+        for k in self.__GrainBoundaryIDs:
+            setRemainingDefectIDs = setRemainingDefectIDs.difference(self.__JunctionLines[k].GetAtomIDs())
+        return list(setRemainingDefectIDs)    
     def FindJunctionLines(self):
         for i in self.__JunctionLineIDs:
             lstJLAtomsIDs = []
@@ -1079,8 +1088,11 @@ class QuantisedCuboidPoints(object):
             self.__WrapperWidth = int(intWrapper)
             self.CheckPeriodicGrains() #check to see if any grains connect over the simulation cell boundary
             self.MergeEquivalentGrains() #if two grains are periodically linked then merge them into one
-           # self.ExtendArrayPeriodically(intWrapper)#extend the cuboid by intwrapper using a periodic copy
+            self.MakeReturnGrains()
             self.ExpandGrains() #expand all the grains until the grain boundaries are dissolved
+    def MakeReturnGrains(self):
+        self.__ReturnGrains = np.copy(self.__Grains) #This array is used to evaluate all the lattice points 
+        self.__ReturnGrains[self.__ReturnGrains == 0] = -1 #if they are in a defective region assign the value -1
     def GetDefectPositions(self):
         return self.__DefectPositions
     def MergeEquivalentGrains(self):
@@ -1134,7 +1146,7 @@ class QuantisedCuboidPoints(object):
         if len(lstIndices) > 0: 
             lstIndices = np.unique(lstIndices)
         return inPoints[lstIndices]
-    def ReturnGrains(self, inPoints: np.array, blnExpanded = False)->list:
+    def ReturnGrains(self, inPoints: np.array, blnExpanded = True)->list:
         inPoints = np.matmul(inPoints, self.__Scaling)
         inPoints = np.matmul(inPoints, self.__BasisConversion)
         inPoints = np.round(inPoints, 0).astype('int')
@@ -1142,7 +1154,7 @@ class QuantisedCuboidPoints(object):
         if len(np.argwhere(self.__ExpandedGrains == 0)) > 0:
             warnings.warn('Expanded grain method has not removed all grain boundary atoms')
         if blnExpanded:
-            return list(self.__ExpandedGrains[inPoints[:,0],inPoints[:,1],inPoints[:,2]])
+            return list(self.__ReturnGrains[inPoints[:,0],inPoints[:,1],inPoints[:,2]])
         else:
             arrZeros = np.argwhere(self.__BinaryArray == 0)
             self.__ReturnGrains = np.copy(self.__ExpandedGrains)
