@@ -713,7 +713,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                     fdata.write('{} \n'.format(self.__JunctionLines[i].GetTotalPE()))
                 if self.__blnAdjustedMeshPointsAssigned:
                     fdata.write('Adjusted Mesh Points \n')
-                    fdata.write('{} \n'.format(self.__JunctionLines[i].GetAdjustedMeshPoints().tolist()))
+                    if len(self.__JunctionLines[i].GetAdjustedMeshPoints()) > 0:
+                        fdata.write('{} \n'.format(self.__JunctionLines[i].GetAdjustedMeshPoints().tolist()))
+                    else:
+                        fdata.write('{} \n'.format(self.__JunctionLines[i].GetAdjustedMeshPoints()))
             for k in self.__GrainBoundaryIDs:
                 fdata.write('Grain Boundary \n')
                 fdata.write('{} \n'.format(k))
@@ -735,7 +738,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                     fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetTotalPE()))
                 if self.__blnAdjustedMeshPointsAssigned:
                     fdata.write('Adjusted Mesh Points \n')
-                    fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAdjustedMeshPoints().tolist()))
+                    if len(self.__GrainBoundaries[k].GetAdjustedMeshPoints()) > 0:
+                        fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAdjustedMeshPoints().tolist()))
+                    else:
+                        fdata.write('{} \n'.format(self.__GrainBoundaries[k].GetAdjustedMeshPoints()))
             fdata.write('Grain Numbers \n')
             fdata.write('{}'.format(self.GetColumnByIndex(self.__intGrainNumber).astype('int').tolist()))
     def ReadInDefectData(self, strFilename: str):
