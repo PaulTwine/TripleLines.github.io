@@ -509,8 +509,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 if lstJLIDs != []:
                     arrPoints = self.PeriodicShiftAllCloser(arrMeshPoints[intCounter], self.GetAtomsByID(lstJLIDs)[:,1:4])
                     lstOfAdjustedMeshPoints.append(np.mean(arrPoints, axis= 0))
-            arrAdjustedMeshPoints = np.vstack(lstOfAdjustedMeshPoints)
-            self.__JunctionLines[i].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+            if len(lstOfAdjustedMeshPoints) > 0:
+                arrAdjustedMeshPoints = np.vstack(lstOfAdjustedMeshPoints)
+                self.__JunctionLines[i].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
         for j in self.__GrainBoundaryIDs:
             arrMeshPoints = self.__GrainBoundaries[j].GetMeshPoints()
             lstOfIDs = list(map(lambda x: self.FindBoxAtoms(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,0:4],x-arrShift,self.__LatticeParameter*self.GetUnitCellBasis()[0],self.__LatticeParameter*self.GetUnitCellBasis()[1],self.__LatticeParameter*self.GetUnitCellBasis()[2]),arrMeshPoints))
@@ -519,8 +520,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 if lstJLIDs != []:
                     arrPoints = self.PeriodicShiftAllCloser(arrMeshPoints[intCounter], self.GetAtomsByID(lstJLIDs)[:,1:4])
                     lstOfAdjustedMeshPoints.append(np.mean(arrPoints, axis= 0))
-            arrAdjustedMeshPoints = np.vstack(lstOfAdjustedMeshPoints)
-            self.__GrainBoundaries[j].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+            if len(lstOfAdjustedMeshPoints) > 0:
+                arrAdjustedMeshPoints = np.vstack(lstOfAdjustedMeshPoints)
+                self.__GrainBoundaries[j].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
         self.__blnAdjustedMeshPointsAssigned = True
     def MakeGrainTrees(self):
         lstGrainLabels = self.__GrainLabels
