@@ -75,8 +75,7 @@ class LAMMPSData(object):
         return self.__dctTimeSteps[str(self.__lstTimeSteps[intIndex])]
     def GetNumberOfDimensions(self)-> int:
         return self.__Dimensions 
-        
-       
+              
 class LAMMPSTimeStep(object):
     def __init__(self,fltTimeStep: float,intNumberOfAtoms: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list):
         self.__Dimensions = 3 #assume three dimensional unless specificed otherwise
@@ -424,11 +423,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             return list(self.GetAtomData()[lstUnassignedAtoms,0].astype('int'))
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
-    def LabelAtomsByGrain(self, fltTolerance = 1.96, fltRadius = None):
+    def LabelAtomsByGrain(self, fltTolerance = 3.14, fltRadius = None):
         if fltRadius is None:
             fltRadius = 3*self.__LatticeParameter
         objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
-        self.FindDefectiveAtoms(fltTolerance = 3.14)
+        self.FindDefectiveAtoms(fltTolerance)
         lstGrainAtoms = self.GetLatticeAtomIDs()
         lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
         lstGrainNumbers = objQuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4],True)
@@ -563,12 +562,14 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                             self.__GrainBoundaries[intGBID].AddAtomIDs([intAtomID])
                         elif lstClosestGrains == self.__GrainBoundaries[i].GetAdjacentGrains():
                             self.__GrainBoundaries[i].AddAtomIDs([intAtomID])
-    def GetRemainingDefectAtomIDs(self):
+    def GetRemainingDefectAtomIDs(self, fltTolerance= None):
+        if fltTolerance is not(None):
+            self.FindDefectiveAtoms(fltTolerance)
         setRemainingDefectIDs = set(self.GetNonLatticeAtomIDs())
         for j in self.__JunctionLineIDs:
             setRemainingDefectIDs = setRemainingDefectIDs.difference(self.__JunctionLines[j].GetAtomIDs())
         for k in self.__GrainBoundaryIDs:
-            setRemainingDefectIDs = setRemainingDefectIDs.difference(self.__JunctionLines[k].GetAtomIDs())
+            setRemainingDefectIDs = setRemainingDefectIDs.difference(self.__GrainBoundaries[k].GetAtomIDs())
         return list(setRemainingDefectIDs)    
     def FindJunctionLines(self):
         for i in self.__JunctionLineIDs:
@@ -1222,15 +1223,22 @@ class QuantisedCuboidPoints(object):
             intMaxNumber += intLabels
         return arrUpdatedValues.astype('int')
     def CheckPeriodicity(self, inPoints: np.array, arrCurrent: np.array):
-        arrMovedPoints = np.copy(inPoints)
-        for j in range(3):
-            lstIndicesLower = np.where(inPoints[:,j] == self.__ModArray[j]-1)[0]
-            arrMovedPoints[lstIndicesLower, j*np.ones(len(lstIndicesLower)).astype('int')] = -1
-        arrDistanceMatrix = spatial.distance_matrix(arrMovedPoints,arrMovedPoints)
+        arrExtended = np.zeros(np.shape(arrCurrent) + 2*np.ones(3).astype('int'))
+        arrExtended[1:-1,1:-1,1:-1] = np.copy(arrCurrent)
+        arrExtended[0,:,:] = arrExtended[-2,:,:]
+        arrExtended[-1,:,:] = arrExtended[1,:,:]
+        arrExtended[:,0,:] = arrExtended[:,-2,:]
+        arrExtended[:,-1,:] = arrExtended[:,1,:]
+        arrExtended[:,:,0] = arrExtended[:,:,-2]
+        arrExtended[:,:,-1] = arrExtended[:,:,1]  
+        arrTotalPoints = np.argwhere(arrExtended > 0) - np.ones(3)
+        arrDistanceMatrix = spatial.distance_matrix(arrTotalPoints,arrTotalPoints)
         arrClosePoints = np.argwhere(arrDistanceMatrix < 2) #allows 3d diagonal connectivity
         arrCurrent = arrCurrent.astype('int')
         for j in arrClosePoints:
-            tupPairs = (arrCurrent[tuple(zip(inPoints[j[0]]))][0], arrCurrent[tuple(zip(inPoints[j[1]]))][0])
+            arrRow = tuple(zip(np.mod(arrTotalPoints[j[0]], self.__ModArray).astype('int')))
+            arrColumn = tuple(zip(np.mod(arrTotalPoints[j[1]], self.__ModArray).astype('int'))) 
+            tupPairs = (arrCurrent[arrRow][0], arrCurrent[arrColumn][0])
             if tupPairs[0] != tupPairs[1]:
                 arrCurrent[arrCurrent == max(tupPairs)] = min(tupPairs)
         return arrCurrent
