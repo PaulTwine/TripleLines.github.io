@@ -1058,7 +1058,7 @@ class QuantisedCuboidPoints(object):
         arrOut = np.reshape(arrOut,arrModArray)
         intConnections = 0
         intIterations = 0
-        while intConnections != 1:
+        while intConnections != 1 and intIterations < 6:
             arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
             arrOut = (arrOut > np.mean(arrOut))
             arrOut = arrOut.astype('bool').astype('int') # convert to binary
