@@ -367,7 +367,7 @@ class DefectMeshObject(object):
         self.__MeshPoints = inMeshPoints
         self.__ID = intID
         self.__AtomIDs = []
-        self.__AdjustedMeshPoints = [] #these are general adjusted to correct for the limited accuracy of the QuantisedCuboid object
+        self.__AdjustedMeshPoints = [] #these are general mesh points adjusted to correct for the limited accuracy of the QuantisedCuboid object
         self.__Volume = 0
         self.__PE = 0
     def GetMeshPoints(self):
@@ -385,8 +385,8 @@ class DefectMeshObject(object):
     def GetAtomIDs(self)->list:
         return cp.copy(self.__AtomIDs)
     def AddAtomIDs(self, inList):
-        inList = list(map(int,inList))
-        self.__AtomsIDs = list(np.unique(self.__AtomIDs.extend(inList)))
+        inList = set(map(int,inList))
+        self.__AtomIDs = list(inList.union(self.__AtomIDs))
     def RemoveAtomIDs(self, inList):
         setAtomIDs = set(self.__AtomIDs)
         self.__AtomIDs = list(setAtomIDs.difference(inList))

@@ -242,9 +242,6 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self.__NonPTMAtomIDs = list(self.GetAtomData()[lstNonPTMAtoms,0].astype('int'))
         self.__OtherAtomIDs = list(self.GetAtomData()[lstOtherAtoms,0].astype('int'))
         self.FindDefectiveAtoms(fltTolerance)
-        # self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
-        # setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
-        # self.__NonLatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__LatticeAtomIDs))
     def GetLatticeAtomIDs(self):
         return self.__LatticeAtomIDs
     def GetNonLatticeAtomIDs(self):
@@ -967,7 +964,10 @@ class LAMMPSSummary(object):
                 arrHausdorff = np.delete(arrHausdorff, intPrevious, axis = 1)
             while len(lstCurrentGBIDs) > 0: #there are more current GBs than previous GBs
                 intID = lstCurrentGBIDs.pop(0)
-                intLastGlobalID = max(objDefect.GetGlobalGrainBoundaryIDs())
+                if len(objDefect.GetGlobalGrainBoundaryIDs()) > 0:
+                    intLastGlobalID = max(objDefect.GetGlobalGrainBoundaryIDs())
+                else:
+                    intLastGlobalID = 0
                 objDefect.GetGrainBoundary(intID).SetGlobalID(intLastGlobalID + 1)
                 objDefect.AddGlobalGrainBoundary(objDefect.GetGrainBoundary(intID))
             lstJL = []
@@ -994,7 +994,10 @@ class LAMMPSSummary(object):
                 arrHausdorff = np.delete(arrHausdorff, intPrevious, axis = 1)
             while len(lstCurrentJLIDs) > 0: #there are more current GBs than previous GBs
                 intID = lstCurrentJLIDs.pop(0)
-                intLastGlobalID = max(objDefect.GetGlobalJunctionLineIDs())
+                if len(objDefect.GetGlobalJunctionLineIDs()) > 0:
+                    intLastGlobalID = max(objDefect.GetGlobalJunctionLineIDs())
+                else:
+                    intLastGlobalID = 0
                 objDefect.GetJunctionLine(intID).SetGlobalID(intLastGlobalID + 1)
                 objDefect.AddGlobalJunctionLine(objDefect.GetJunctionLine(intID))
         self.__dctDefects[intTimeStep] = objDefect
