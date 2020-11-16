@@ -412,16 +412,19 @@ class DefectMeshObject(object):
         self.__PeriodicDirections = inList
     def GetPeriodicDirections(self):
         return cp.copy(self.__PeriodicDirections)
-    def GetTotalPE(self):
-        return self.__PE
+    def GetTotalPE(self, fltPEDatum = None):
+        if fltPEDatum is None:
+            return self.__PE
+        else:
+            return self.__PE - fltPEDatum*self.GetNumberOfAtoms()
     def SetTotalPE(self, fltPE):
         self.__PE = fltPE 
-    def GetPEPerAtom(self):
+    def GetPEPerAtom(self, fltPEDatum = None):
         if self.GetNumberOfAtoms() > 0:
-            return self.__PE/len(self.__AtomIDs)
-    def GetPEPerVolume(self):
+            return self.GetTotalPE(fltPEDatum)/len(self.__AtomIDs)
+    def GetPEPerVolume(self, fltPEDatum = None):
         if self.__Volume > 0:
-            return self.__PE/self.__Volume
+            return self.GetTotalPE(fltPEDatum)/self.__Volume
     
 
 class GeneralJunctionLine(DefectMeshObject):

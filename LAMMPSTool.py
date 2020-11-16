@@ -6,7 +6,7 @@ from scipy import spatial, optimize, ndimage, stats
 from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes, remove_small_objects, skeletonize_3d, binary_dilation
 from scipy.cluster.vq import kmeans,vq
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
-from skimage.filters import gaussian
+from skimage.filters import gaussian, threshold_otsu
 from skimage import measure
 from sklearn.cluster import DBSCAN
 #import hdbscan
@@ -1061,34 +1061,34 @@ class QuantisedCuboidPoints(object):
         arrOut = np.reshape(arrOut,arrModArray)
         intConnections = 0
         intIterations = 0
-        while intConnections != 1 and intIterations < 6:
-            arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
-            arrOut = (arrOut > np.mean(arrOut))
-            arrOut = arrOut.astype('bool').astype('int') # convert to binary
-            arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
-            arrOut = arrOut.astype('bool').astype('float')
-            intIterations += 1
+        while intConnections != 1 and intIterations < 3:
+             arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap',truncate=2)
+             fltThreshold = threshold_otsu(arrOut)
+             arrOut = (arrOut > fltThreshold)
+             arrOut = arrOut.astype('bool').astype('int') # convert to binary
+             arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
+             arrOut = arrOut.astype('bool').astype('float')
+             intIterations += 1
         if intIterations > 1:
-            warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a connected defective array.')
+             warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a connected defective array.')
         self.__Iterations = intIterations
-        arrPoints = np.argwhere(arrOut == 0)
-        for j in arrPoints:
-            n=1
-            if self.BoxIsNotWrapped(j, n):
-                arrBox = arrOut[j[0]-n:j[0]+n+1,j[1]-n:j[1]+n+1, j[2]-n:j[2]+n+1]
-            else:
-                arrBox = arrOut[gf.WrapAroundSlice(np.array([[j[0]-n,j[0]+n+1],[j[1]-n,j[1]+n+1], [j[2]-n,j[2]+n+1]]),self.__ModArray)]
-                arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
-            arrNeighbours = np.argwhere(arrBox > 0) - np.ones(3)
-            if len(arrNeighbours) > 0:
-                arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
-                arrSums = arrSums[np.all(arrSums == 0, axis=1)] #if there are any opposite cubes 
-                if len(arrSums) >0:
-                    arrOut[j[0],j[1],j[2]] = 1
+        #arrPoints = np.argwhere(arrOut == 0)
+        # for j in arrPoints:
+        #     n=1
+        #     if self.BoxIsNotWrapped(j, n):
+        #         arrBox = arrOut[j[0]-n:j[0]+n+1,j[1]-n:j[1]+n+1, j[2]-n:j[2]+n+1]
+        #     else:
+        #         arrBox = arrOut[gf.WrapAroundSlice(np.array([[j[0]-n,j[0]+n+1],[j[1]-n,j[1]+n+1], [j[2]-n,j[2]+n+1]]),self.__ModArray)]
+        #         arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
+        #     arrNeighbours = np.argwhere(arrBox > 0) - np.ones(3)
+        #     if len(arrNeighbours) > 0:
+        #         arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
+        #         arrSums = arrSums[np.all(arrSums == 0, axis=1)] #if there are any opposite cubes 
+        #         if len(arrSums) >0:
+        #             arrOut[j[0],j[1],j[2]] = 1
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
-        self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.array([[[0,0,0],[0,1,0],[0,0,0]],[[0,1,0],[1,1,1],[0,1,0]],[[0,0,0],[0,1,0],[0,0,0]]])) #don't allow the same grain to connect diagonally
-        #self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.ones([3,3,3]))
+        self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.array([[[0,0,0],[0,1,0],[0,0,0]],[[0,1,0],[1,1,1],[0,1,0]],[[0,0,0],[0,1,0],[0,0,0]]])) #don't allow grains to connect diagonally
         if intGrainLabels <= 1:
             warnings.warn('Only ' + str(intGrainLabels) + ' grain(s) detected')
         self.__Grains = np.asarray(self.__Grains)
