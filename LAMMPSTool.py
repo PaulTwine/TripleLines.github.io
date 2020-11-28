@@ -61,6 +61,13 @@ class LAMMPSData(object):
                 for i in range(N):
                     line = next(Dfile).strip().split()
                     objTimeStep.SetRow(i,list(map(float,line)))
+                for j in line:
+                    lstColumnTypes = []
+                    if "." in j:
+                        lstColumnTypes.append('%s')
+                    else:
+                        lstColumnTypes.append('%i')
+                objTimeStep.SetColumnTypes(lstColumnTypes) 
                 objTimeStep.CategoriseAtoms()
                 self.__dctTimeSteps[str(timestep)] = objTimeStep            
             self.__lstTimeSteps = lstTimeSteps
@@ -87,6 +94,8 @@ class LAMMPSTimeStep(object):
         self.__ColumnNames = lstColumnNames
         self.SetBoundBoxLabels(lstBoundaryType)
         self.SetBoundBoxDimensions(lstBounds)
+    def SetColumnTypes(self, lstColumnTypes): #records whether columns are integers or floats
+        self.__ColumnTypes = lstColumnTypes
     def GetBoundaryTypes(self):
         return self.__BoundaryTypes
     def GetNumberOfColumns(self):
@@ -99,9 +108,10 @@ class LAMMPSTimeStep(object):
         self.__AtomData[np.isin(self.__AtomData[:,0], lstOfAtomIDs), intColumn] = arrValues
     def SetRow(self, intRowNumber: int, lstRow: list):
         self.__AtomData[intRowNumber] = lstRow
-    def AddColumn(self, arrColumn: np.array, strColumnName):
+    def AddColumn(self, arrColumn: np.array, strColumnName: str, strFormat = '%s'):
         self.__AtomData = np.append(self.__AtomData, arrColumn, axis=1)
         self.__ColumnNames.append(strColumnName)
+        self.__ColumnTypes += ' ' + strFormat
     def GetRow(self,intRowNumber: int):
         return self.__AtomData[intRowNumber]
     def GetRows(self, lstOfRows: list):
@@ -195,6 +205,17 @@ class LAMMPSTimeStep(object):
         self.GetCellBasis()[1,1]+self.GetCellBasis()[2,1], self.GetCellBasis()[2,2]])
     def GetTimeStep(self):
         return self.__TimeStep
+    def WriteDumpFile(self, strFilename: str):
+        strHeader = 'ITEM: TIMESTEP \n'
+        strHeader += str(self.GetTimeStep()) + '\n'
+        strHeader += 'ITEM: NUMBER OF ATOMS \n'
+        strHeader += str(self.GetNumberOfAtoms()) + '\n'
+        strHeader += 'ITEM: BOX BOUNDS xy xz yz ' + ' '.join(self.__BoundaryTypes) + '\n'
+        strHeader += str(self.__Origin[0]) + ' ' + str(self.__CellVectors[0,0]) + ' '  + str(self.__CellVectors[1,0]) + '\n'
+        strHeader += str(self.__Origin[1]) + ' ' + str(self.__CellVectors[1,1]) + ' '  + str(self.__CellVectors[2,0]) + '\n'
+        strHeader += str(self.__Origin[2]) + ' ' + str(self.__CellVectors[2,2])  + ' '  + str(self.__CellVectors[2,1]) + '\n'  
+        strHeader += 'ITEM: ATOMS ' + ' '.join(self.__ColumnNames)
+        np.savetxt(strFilename, self.GetAtomData(), fmt= ' '.join(self.__ColumnTypes), header=strHeader, comments='')
 
 class LAMMPSPostProcess(LAMMPSTimeStep):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
@@ -221,6 +242,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self.__DefectiveAtomIDs = []
         self.__NonDefectiveAtomIDs = []
         self.FindPlaneNormalVectors()
+        self.__dctLatticeTypes = dict()
     def FindPlaneNormalVectors(self):
         n= self.__Dimensions
         arrVectors = np.zeros([n,n])
@@ -249,7 +271,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
             fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
-            fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
+            fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue 
         fltMeanLatticeValue = np.mean(self.GetPTMAtoms()[:,self._intPE])
         lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue - fltTolerance))[0]
         self.__NonDefectiveAtomIDs = list(self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int'))
@@ -412,6 +434,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__blnVolumeAssigned = False
         self.__blnAdjustedMeshPointsAssigned = False
         self.__intGrainNumber = -1 #set to a dummy value to check 
+        self.__intGrainBoundary = -1
     def GetUnassignedGrainAtomIDs(self):
         if self.__intGrainNumber == -1:
             warnings.warn('Grain labels not set.')
@@ -460,7 +483,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 lstGrainLabels.remove(-1)
             arrDistances = np.zeros([len(lstOfIDs), len(lstGrainLabels)])
             for intPosition,intLabel in enumerate(lstGrainLabels):
-                arrDistances[:,intPosition] = self.__Grains[intLabel].query(arrAtoms[:,1:4],1,distance_upper_bound = 1.05*4.05/np.sqrt(2))[0]
+                arrDistances[:,intPosition] = self.__Grains[intLabel].query(arrAtoms[:,1:4],1,distance_upper_bound = 4.05/np.sqrt(2))[0]
             for j in range(len(lstGrainLabels)):
                 arrRows = np.where((arrDistances[:,j] == np.min(arrDistances, axis = 1)) & (np.isfinite(arrDistances[:,j])))[0]
                 arrGrainNumbers = lstGrainLabels[j]*np.ones(len(arrRows)).astype('int')
@@ -483,6 +506,26 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.SetColumnByIndex(arrGrainNumbers, self.__intGrainNumber)
         else:
             self.SetColumnByIDs(lstGrainAtoms, self.__intGrainNumber, arrGrainNumbers)
+    def AppendGrainBoundaries(self):
+        if 'GrainBoundary' not in self.GetColumnNames():
+            self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainBoundary')
+        intGrainBoundary = self.GetNumberOfColumns()-1 #column number for the grains
+        for i in self.__GrainBoundaryIDs:
+            lstIDs = self.__GrainBoundaries[i].GetAtomIDs()
+            intValue = self.__GrainBoundaries[i].GetID()
+            arrValues = intValue*np.ones(len(lstIDs))
+            np.reshape(arrValues,(len(lstIDs),1))
+            self.SetColumnByIDs(lstIDs, intGrainBoundary, arrValues)
+    def AppendJunctionLines(self):
+        if 'JunctionLine' not in self.GetColumnNames():
+            self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'JunctionLine')
+        intJunctionLine = self.GetNumberOfColumns()-1 #column number for the grains
+        for i in self.__JunctionLineIDs:
+            lstIDs = self.__JunctionLines[i].GetAtomIDs()
+            intValue = self.__JunctionLines[i].GetID()
+            arrValues = intValue*np.ones(len(lstIDs))
+            np.reshape(arrValues,(len(lstIDs),1))
+            self.SetColumnByIDs(lstIDs, intJunctionLine, arrValues)
     def AssignPE(self):
         for i in self.__JunctionLineIDs:
             self.__JunctionLines[i].SetTotalPE(np.sum(self.GetColumnByIDs(self.__JunctionLines[i].GetAtomIDs(),self._intPE)))
@@ -601,7 +644,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                     warnings.warn('Estimated GB length is only ' + str(fltGBLength) + ' Anstroms')
                 if  np.all(np.array(lstGrainDistances) < fltGBLength):
                     lstJLAtomsIDs.append(intID)
-                else:
+                elif np.sort(lstGrainDistances)[1] < fltGBLength:
                     intCounter = 0
                     blnFound = False
                     while (intCounter < len(self.__JunctionLines[i].GetAdjacentGrainBoundaries()) and not(blnFound)):
@@ -1072,20 +1115,6 @@ class QuantisedCuboidPoints(object):
         if intIterations > 1:
              warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a connected defective array.')
         self.__Iterations = intIterations
-        #arrPoints = np.argwhere(arrOut == 0)
-        # for j in arrPoints:
-        #     n=1
-        #     if self.BoxIsNotWrapped(j, n):
-        #         arrBox = arrOut[j[0]-n:j[0]+n+1,j[1]-n:j[1]+n+1, j[2]-n:j[2]+n+1]
-        #     else:
-        #         arrBox = arrOut[gf.WrapAroundSlice(np.array([[j[0]-n,j[0]+n+1],[j[1]-n,j[1]+n+1], [j[2]-n,j[2]+n+1]]),self.__ModArray)]
-        #         arrBox = np.reshape(arrBox,(2*n+1,2*n+1,2*n+1))
-        #     arrNeighbours = np.argwhere(arrBox > 0) - np.ones(3)
-        #     if len(arrNeighbours) > 0:
-        #         arrSums = np.concatenate(list(map(lambda x: x + arrNeighbours, arrNeighbours)))
-        #         arrSums = arrSums[np.all(arrSums == 0, axis=1)] #if there are any opposite cubes 
-        #         if len(arrSums) >0:
-        #             arrOut[j[0],j[1],j[2]] = 1
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.array([[[0,0,0],[0,1,0],[0,0,0]],[[0,1,0],[1,1,1],[0,1,0]],[[0,0,0],[0,1,0],[0,0,0]]])) #don't allow grains to connect diagonally
@@ -1330,7 +1359,7 @@ class QuantisedCuboidPoints(object):
                 if arrConnected[k] == 0:
                     arrNearPoints = np.where((arrTotal[:,k] >= -self.__ModArray[k]/2) & (arrTotal[:,k] < 3*self.__ModArray[k]/2))[0]
                     arrTotal = arrTotal[arrNearPoints]  
-            arrDistanceMatrix = arrDistanceMatrix = pairwise_distances(arrTotal)    
+            arrDistanceMatrix  = pairwise_distances(arrTotal)    
             clustering = DBSCAN(eps=2, metric = 'precomputed',min_samples = 1).fit(arrDistanceMatrix)
             arrLabels = clustering.labels_
             arrUniqueValues, arrCounts = np.unique(arrLabels, return_counts = True)
