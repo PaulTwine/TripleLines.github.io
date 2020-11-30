@@ -61,8 +61,8 @@ class LAMMPSData(object):
                 for i in range(N):
                     line = next(Dfile).strip().split()
                     objTimeStep.SetRow(i,list(map(float,line)))
+                lstColumnTypes = []
                 for j in line:
-                    lstColumnTypes = []
                     if "." in j:
                         lstColumnTypes.append('%s')
                     else:
@@ -1202,33 +1202,17 @@ class QuantisedCuboidPoints(object):
             for j in arrZeros:
                 self.__ReturnGrains[j[0],j[1],j[2]] = 0
             return list(self.__ReturnGrains[inPoints[:,0],inPoints[:,1],inPoints[:,2]])                     
-    def FindJunctionLines(self):
+    def FindGrainBoundaries(self):
         arrGrainBoundaries = np.zeros(self.__ModArray) #temporary array 
-        arrJunctionLines = np.zeros(self.__ModArray)
         lstGrainBoundaryList = []
-        lstJunctionLineList = []
         for j in self.__Coordinates:
             j = j.astype('int')
             arrBox  = self.__ExpandedGrains[gf.WrapAroundSlice(np.array([[j[0],j[0]+2],[j[1],j[1]+2],[j[2],j[2]+2]]),self.__ModArray)]
             lstValues = list(np.unique(arrBox))
-            if len(lstValues) > 2:
-                if lstValues not in lstJunctionLineList:
-                    lstJunctionLineList.append(lstValues)
-                arrJunctionLines[j[0],j[1],j[2]] = 1 + lstJunctionLineList.index(lstValues)
-            elif len(lstValues) ==2:
+            if len(lstValues) ==2:
                 if lstValues not in lstGrainBoundaryList:
                     lstGrainBoundaryList.append(lstValues)
                 arrGrainBoundaries[j[0],j[1],j[2]] = 1 + lstGrainBoundaryList.index(lstValues)
-        self.__JunctionLinesArray = self.FindPeriodicBoundaries(arrJunctionLines)
-        lstValues = list(np.unique(self.__JunctionLinesArray)) #renumber the array sequentially for convenience starting at 1
-        if 0 in lstValues:
-            lstValues.remove(0)
-        for intIndex, intValue in enumerate(lstValues):
-            self.__JunctionLinesArray[self.__JunctionLinesArray == intValue] = intIndex+1 
-        lstValues = list(np.unique(self.__JunctionLinesArray))
-        if 0 in lstValues:
-            lstValues.remove(0)
-        self.__JunctionLineIDs = lstValues
         self.__GrainBoundariesArray = self.FindPeriodicBoundaries(arrGrainBoundaries)
         lstValues = list(np.unique(self.__GrainBoundariesArray)) #renumber the array sequentially for convenience starting at 1
         if 0 in lstValues:
@@ -1239,6 +1223,30 @@ class QuantisedCuboidPoints(object):
         if 0 in lstValues:
             lstValues.remove(0)
         self.__GrainBoundaryIDs = lstValues
+    def FindJunctionLines(self):
+        self.FindGrainBoundaries()
+        arrJunctionLines = np.zeros(self.__ModArray)
+        lstJunctionLineList = []
+        arrPoints = np.argwhere(self.__GrainBoundariesArray == 0) #junction line points have value 0 in the grain boundaries array
+        for j in arrPoints:
+            j = j.astype('int')
+            arrBox  = self.__GrainBoundariesArray[gf.WrapAroundSlice(np.array([[j[0]-1,j[0]+2],[j[1]-1,j[1]+2],[j[2]-1,j[2]+2]]),self.__ModArray)]
+            lstValues = list(np.unique(arrBox)) #select a 3 x 3 x 3 cube with central value of 0
+            lstValues.remove(0)
+            if len(lstValues) > 2: #count the number of distinct grain boundaries
+                if lstValues not in lstJunctionLineList:
+                    lstJunctionLineList.append(lstValues)
+                arrJunctionLines[j[0],j[1],j[2]] = 1 + lstJunctionLineList.index(lstValues)
+        self.__JunctionLinesArray = self.FindPeriodicBoundaries(arrJunctionLines)
+        lstValues = list(np.unique(self.__JunctionLinesArray)) #renumber the array sequentially for convenience starting at 1
+        if 0 in lstValues:
+            lstValues.remove(0)
+        for intIndex, intValue in enumerate(lstValues):
+            self.__JunctionLinesArray[self.__JunctionLinesArray == intValue] = intIndex+1 
+        lstValues = list(np.unique(self.__JunctionLinesArray))
+        if 0 in lstValues:
+            lstValues.remove(0)
+        self.__JunctionLineIDs = lstValues
     def FindPeriodicBoundaries(self,inArray: np.array):
         inArray = inArray.astype('int')
         intMaxNumber = 0
