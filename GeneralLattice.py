@@ -362,22 +362,44 @@ class SimulationCell(object):
         else:
             raise("Error: Points need to be wrapped into simulation cell")
 
+class Grain(object):
+    def __init__(self, intGrainNumber: int):
+        self.__GrainID = intGrainNumber
+        self.__GlobalID = -1
+        self.__AdjacentGrainBoundaries = []
+        self.__AdjacentJunctionLines = []
+        self.__AdjacentGrains = []
+        self.__GrainCentre = []
+    def SetAdjacentGrainBoundaries(self, lstAdjacentGrainBoundaries):
+        self.__AdjacentGrainBoundaries
+    def GetAdjacentGrainBoundaries(self):
+        return self.__AdjacentGrainBoundaries
+    def SetAdjacentJunctionLines(self, lstAdjacentJunctionLines):
+        self.__AdjacentJunctionLines
+    def GetAdjacentJunctionLines(self):
+        return self.__AdjacentJunctionLines
+    def SetGrainCentre(self, arrGrainCentre):
+        self.__GrainCentre = arrGrainCentre
+    def GetGrainCentre(self):
+        return self.__GrainCentre
+        
 class DefectMeshObject(object):
     def __init__(self,inMeshPoints: np.array, intID: int):
         self.__MeshPoints = inMeshPoints
         self.__ID = intID
+        self.__OriginalID = intID
         self.__AtomIDs = []
         self.__AdjustedMeshPoints = [] #these are general mesh points adjusted to correct for the limited accuracy of the QuantisedCuboid object
         self.__Volume = 0
         self.__PE = 0
     def GetMeshPoints(self):
         return np.copy(self.__MeshPoints)
-    def SetGlobalID(self, intID):
-        self.__GlobalID = intID
-    def GetGlobalID(self):
-        return self.__GlobalID 
+    def GetOriginalID(self):
+        return self.__OriginalID 
     def GetID(self):
         return self.__ID
+    def SetID(self, intID):
+        self__ID = intID
     def GetNumberOfAtoms(self):
         return len(self.__AtomIDs)
     def SetAtomIDs(self, inlstIDs: list):
@@ -467,41 +489,113 @@ class DefectObject(object):
         self.__dctGlobalJunctionLines = dict()
         self.__dctGlobalGrainBoundaries =dict()
         self.__MapToGlobalID = []
-    def SetMapToGlobalID(self, inList):
-        self.__MapToGlobalID = inList
-    def GetMapToGlobalID(self):
-        return cp.copy(self.__MapToGlobalID)
     def AddJunctionLine(self, objJunctionLine: GeneralJunctionLine):
         self.__dctJunctionLines[objJunctionLine.GetID()] = objJunctionLine 
     def AddGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
         self.__dctGrainBoundaries[objGrainBoundary.GetID()] = objGrainBoundary
-    def AddGlobalJunctionLine(self, objJunctionLine: GeneralJunctionLine):
-        self.__dctGlobalJunctionLines[objJunctionLine.GetGlobalID()] = objJunctionLine
-    def AddGlobalGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
-        self.__dctGlobalGrainBoundaries[objGrainBoundary.GetGlobalID()] = objGrainBoundary    
-    def GetGlobalJunctionLine(self, intGlobalKey: int):
-        return self.__dctGlobalJunctionLines[intGlobalKey]
     def GetJunctionLine(self, intLocalKey: int):
         return self.__dctJunctionLines[intLocalKey]
     def GetGrainBoundary(self, intLocalKey):
-        return self.__dctGrainBoundaries[intLocalKey]
-    def GetGlobalGrainBoundary(self, intGlobalKey: int):
-        return self.__dctGlobalGrainBoundaries[intGlobalKey]      
+        return self.__dctGrainBoundaries[intLocalKey]      
     def GetJunctionLineIDs(self):
         return list(self.__dctJunctionLines.keys())
     def GetGrainBoundaryIDs(self):
         return list(self.__dctGrainBoundaries.keys())
-    def GetGlobalJunctionLineIDs(self):
-        return list(self.__dctGlobalJunctionLines.keys())
-    def GetGlobalGrainBoundaryIDs(self):
-        return list(self.__dctGlobalGrainBoundaries.keys())
-    def GetAdjacentGlobalGrainBoundaries(self, intGlobalJunctionLine: int)->list:
-        lstGlobalAdjacentGrainBoundaries = []
-        for j in self.GetGlobalJunctionLine(intGlobalJunctionLine).GetAdjacentGrainBoundaries():
-            lstGlobalAdjacentGrainBoundaries.append(self.GetGrainBoundary(j).GetGlobalID())
-        return lstGlobalAdjacentGrainBoundaries
-    def GetAdjacentGlobalJunctionLines(self, intGlobalGrainBoundary: int)->list:
-        lstGlobalAdjacentJunctionLines = []
-        for j in self.GetGlobalGrainBoundary(intGlobalGrainBoundary).GetAdjacentJunctionLines():
-            lstGlobalAdjacentJunctionLines.append(self.GetJunctionLine(j).GetGlobalID())
-        return lstGlobalAdjacentJunctionLines
+    def GetAdjacentGrainBoundaries(self, intJunctionLine: int)->list:
+        lstAdjacentGrainBoundaries = []
+        for j in self.GetJunctionLine(intJunctionLine).GetAdjacentGrainBoundaries():
+            lstAdjacentGrainBoundaries.append(self.GetGrainBoundary(j).GetID())
+        return lstAdjacentGrainBoundaries
+    def GetAdjacentJunctionLines(self, intGrainBoundary: int)->list:
+        lstAdjacentJunctionLines = []
+        for j in self.GetGrainBoundary(intGrainBoundary).GetAdjacentJunctionLines():
+            lstAdjacentJunctionLines.append(self.GetJunctionLine(j).GetID())
+        return lstAdjacentJunctionLines
+    def SetTimeStep(self, fltTimeStep):
+        self.__TimeStep = fltTimeStep
+    def GetTimeStep(self):
+        return self.__TimeStep
+    def ImportData(self, strFilename: str):
+        with open(strFilename) as fdata:
+            while True:
+                try:
+                    line = next(fdata).strip()
+                except StopIteration as EndOfFile:
+                    break
+                if line == "Time Step":
+                    self.__TimeStep = int(next(fdata).strip())
+                    line = next(fdata).strip()
+                if line == "Junction Line":
+                    intJL = int(next(fdata).strip())
+                    line = next(fdata).strip()
+                    if line == "Mesh Points":
+                        line = next(fdata).strip()    
+                        arrMeshPoints = np.array(eval(line))
+                        objJunctionLine = GeneralJunctionLine(arrMeshPoints, intJL)
+                        line = next(fdata).strip()
+                    if line == "Adjacent Grains":
+                        line = next(fdata).strip()    
+                        objJunctionLine.SetAdjacentGrains(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Adjacent Grain Boundaries":
+                        line = next(fdata).strip()
+                        objJunctionLine.SetAdjacentGrainBoundaries(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Periodic Directions":
+                        line = next(fdata).strip()
+                        objJunctionLine.SetPeriodicDirections(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Atom IDs":
+                        line = next(fdata).strip()
+                        objJunctionLine.SetAtomIDs(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Volume":
+                        line = next(fdata).strip()
+                        objJunctionLine.SetVolume(eval(line))
+                        line = next(fdata).strip()
+                    if line == "PE":
+                        line = next(fdata).strip()
+                        objJunctionLine.SetTotalPE(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Adjusted Mesh Points":
+                        line = next(fdata).strip()
+                        arrAdjustedMeshPoints = np.array(eval(line))
+                        objJunctionLine.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+                    self.AddJunctionLine(objJunctionLine)
+                if line == "Grain Boundary":
+                    intGB = int(next(fdata).strip())
+                    line = next(fdata).strip()
+                    if line == "Mesh Points":
+                        line = next(fdata).strip()    
+                        arrMeshPoints = np.array(eval(line))
+                        objGrainBoundary = GeneralGrainBoundary(arrMeshPoints, intGB)
+                        line = next(fdata).strip()
+                    if line == "Adjacent Grains":
+                        line = next(fdata).strip()    
+                        objGrainBoundary.SetAdjacentGrains(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Adjacent Junction Lines":
+                        line = next(fdata).strip()
+                        objGrainBoundary.SetAdjacentJunctionLines(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Periodic Directions":
+                        line = next(fdata).strip()
+                        objGrainBoundary.SetPeriodicDirections(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Atom IDs":
+                        line = next(fdata).strip()
+                        objGrainBoundary.SetAtomIDs(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Volume":
+                        line = next(fdata).strip()
+                        objGrainBoundary.SetVolume(eval(line))
+                        line = next(fdata).strip()
+                    if line == "PE":
+                        line = next(fdata).strip()
+                        objGrainBoundary.SetTotalPE(eval(line))
+                        line = next(fdata).strip()
+                    if line == "Adjusted Mesh Points":
+                        line = next(fdata).strip()
+                        arrAdjustedMeshPoints = np.array(eval(line))
+                        objGrainBoundary.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+                    self.AddGrainBoundary(objGrainBoundary)
