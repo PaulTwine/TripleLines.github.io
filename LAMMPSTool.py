@@ -70,8 +70,10 @@ class LAMMPSData(object):
                 objTimeStep.SetColumnTypes(lstColumnTypes) 
                 objTimeStep.CategoriseAtoms()
                 self.__dctTimeSteps[str(timestep)] = objTimeStep            
+            Dfile.close()
             self.__lstTimeSteps = lstTimeSteps
             self.__lstNumberOfAtoms = lstNumberOfAtoms
+
     def GetTimeSteps(self):
         return self.__lstTimeSteps
     def GetAtomNumbers(self):
@@ -822,7 +824,7 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
                     fdata.write('{} \n'.format(self.GetGrainBoundary(k).GetTotalPE()))
                 if self.blnAdjustedMeshPointsAssigned:
                     fdata.write('Adjusted Mesh Points \n')
-                    if len(self.__GrainBoundaries[k].GetAdjustedMeshPoints()) > 0:
+                    if len(self.GetGrainBoundary(k).GetAdjustedMeshPoints()) > 0:
                         fdata.write('{} \n'.format(self.GetGrainBoundary(k).GetAdjustedMeshPoints().tolist()))
                     else:
                         fdata.write('{} \n'.format(self.GetGrainBoundary(k).GetAdjustedMeshPoints()))
