@@ -210,6 +210,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self.__DefectiveAtoms = []
         self.__NonDefectiveAtoms = []
         self.FindPlaneNormalVectors()
+        self.__fltGrainTolerance = 1.96 #95% confidence interval for Gaussian distribution
     def FindPlaneNormalVectors(self):
         n= self.__Dimensions
         arrVectors = np.zeros([n,n])
@@ -234,7 +235,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
             fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
-            fltTolerance = 1.96*fltStdLatticeValue #95% limit assuming Normal distribution
+            fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
         fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
         lstDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue +fltTolerance) | (self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue - fltTolerance))[0]
         self.__DefectiveAtoms = self.GetAtomData()[lstDefectiveAtoms,0].astype('int')
@@ -242,7 +243,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def FindNonDefectiveAtoms(self,fltTolerance = None):
         if fltTolerance is None:
             fltStdLatticeValue = np.std(self.GetLatticeAtoms()[:,self._intPE])
-            fltTolerance = 1.96*fltStdLatticeValue #95% limit assuming Normal distribution
+            fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue #95% limit assuming Normal distribution
         fltMeanLatticeValue = np.mean(self.GetLatticeAtoms()[:,self._intPE])
         lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) <= fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) >= fltMeanLatticeValue  - fltTolerance))[0]
         self.__NonDefectiveAtoms = self.GetAtomData()[lstNonDefectiveAtoms,0].astype('int')
@@ -993,7 +994,16 @@ class QuantisedCuboidPoints(object):
         if 0 in lstValues:
             lstValues.remove(0)
         return lstValues
-
+    def GetPeriodicExtentsions(self, intIndex, strType):
+        lstPeriodicDirections = []
+        if strType == 'Junction Line':
+            arrPoints = np.argwhere(self.__TripleLinesArray == intIndex)
+        elif strType == 'Grain Boundary':
+            arrPoints = np.argwhere(self.__TripleLinesArray == intIndex)
+            arrPoints = np.argwhere(self.__GrainBoundariesArray == intIndex)
+        for j in range(3):
+            if np.any(arrPoints[:,j] == 0) or np.any(arrPoints[:,j] == np.__ModArray[j] - 1):
+                lstPeriodicDirection.append(j)
 class LAMMPSAnalysis(LAMMPSPostProcess):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)

@@ -399,7 +399,7 @@ class DefectMeshObject(object):
     def GetID(self):
         return self.__ID
     def SetID(self, intID):
-        self__ID = intID
+        self._ID = intID
     def GetNumberOfAtoms(self):
         return len(self.__AtomIDs)
     def SetAtomIDs(self, inlstIDs: list):

@@ -406,6 +406,34 @@ def ParseConic(lstCentre: list, lstScaling: list, lstPower:list, lstVariables = 
 def InvertRegion(strInput: str)->str: #changes an "inside closed surface to outside closed surface"
         return '-(' + strInput + ')'
 
+def CubicCSLGenerator(inAxis: np.array, intSigmaLimit: int)->list:
+        intGCD = np.gcd.reduce(inAxis)
+        inAxis = inAxis*1/intGCD
+        intSquared = np.sum(inAxis*inAxis)
+        dctSigma =dict()
+        intUpperM = np.floor(np.sqrt((intSigmaLimit -1)/intSquared)).astype('int')
+        intUpperN = np.floor(np.sqrt(intSigmaLimit -intSquared)).astype('int')
+        for i in range(1, intUpperM+1):
+                m = i
+                for j in range(1,intUpperN+1):
+                        n = j
+                        intSigma = n**2 + m**2*intSquared
+                        while np.mod(intSigma,2) == 0:
+                                intSigma = int(intSigma/2)
+                        intSigma = int(intSigma)
+                        if intSigma <= intSigmaLimit and intSigma > 2:
+                                fltAngle = 2*np.arctan2(m*np.sqrt(intSquared),n)
+                                if intSigma in dctSigma.keys():
+                                        if abs(fltAngle) < abs(dctSigma[intSigma]):
+                                                dctSigma[intSigma] = fltAngle
+                                else:
+                                        dctSigma[intSigma] = fltAngle                       
+        arrReturn = np.ones([len(dctSigma.keys()),2])
+        lstKeys = sorted(list(dctSigma.keys()))
+        for k in range(len(lstKeys)):
+                arrReturn[k, 0] = lstKeys[k]
+                arrReturn[k,1] = dctSigma[lstKeys[k]]
+        return arrReturn
 
 
 
