@@ -755,13 +755,16 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
             self.AddGrainBoundary(objDefect.GetGrainBoundary(j))
         self.SetGrainBoundaryIDs()
         return objDefect
-    def CorrelateDefectData(self, strFilename: str,strPreviousFile: str, intPreviousTimeStep):
+    def CorrelateDefectData(self,strPreviousFile: str, intPreviousTimeStep: int):
         objCorrelate = LAMMPSCorrelate()
         objCorrelate.SetCellVectors(self.GetCellVectors())
         objCorrelate.SetBasisConversion(self.GetBasisConversions())
         objCorrelate.SetBoundaryTypes(self.GetBoundaryTypes())
         objDefect = gl.DefectObject(self.GetTimeStep())
-        objDefect.ImportData(strFilename) 
+        for i in self.GetGrainBoundaryIDs():
+            objDefect.AddGrainBoundary(self.GetGrainBoundary(i))
+        for j in self.GetJunctionLineIDs():
+            objDefect.AddJunctionLine(self.GetJunctionLine(j))
         objCorrelate.AddDefectObject(objDefect)
         objPreviousDefect = gl.DefectObject(intPreviousTimeStep)
         objPreviousDefect.ImportData(strPreviousFile) 
