@@ -8,6 +8,7 @@ from sympy import lambdify
 from sympy.abc import x,y,z
 from datetime import datetime
 import copy as cp
+import warnings
 
 class PureCell(object):
     def __init__(self,inCellNodes: np.array): 
@@ -336,7 +337,7 @@ class SimulationCell(object):
             self.__UnitBasisVectors = np.array(lstBasisVectors)
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
-    def WrapAllPointsIntoSimulationCell(self, intRound = 1)->np.array:
+    def WrapAllPointsIntoSimulationCell(self, intRound = 10)->np.array:
         lstUniqueRowindices = []
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
@@ -599,3 +600,72 @@ class DefectObject(object):
                         arrAdjustedMeshPoints = np.array(eval(line))
                         objGrainBoundary.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
                     self.AddGrainBoundary(objGrainBoundary)
+class SigmaCell(object):
+    def __init__(self, arrRotationAxis: np.array, inCellNodes: np.array):
+        intGCD = np.gcd.reduce(arrRotationAxis)
+        self.__RotationAxis = (arrRotationAxis/intGCD).astype('int')
+        if np.all(self.__RotationAxis == np.array([0,0,1])):
+            self.__LatticeBasis = gf.StandardBasisVectors(3)
+            self.__CellHeight = 1
+        else:
+            fltAngle, arrVector = gf.FindRotationVectorAndAngle(arrRotationAxis, np.array([0,0,1]))
+            self.__LatticeBasis = gf.RotatedBasisVectors(fltAngle,arrVector)
+            self.__CellHeight = np.linalg.norm(self.__RotationAxis)
+        self.__CellType = inCellNodes
+        self.__BasisVectors = []
+    def GetRotationAxis(self):
+        return self.__RotationAxis
+    def GetSigmaValues(self, intSigmaMax):
+        return  gf.CubicCSLGenerator(self.__RotationAxis, intSigmaMax)
+    def MakeCSLCell(self, intSigmaValue: int, arrHorizontalVector = np.array([1,0,0])):
+        arrSigma = self.GetSigmaValues(2*intSigmaValue)
+        arrRows = np.argwhere(arrSigma[:,0] == intSigmaValue)
+        if len(arrRows) > 0:
+            intSigmaValue == arrSigma[arrRows[0],0]
+            h = self.__CellHeight
+            l = intSigmaValue
+            fltSigma = arrSigma[arrRows[0],1]
+            objFirstLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(0,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
+            objSecondLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(fltSigma,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
+            arrPoints1 = objFirstLattice.GetRealPoints()
+            arrPoints2 = objSecondLattice.GetRealPoints()
+            arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
+            lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
+            arrCSLPoints = arrPoints1[lstPoints]
+            arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
+            lstBase = arrBase.tolist()
+            lstBase.remove(np.zeros(3).tolist())
+            arrBase = np.array(lstBase)
+            arrDistances = np.linalg.norm(arrBase,axis=1)
+            arrClosestPoint = gf.NormaliseVector(arrBase[np.argmin(arrDistances)])
+            fltdotX =  np.arccos(np.dot(arrClosestPoint, arrHorizontalVector))
+            fltAngle2 = -fltdotX
+            self.__LatticeRotations = np.array([fltAngle2, fltSigma+ fltAngle2])
+            objFirstLattice = ExtrudedRectangle(l,l,h,gf.RotateVectors(fltAngle2,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
+            objSecondLattice = ExtrudedRectangle(l,l,h,gf.RotateVectors(fltSigma+fltAngle2,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
+            arrPoints1 = objFirstLattice.GetRealPoints()
+            arrPoints2 = objSecondLattice.GetRealPoints()
+            arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
+            lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
+            arrCSLPoints = arrPoints1[lstPoints]
+            arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
+            lstBase = arrBase.tolist()
+            lstBase.remove(np.zeros(3).tolist())
+            arrBase = np.array(lstBase)
+            arrDistances = np.linalg.norm(arrBase, axis=1)
+            lstPositions = gf.FindNthSmallestPosition(arrDistances, 0)
+            arrVector1 = arrBase[lstPositions[0]]
+            if len(lstPositions) > 1:
+                arrVector2 = arrBase[lstPositions[1]]
+            else:
+                arrVector2 = arrBase[gf.FindNthSmallestPosition(arrDistances,1)[0]]
+
+            if np.dot(arrVector1, arrHorizontalVector) > np.dot(arrVector1, arrHorizontalVector):   
+                self.__BasisVectors = np.array([arrVector1, arrVector2, h*np.array([0,0,1])])
+            else:
+                self.__BasisVectors = np.array([arrVector2, arrVector1, h*np.array([0,0,1])])
+        else:
+            warnings.warn("Invalid sigma value for axis " + str(self.__RotationAxis))
+    def GetBasisVectors(self):
+        return self.__BasisVectors
+    
