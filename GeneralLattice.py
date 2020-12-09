@@ -337,7 +337,7 @@ class SimulationCell(object):
             self.__UnitBasisVectors = np.array(lstBasisVectors)
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
-    def WrapAllPointsIntoSimulationCell(self, intRound = 10)->np.array:
+    def WrapAllPointsIntoSimulationCell(self, intRound = 5)->np.array:
         lstUniqueRowindices = []
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
@@ -660,7 +660,7 @@ class SigmaCell(object):
             else:
                 arrVector2 = arrBase[gf.FindNthSmallestPosition(arrDistances,1)[0]]
 
-            if np.dot(arrVector1, arrHorizontalVector) > np.dot(arrVector1, arrHorizontalVector):   
+            if np.dot(arrVector1, arrHorizontalVector) > np.dot(arrVector2, arrHorizontalVector):   
                 self.__BasisVectors = np.array([arrVector1, arrVector2, h*np.array([0,0,1])])
             else:
                 self.__BasisVectors = np.array([arrVector2, arrVector1, h*np.array([0,0,1])])
@@ -668,4 +668,5 @@ class SigmaCell(object):
             warnings.warn("Invalid sigma value for axis " + str(self.__RotationAxis))
     def GetBasisVectors(self):
         return self.__BasisVectors
-    
+    def GetLatticeRotations(self):
+        return self.__LatticeRotations

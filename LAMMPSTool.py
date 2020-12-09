@@ -470,7 +470,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             for l in self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()):
                 lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, fltRadius))
                 self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
-        self.RefineGrainLabels()
+        #self.RefineGrainLabels()
     def RefineGrainLabels(self): #try to assign any lattice atoms with -1 grain number to a grain.
         lstOfOldIDs = []
         self.MakeGrainTrees() #this will include defects with grain number 0 and 
