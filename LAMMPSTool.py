@@ -213,9 +213,8 @@ class LAMMPSTimeStep(object):
         strHeader += 'ITEM: NUMBER OF ATOMS \n'
         strHeader += str(self.GetNumberOfAtoms()) + '\n'
         strHeader += 'ITEM: BOX BOUNDS xy xz yz ' + ' '.join(self.__BoundaryTypes) + '\n'
-        strHeader += str(self.__Origin[0]) + ' ' + str(self.__CellVectors[0,0]) + ' '  + str(self.__CellVectors[1,0]) + '\n'
-        strHeader += str(self.__Origin[1]) + ' ' + str(self.__CellVectors[1,1]) + ' '  + str(self.__CellVectors[2,0]) + '\n'
-        strHeader += str(self.__Origin[2]) + ' ' + str(self.__CellVectors[2,2])  + ' '  + str(self.__CellVectors[2,1]) + '\n'  
+        for j in range(3):
+            strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(self.__BoundBoxDimensions[j,2]) + '\n'
         strHeader += 'ITEM: ATOMS ' + ' '.join(self.__ColumnNames)
         np.savetxt(strFilename, self.GetAtomData(), fmt= ' '.join(self.__ColumnTypes), header=strHeader, comments='')
 
@@ -498,6 +497,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             intCounter += 1
         if len(lstOfIDs) > 0:
             warnings.warn(str(len(lstOfIDs)) + ' grain atom(s) have been assigned a grain number of -1 after ' + str(intCounter) + ' iterations.')
+    def GetGrainLabels(self):
+        return self.__GrainLabels
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
         if 'GrainNumber' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainNumber', '%i')
@@ -681,8 +682,6 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def GetGrainAtomIDs(self, intGrainNumber: int):
         lstGrainAtoms = list(np.where(self.GetColumnByName('GrainNumber').astype('int') == intGrainNumber)[0])
         return self.GetAtomData()[lstGrainAtoms,0].astype('int')
-    def GetGrainLabels(self):
-        return self.__GrainLabels
     def GetJunctionLineMeshPoints(self, intJunctionLine = None):
         if intJunctionLine is None:
             lstJunctionLinePoints = []
@@ -745,7 +744,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
 class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to correlate labels over different time steps
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
         LAMMPSAnalysis3D.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType,fltLatticeParameter)
-    def ReadinDefectData(self, strFilename: str):
+    def ReadInDefectData(self, strFilename: str):
         objDefect = gl.DefectObject(self.GetTimeStep())
         objDefect.ImportData(strFilename)
         for i in objDefect.GetJunctionLineIDs():
