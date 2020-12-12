@@ -515,7 +515,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def AppendGrainBoundaries(self):
         if 'GrainBoundary' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainBoundary', '%i')
-        intGrainBoundary = self.GetNumberIndex('GrainBoundary')
+        intGrainBoundary = self.GetColumnIndex('GrainBoundary')
         for i in self.__GrainBoundaryIDs:
             lstIDs = self.__GrainBoundaries[i].GetAtomIDs()
             intValue = self.__GrainBoundaries[i].GetID()
