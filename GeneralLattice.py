@@ -483,8 +483,11 @@ class GeneralGrainBoundary(DefectMeshObject):
         return cp.copy(self.__AdjacentJunctionLines)
    
 class DefectObject(object):
-    def __init__(self, fltTimeStep: float):
-        self.__TimeStep = fltTimeStep
+    def __init__(self, fltTimeStep = None):
+        if fltTimeStep is not None:
+            self.__TimeStep = fltTimeStep
+        else:
+            self.__TimeStep = []
         self.__dctJunctionLines = dict()
         self.__dctGrainBoundaries = dict()
         self.__dctGlobalJunctionLines = dict()

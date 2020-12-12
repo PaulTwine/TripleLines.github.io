@@ -765,10 +765,10 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
         for j in self.GetJunctionLineIDs():
             objDefect.AddJunctionLine(self.GetJunctionLine(j))
         objCorrelate.AddDefectObject(objDefect)
-        objPreviousDefect = gl.DefectObject(intPreviousTimeStep)
+        objPreviousDefect = gl.DefectObject()
         objPreviousDefect.ImportData(strPreviousFile) 
         objCorrelate.AddDefectObject(objPreviousDefect)
-        objCorrelate.CorrelateDefects(self.GetTimeStep(), intPreviousTimeStep) #use the timesteps passed here rather than the default previous #timestep
+        objDefect = objCorrelate.CorrelateDefects(self.GetTimeStep(), intPreviousTimeStep) #use the timesteps passed here rather than the default previous #timestep
         for i in objDefect.GetJunctionLineIDs():
             self.AddJunctionLine(objCorrelate.GetDefectObject(self.GetTimeStep()).GetJunctionLine(i))
         for j in objDefect.GetGrainBoundaryIDs():
@@ -830,9 +830,7 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
                         fdata.write('{} \n'.format(self.GetGrainBoundary(k).GetAdjustedMeshPoints().tolist()))
                     else:
                         fdata.write('{} \n'.format(self.GetGrainBoundary(k).GetAdjustedMeshPoints()))
-            #fdata.write('Grain Numbers \n')
-            #fdata.write('{}'.format(self.GetColumnByIndex(self.intGrainNumber).astype('int').tolist()))        
-
+          
 class LAMMPSCorrelate(object): #add grain boundaries and junction lines over different steps using dfc files
     def __init__(self):
         self.__dctDefects = dict()
@@ -849,20 +847,19 @@ class LAMMPSCorrelate(object): #add grain boundaries and junction lines over dif
         return sorted(list(self.__dctDefects.keys()))
     def GetTimeStepPosition(self, fltTimeStep)->int:
         return list(self.__dctDefects.keys()).index(fltTimeStep)
-    def ReadInData(self, strFilename: str, intTimeStep: int, blnCorrelateDefects = False):
-        objDefect = gl.DefectObject(intTimeStep)
-        objDefect.ImportData(strFilename) 
-        if len(list(self.__dctDefects.keys())) == 0 and blnCorrelateDefects: 
-            for i in objDefect.GetGrainBoundaryIDs(): #global IDs are set from the first time step
-                objDefect.GetGrainBoundary(i).SetGlobalID(i)
-                objDefect.AddGrainBoundary(objDefect.GetGrainBoundary(i))
-            for j in objDefect.GetJunctionLineIDs():
-                objDefect.GetJunctionLine(j).SetGlobalID(j)
-                objDefect.AddJunctionLine(objDefect.GetJunctionLine(j))
-            self.__dctDefects[intTimeStep] = objDefect    
-        elif blnCorrelateDefects:
+    def ReadInData(self, strFilename: str, blnCorrelateDefects = False):
+        objDefect = gl.DefectObject()
+        objDefect.ImportData(strFilename)   
+        for i in objDefect.GetGrainBoundaryIDs(): #global IDs are set from the first time step
+            objDefect.GetGrainBoundary(i).SetID(i)
+            objDefect.AddGrainBoundary(objDefect.GetGrainBoundary(i))
+        for j in objDefect.GetJunctionLineIDs():
+            objDefect.GetJunctionLine(j).SetID(j)
+            objDefect.AddJunctionLine(objDefect.GetJunctionLine(j))
+        self.__dctDefects[objDefect.GetTimeStep()] = objDefect    
+        if len(list(self.__dctDefects.keys())) > 1 and blnCorrelateDefects:
             intLastTimeStep = self.GetTimeSteps()[-1]
-            self.CorrelateDefects(intTimeStep, intLastTimeStep)
+            self.CorrelateDefects(objDefect.GetTimeStep(), intLastTimeStep)
     def CorrelateDefects(self,intTimeStep: int,intLastTimeStep: int):
         objDefect = self.__dctDefects[intTimeStep]
         objPreviousDefect = self.__dctDefects[intLastTimeStep]
@@ -928,6 +925,7 @@ class LAMMPSCorrelate(object): #add grain boundaries and junction lines over dif
         for k in objDefect.GetJunctionLineIDs(): #puts the objects back into new defect object which uses their updated IDs as the dictionary key
             objUpdatedDefect.AddJunctionLine(objDefect.GetJunctionLine(k))    
         self.__dctDefects[intTimeStep] = objUpdatedDefect
+        return objUpdatedDefect
     def SetCellVectors(self, inCellVectors: np.array):
         self.__CellVectors = inCellVectors
     def SetBasisConversion(self,inBasisConversion: np.array):
@@ -949,6 +947,7 @@ class LAMMPSCorrelate(object): #add grain boundaries and junction lines over dif
                 arrPrevious = arrPrevious - arrPeriodicShift
                 arrDistanceMatrix[intCurrent, intPrevious] = max(spatial.distance.directed_hausdorff(arrCurrent, arrPrevious)[0], spatial.distance.directed_hausdorff(arrPrevious, arrCurrent)[0]) #Hausdorff distance is not symmetric in general and so choose the larger of the two measure.
         return arrDistanceMatrix
+        
 class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
         arrCuboidCellVectors = np.matmul(inCellVectors,inBasisConversion)
@@ -986,18 +985,20 @@ class QuantisedCuboidPoints(object):
         self.__Coordinates = gf.CreateCuboidPoints(np.array([[0,nx-1],[0,ny-1],[0,nz-1]]))
         arrOut = objInterpolate(self.__Coordinates)
         arrOut = np.reshape(arrOut,arrModArray)
-        intConnections = 0
+        intConnections = 2 #set to a value greater than 1 to enter the while loop below
         intIterations = 0
-        while intConnections != 1 and intIterations < 3:
-             arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap',truncate=2)
-             fltThreshold = threshold_otsu(arrOut)
-             arrOut = (arrOut > fltThreshold)
-             arrOut = arrOut.astype('bool').astype('int') # convert to binary
-             arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
-             arrOut = arrOut.astype('bool').astype('float')
-             intIterations += 1
-        if intIterations > 1:
-             warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a connected defective array.')
+       # while intConnections != 1 and intIterations < 3:
+        while intIterations < 3 and intConnections > 1:
+            arrOut = ndimage.filters.gaussian_filter(arrOut, 1, mode = 'wrap')
+            fltThreshold = threshold_otsu(arrOut)
+            arrOut = (arrOut > fltThreshold)
+            arrOut = arrOut.astype('bool').astype('int') # convert to binary
+            arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
+            arrOut = arrOut.astype('bool').astype('float')
+            intIterations += 1
+       # intIterations += 1
+       # if intIterations > 1:
+       #      warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a #connected defective array.')
         self.__Iterations = intIterations
         self.__BinaryArray = arrOut.astype('bool').astype('int')
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
