@@ -490,7 +490,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 arrRows = np.where((arrDistances[:,j] == np.min(arrDistances, axis = 1)) & (np.isfinite(arrDistances[:,j])))[0]
                 arrGrainNumbers = lstGrainLabels[j]*np.ones(len(arrRows)).astype('int')
                 arrNewIDs = arrAtoms[arrRows, 0]
-                self.SetColumnByIDs(arrNewIDs, self.intGrainNumber, arrGrainNumbers)
+                self.SetColumnByIDs(arrNewIDs, intGrainNumber, arrGrainNumbers)
             self.MakeGrainTrees() #this will include defects with grain number 0 and 
             lstOfOldIDs = lstOfIDs
             lstOfIDs = self.GetUnassignedGrainAtomIDs()
@@ -754,7 +754,7 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
             self.AddGrainBoundary(objDefect.GetGrainBoundary(j))
         self.SetGrainBoundaryIDs()
         return objDefect
-    def CorrelateDefectData(self,strPreviousFile: str, intPreviousTimeStep: int):
+    def CorrelateDefectData(self,strPreviousFile: str):
         objCorrelate = LAMMPSCorrelate()
         objCorrelate.SetCellVectors(self.GetCellVectors())
         objCorrelate.SetBasisConversion(self.GetBasisConversions())
@@ -768,7 +768,7 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
         objPreviousDefect = gl.DefectObject()
         objPreviousDefect.ImportData(strPreviousFile) 
         objCorrelate.AddDefectObject(objPreviousDefect)
-        objDefect = objCorrelate.CorrelateDefects(self.GetTimeStep(), intPreviousTimeStep) #use the timesteps passed here rather than the default previous #timestep
+        objDefect = objCorrelate.CorrelateDefects(self.GetTimeStep(), objPreviousDefect.GetTimeStep()) #use the timesteps passed here rather than the default previous #timestep
         for i in objDefect.GetJunctionLineIDs():
             self.AddJunctionLine(objCorrelate.GetDefectObject(self.GetTimeStep()).GetJunctionLine(i))
         for j in objDefect.GetGrainBoundaryIDs():
