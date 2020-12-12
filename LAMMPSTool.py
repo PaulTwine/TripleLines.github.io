@@ -124,6 +124,8 @@ class LAMMPSTimeStep(object):
         return self.__AtomData
     def SetColumnNames(self, lstColumnNames):
         self.__ColumnNames = lstColumnNames
+    def GetColumnIndex(self, strColumnName):
+        return self.__ColumnNames.index(strColumnName) 
     def GetColumnNames(self): 
         return self.__ColumnNames
     def GetColumnByIndex(self, intStructureIndex: int):
@@ -505,7 +507,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrGrainNumbers = np.array([lstGrainNumbers])
         self.__GrainLabels = list(np.unique(lstGrainNumbers))
         np.reshape(arrGrainNumbers, (len(lstGrainNumbers),1))
-        intGrainNumber = self.GetNumberOfColumns()-1 #column number for the grains
+        intGrainNumber = self.GetColumnIndex('GrainNumber')
         if lstGrainAtoms is None:
             self.SetColumnByIndex(arrGrainNumbers, intGrainNumber)
         else:
@@ -513,7 +515,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def AppendGrainBoundaries(self):
         if 'GrainBoundary' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainBoundary', '%i')
-        intGrainBoundary = self.GetNumberOfColumns()-1 #column number for the grains
+        intGrainBoundary = self.GetNumberIndex('GrainBoundary')
         for i in self.__GrainBoundaryIDs:
             lstIDs = self.__GrainBoundaries[i].GetAtomIDs()
             intValue = self.__GrainBoundaries[i].GetID()
@@ -523,7 +525,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def AppendJunctionLines(self):
         if 'JunctionLine' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'JunctionLine', '%i')
-        intJunctionLine = self.GetNumberOfColumns()-1 #column number for the grains
+        intJunctionLine = self.GetColumnIndex('JunctionLine')
         for i in self.__JunctionLineIDs:
             lstIDs = self.__JunctionLines[i].GetAtomIDs()
             intValue = self.__JunctionLines[i].GetID()
