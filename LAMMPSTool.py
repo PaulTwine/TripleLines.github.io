@@ -922,10 +922,10 @@ class LAMMPSCorrelate(object): #add grain boundaries and junction lines over dif
                 intLastGlobalID = 0
             objDefect.GetJunctionLine(intID).SetID(intLastGlobalID + 1)
         objUpdatedDefect = gl.DefectObject(objDefect.GetTimeStep())
-        for j in objDefect.GetGrainBoundaryIDs(): #puts the objects back into new defect object which uses their updated IDs as the dictionary key
-            objUpdatedDefect.AddGrainBoundary(objDefect.GetGrainBoundary(j))
-        for k in objDefect.GetJunctionLineIDs(): #puts the objects back into new defect object which uses their updated IDs as the dictionary key
-            objUpdatedDefect.AddJunctionLine(objDefect.GetJunctionLine(k))    
+        for n in objDefect.GetGrainBoundaryIDs(): #puts the objects back into new defect object which uses their updated IDs as the dictionary key
+            objUpdatedDefect.AddGrainBoundary(objDefect.GetGrainBoundary(n))
+        for m in objDefect.GetJunctionLineIDs(): #puts the objects back into new defect object which uses their updated IDs as the dictionary key
+            objUpdatedDefect.AddJunctionLine(objDefect.GetJunctionLine(m))    
         self.__dctDefects[intTimeStep] = objUpdatedDefect
         return objUpdatedDefect
     def SetCellVectors(self, inCellVectors: np.array):
