@@ -458,13 +458,13 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         objQuantisedCuboidPoints.FindJunctionLines()
         self.__JunctionLineIDs = objQuantisedCuboidPoints.GetJunctionLineIDs()
         for i in self.__JunctionLineIDs:
-            self.__JunctionLines[i] = gl.GeneralJunctionLine(objQuantisedCuboidPoints.GetJunctionLinePoints(i),i)
+            self.__JunctionLines[i] = gl.GeneralJunctionLine(np.round(objQuantisedCuboidPoints.GetJunctionLinePoints(i),1),i)
             self.__JunctionLines[i].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
             self.__JunctionLines[i].SetAdjacentGrainBoundaries(objQuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
             self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
         self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
         for k in self.__GrainBoundaryIDs:
-            self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),k)
+            self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(np.round(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),1),k)
             self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
@@ -553,7 +553,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             for intCounter, lstJLIDs in enumerate(lstOfIDs):
                 if lstJLIDs != []:
                     arrPoints = self.PeriodicShiftAllCloser(arrMeshPoints[intCounter], self.GetAtomsByID(lstJLIDs)[:,1:4])
-                    lstOfAdjustedMeshPoints.append(np.mean(arrPoints, axis= 0))
+                    lstOfAdjustedMeshPoints.append(np.round(np.mean(arrPoints, axis= 0),1))
             if len(lstOfAdjustedMeshPoints) > 0:
                 arrAdjustedMeshPoints = np.vstack(lstOfAdjustedMeshPoints)
                 self.__JunctionLines[i].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
@@ -564,7 +564,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             for intCounter, lstJLIDs in enumerate(lstOfIDs):
                 if lstJLIDs != []:
                     arrPoints = self.PeriodicShiftAllCloser(arrMeshPoints[intCounter], self.GetAtomsByID(lstJLIDs)[:,1:4])
-                    lstOfAdjustedMeshPoints.append(np.mean(arrPoints, axis= 0))
+                    lstOfAdjustedMeshPoints.append(np.round(np.mean(arrPoints, axis= 0),1))
             if len(lstOfAdjustedMeshPoints) > 0:
                 arrAdjustedMeshPoints = np.vstack(lstOfAdjustedMeshPoints)
                 self.__GrainBoundaries[j].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
@@ -832,7 +832,8 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
                         fdata.write('{} \n'.format(self.GetGrainBoundary(k).GetAdjustedMeshPoints().tolist()))
                     else:
                         fdata.write('{} \n'.format(self.GetGrainBoundary(k).GetAdjustedMeshPoints()))
-          
+            fdata.close()
+
 class LAMMPSCorrelate(object): #add grain boundaries and junction lines over different steps using dfc files
     def __init__(self):
         self.__dctDefects = dict()

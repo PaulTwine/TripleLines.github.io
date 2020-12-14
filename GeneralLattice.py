@@ -520,7 +520,7 @@ class DefectObject(object):
     def GetTimeStep(self):
         return self.__TimeStep
     def ImportData(self, strFilename: str):
-        with open(strFilename) as fdata:
+        with open(strFilename,'r') as fdata:
             while True:
                 try:
                     line = next(fdata).strip()
