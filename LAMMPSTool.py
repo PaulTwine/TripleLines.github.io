@@ -988,22 +988,13 @@ class QuantisedCuboidPoints(object):
         self.__Coordinates = gf.CreateCuboidPoints(np.array([[0,nx-1],[0,ny-1],[0,nz-1]]))
         arrOut = objInterpolate(self.__Coordinates)
         arrOut = np.reshape(arrOut,arrModArray)
-        intConnections = 2 #set to a value greater than 1 to enter the while loop below
-        intIterations = 0
-       # while intConnections != 1 and intIterations < 3:
-        while intIterations < 3 and intConnections > 1:
-            arrOut = ndimage.filters.gaussian_filter(arrOut, 3, mode = 'wrap')
-            fltThreshold = threshold_otsu(arrOut)
-            arrOut = (arrOut > fltThreshold)
-            arrOut = arrOut.astype('bool').astype('int') # convert to binary
-            arrOut, intConnections = ndimage.measurements.label(arrOut, np.ones([3,3,3]))
-            arrOut = arrOut.astype('bool').astype('float')
-            intIterations += 1
-       # intIterations += 1
-       # if intIterations > 1:
-       #      warnings.warn('A gaussian filter has been applied ' +  str(intIterations) + ' time(s) to form a #connected defective array.')
-        self.__Iterations = intIterations
-        self.__BinaryArray = arrOut.astype('bool').astype('int')
+        arrOut = ndimage.filters.gaussian_filter(arrOut, 2, mode = 'wrap')
+        fltThreshold = threshold_otsu(arrOut)
+        arrOut = (arrOut > fltThreshold)
+        arrOut = ndimage.binary_dilation(arrOut, np.ones([3,3,3]))
+        arrOut = arrOut.astype('bool').astype('int') # convert to binary
+        self.__Iterations = 3
+        self.__BinaryArray = arrOut
         self.__InvertBinary = np.invert(self.__BinaryArray.astype('bool')).astype('int')
         self.__Grains, intGrainLabels  = ndimage.measurements.label(self.__InvertBinary, np.array([[[0,0,0],[0,1,0],[0,0,0]],[[0,1,0],[1,1,1],[0,1,0]],[[0,0,0],[0,1,0],[0,0,0]]])) #don't allow grains to connect diagonally
         if intGrainLabels <= 1:
