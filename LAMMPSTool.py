@@ -992,7 +992,7 @@ class QuantisedCuboidPoints(object):
         intIterations = 0
        # while intConnections != 1 and intIterations < 3:
         while intIterations < 3 and intConnections > 1:
-            arrOut = ndimage.filters.gaussian_filter(arrOut, 2, mode = 'wrap')
+            arrOut = ndimage.filters.gaussian_filter(arrOut, 3, mode = 'wrap')
             fltThreshold = threshold_otsu(arrOut)
             arrOut = (arrOut > fltThreshold)
             arrOut = arrOut.astype('bool').astype('int') # convert to binary
