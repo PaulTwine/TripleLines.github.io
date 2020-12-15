@@ -490,9 +490,6 @@ class DefectObject(object):
             self.__TimeStep = []
         self.__dctJunctionLines = dict()
         self.__dctGrainBoundaries = dict()
-        self.__dctGlobalJunctionLines = dict()
-        self.__dctGlobalGrainBoundaries =dict()
-        self.__MapToGlobalID = []
     def AddJunctionLine(self, objJunctionLine: GeneralJunctionLine):
         self.__dctJunctionLines[objJunctionLine.GetID()] = objJunctionLine 
     def AddGrainBoundary(self, objGrainBoundary: GeneralGrainBoundary):
@@ -522,13 +519,13 @@ class DefectObject(object):
     def ImportData(self, strFilename: str):
         with open(strFilename,'r') as fdata:
             blnNotEnd = True
-            while blnNotEnd:
-                try:
-                    line = next(fdata).strip()
+            try:
+                line = next(fdata).strip()
+                while blnNotEnd:
                     if line == "Time Step":
                         self.__TimeStep = int(next(fdata).strip())
                         line = next(fdata).strip()
-                    if line == "Junction Line":
+                    elif line == "Junction Line":
                         intJL = int(next(fdata).strip())
                         line = next(fdata).strip()
                         if line == "Mesh Points":
@@ -564,8 +561,9 @@ class DefectObject(object):
                             line = next(fdata).strip()
                             arrAdjustedMeshPoints = np.array(eval(line))
                             objJunctionLine.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
-                        self.AddJunctionLine(objJunctionLine)
-                    if line == "Grain Boundary":
+                            line = next(fdata).strip()
+                        self.AddJunctionLine(objJunctionLine)       
+                    elif line == "Grain Boundary":
                         intGB = int(next(fdata).strip())
                         line = next(fdata).strip()
                         if line == "Mesh Points":
@@ -601,10 +599,15 @@ class DefectObject(object):
                             line = next(fdata).strip()
                             arrAdjustedMeshPoints = np.array(eval(line))
                             objGrainBoundary.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+                            line = next(fdata).strip()
                         self.AddGrainBoundary(objGrainBoundary)
-                except StopIteration as EndOfFile:
-                    blnNotEnd = False
-                    break
+                    else:
+                        blnNotEnd = False
+            except StopIteration as EndOfFile:
+                self.AddJunctionLine(objJunctionLine) #Some fields are optional so end of file may come
+                self.AddGrainBoundary(objGrainBoundary) #before the GB or JL objects have been added        
+                blnNotEnd = False
+
 class SigmaCell(object):
     def __init__(self, arrRotationAxis: np.array, inCellNodes: np.array):
         intGCD = np.gcd.reduce(arrRotationAxis)
