@@ -521,88 +521,90 @@ class DefectObject(object):
         return self.__TimeStep
     def ImportData(self, strFilename: str):
         with open(strFilename,'r') as fdata:
-            while True:
+            blnNotEnd = True
+            while blnNotEnd:
                 try:
                     line = next(fdata).strip()
+                    if line == "Time Step":
+                        self.__TimeStep = int(next(fdata).strip())
+                        line = next(fdata).strip()
+                    if line == "Junction Line":
+                        intJL = int(next(fdata).strip())
+                        line = next(fdata).strip()
+                        if line == "Mesh Points":
+                            line = next(fdata).strip()    
+                            arrMeshPoints = np.array(eval(line))
+                            objJunctionLine = GeneralJunctionLine(arrMeshPoints, intJL)
+                            line = next(fdata).strip()
+                        if line == "Adjacent Grains":
+                            line = next(fdata).strip()    
+                            objJunctionLine.SetAdjacentGrains(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Adjacent Grain Boundaries":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetAdjacentGrainBoundaries(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Periodic Directions":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetPeriodicDirections(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Atom IDs":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetAtomIDs(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Volume":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetVolume(eval(line))
+                            line = next(fdata).strip()
+                        if line == "PE":
+                            line = next(fdata).strip()
+                            objJunctionLine.SetTotalPE(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Adjusted Mesh Points":
+                            line = next(fdata).strip()
+                            arrAdjustedMeshPoints = np.array(eval(line))
+                            objJunctionLine.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+                        self.AddJunctionLine(objJunctionLine)
+                    if line == "Grain Boundary":
+                        intGB = int(next(fdata).strip())
+                        line = next(fdata).strip()
+                        if line == "Mesh Points":
+                            line = next(fdata).strip()    
+                            arrMeshPoints = np.array(eval(line))
+                            objGrainBoundary = GeneralGrainBoundary(arrMeshPoints, intGB)
+                            line = next(fdata).strip()
+                        if line == "Adjacent Grains":
+                            line = next(fdata).strip()    
+                            objGrainBoundary.SetAdjacentGrains(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Adjacent Junction Lines":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetAdjacentJunctionLines(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Periodic Directions":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetPeriodicDirections(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Atom IDs":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetAtomIDs(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Volume":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetVolume(eval(line))
+                            line = next(fdata).strip()
+                        if line == "PE":
+                            line = next(fdata).strip()
+                            objGrainBoundary.SetTotalPE(eval(line))
+                            line = next(fdata).strip()
+                        if line == "Adjusted Mesh Points":
+                            line = next(fdata).strip()
+                            arrAdjustedMeshPoints = np.array(eval(line))
+                            objGrainBoundary.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
+                        self.AddGrainBoundary(objGrainBoundary)
                 except StopIteration as EndOfFile:
+                    blnNotEnd = False
                     break
-                if line == "Time Step":
-                    self.__TimeStep = int(next(fdata).strip())
-                    line = next(fdata).strip()
-                if line == "Junction Line":
-                    intJL = int(next(fdata).strip())
-                    line = next(fdata).strip()
-                    if line == "Mesh Points":
-                        line = next(fdata).strip()    
-                        arrMeshPoints = np.array(eval(line))
-                        objJunctionLine = GeneralJunctionLine(arrMeshPoints, intJL)
-                        line = next(fdata).strip()
-                    if line == "Adjacent Grains":
-                        line = next(fdata).strip()    
-                        objJunctionLine.SetAdjacentGrains(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Adjacent Grain Boundaries":
-                        line = next(fdata).strip()
-                        objJunctionLine.SetAdjacentGrainBoundaries(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Periodic Directions":
-                        line = next(fdata).strip()
-                        objJunctionLine.SetPeriodicDirections(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Atom IDs":
-                        line = next(fdata).strip()
-                        objJunctionLine.SetAtomIDs(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Volume":
-                        line = next(fdata).strip()
-                        objJunctionLine.SetVolume(eval(line))
-                        line = next(fdata).strip()
-                    if line == "PE":
-                        line = next(fdata).strip()
-                        objJunctionLine.SetTotalPE(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Adjusted Mesh Points":
-                        line = next(fdata).strip()
-                        arrAdjustedMeshPoints = np.array(eval(line))
-                        objJunctionLine.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
-                    self.AddJunctionLine(objJunctionLine)
-                if line == "Grain Boundary":
-                    intGB = int(next(fdata).strip())
-                    line = next(fdata).strip()
-                    if line == "Mesh Points":
-                        line = next(fdata).strip()    
-                        arrMeshPoints = np.array(eval(line))
-                        objGrainBoundary = GeneralGrainBoundary(arrMeshPoints, intGB)
-                        line = next(fdata).strip()
-                    if line == "Adjacent Grains":
-                        line = next(fdata).strip()    
-                        objGrainBoundary.SetAdjacentGrains(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Adjacent Junction Lines":
-                        line = next(fdata).strip()
-                        objGrainBoundary.SetAdjacentJunctionLines(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Periodic Directions":
-                        line = next(fdata).strip()
-                        objGrainBoundary.SetPeriodicDirections(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Atom IDs":
-                        line = next(fdata).strip()
-                        objGrainBoundary.SetAtomIDs(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Volume":
-                        line = next(fdata).strip()
-                        objGrainBoundary.SetVolume(eval(line))
-                        line = next(fdata).strip()
-                    if line == "PE":
-                        line = next(fdata).strip()
-                        objGrainBoundary.SetTotalPE(eval(line))
-                        line = next(fdata).strip()
-                    if line == "Adjusted Mesh Points":
-                        line = next(fdata).strip()
-                        arrAdjustedMeshPoints = np.array(eval(line))
-                        objGrainBoundary.SetAdjustedMeshPoints(arrAdjustedMeshPoints)
-                    self.AddGrainBoundary(objGrainBoundary)
 class SigmaCell(object):
     def __init__(self, arrRotationAxis: np.array, inCellNodes: np.array):
         intGCD = np.gcd.reduce(arrRotationAxis)
