@@ -772,9 +772,9 @@ class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to corr
         objCorrelate.AddDefectObject(objPreviousDefect)
         objDefect = objCorrelate.CorrelateDefects(self.GetTimeStep(), objPreviousDefect.GetTimeStep()) #use the timesteps passed here rather than the default previous #timestep
         for i in objDefect.GetJunctionLineIDs():
-            self.AddJunctionLine(objCorrelate.GetDefectObject(self.GetTimeStep()).GetJunctionLine(i))
+            self.AddJunctionLine(objDefect.GetJunctionLine(i))
         for j in objDefect.GetGrainBoundaryIDs():
-            self.AddGrainBoundary(objCorrelate.GetDefectObject(self.GetTimeStep()).GetGrainBoundary(j))
+            self.AddGrainBoundary(objDefect.GetGrainBoundary(j))
         self.MakeGrainTrees()
         self.SetJunctionLineIDs()
         self.SetGrainBoundaryIDs()
