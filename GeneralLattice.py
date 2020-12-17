@@ -521,6 +521,8 @@ class DefectObject(object):
             blnNotEnd = True
             try:
                 line = next(fdata).strip()
+                objJunctionLine = None
+                objGrainBoundary = None
                 while blnNotEnd:
                     if line == "Time Step":
                         self.__TimeStep = int(next(fdata).strip())
@@ -604,8 +606,10 @@ class DefectObject(object):
                     else:
                         blnNotEnd = False
             except StopIteration as EndOfFile:
-                self.AddJunctionLine(objJunctionLine) #Some fields are optional so end of file may come
-                self.AddGrainBoundary(objGrainBoundary) #before the GB or JL objects have been added        
+                if objJunctionLine is not None:
+                    self.AddJunctionLine(objJunctionLine) #Some fields are optional so end of file may come
+                if objGrainBoundary is not None:
+                    self.AddGrainBoundary(objGrainBoundary) #before the GB or JL objects have been added        
                 blnNotEnd = False
 
 class SigmaCell(object):
