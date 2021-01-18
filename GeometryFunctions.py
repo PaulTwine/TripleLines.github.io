@@ -182,6 +182,7 @@ def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVect
                 inMatrix = inMatrix[:2,:2]
                 invMatrix = invMatrix[:2,:2]                
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
+        arrCoefficients = np.round(arrCoefficients, 10)
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
         if blnReturnCellCoordinates:
                 return np.matmul(arrCoefficients, inMatrix),arrCoefficients #return the wrapped vector in the standard basis

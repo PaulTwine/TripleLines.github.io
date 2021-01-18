@@ -85,20 +85,29 @@ class GeneralLattice(RealCell):
         self.__Origin = inOrigin
         self.__LatticeParameters = inLatticeParameters
         self.__RealBasisVectors = np.zeros([self.Dimensions(),self.Dimensions()])
+        self.__LinearConstraints = []
+        self.__ConstrainType = []
         for j in range(self.Dimensions()):
             self.__RealBasisVectors[j] = inLatticeParameters[j]*inBasisVectors[j]
     def GetUnitBasisVectors(self)->np.array:
         return self.__UnitBasisVectors
     def GetRealBasisVectors(self)->np.array:
         return self.__RealBasisVectors
+    def RemovePoints(self, inRealPoints: np.array):
+        arrCheck = (self.__RealPoints[:, None] == inRealPoints).all(-1).any(-1)
+        lstIndices = list(arrCheck == True)
+        self.__DeletePoints(lstIndices)
     def __DeletePoints(self,lstDeletedIndices: list):
         self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
         self.__LatticePoints  = np.delete(self.__LatticePoints, lstDeletedIndices, axis=0) 
     def GetRealPoints(self)->np.array:
         return self.__RealPoints
-    def MakeRealPoints(self, inConstraints):
-        self.__LinearConstraints = inConstraints
-        self.GenerateLatticeConstraints(inConstraints)
+    def MakeRealPoints(self, inClosedConstraints: np.array):
+        #assumes constraints are closed (e.g. includes boundary points) To change this call
+        #SetOpenConstraints(arrPositions) and an array of which constraints are open
+        self.__LinearConstraints = inClosedConstraints
+        self.__ConstraintTypes = list(len(inClosedConstraints)*'c')
+        self.GenerateLatticeConstraints(inClosedConstraints)
         arrBounds = self.FindBoxConstraints(self.__LatticeConstraints)
         arrBounds[:,0] = np.floor(arrBounds[:,0])
         arrBounds[:,1] = np.ceil(arrBounds[:,1])
@@ -136,12 +145,21 @@ class GeneralLattice(RealCell):
         self.__LatticeConstraints = rtnArray
     def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
-        arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
-        return arrPositions
+        arrClosed = np.argwhere(np.round(arrPositions,10) > 0)[:,0]                
+        return np.unique(arrClosed)
     def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
-         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
-         arrPositions = np.argwhere(np.round(arrPositions,10) > 0)[:,0]        
-         return np.unique(arrPositions)
+        arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
+        arrClosed = np.argwhere(np.round(arrPositions,10) > 0)[:,0]       
+        return np.unique(arrClosed)
+    def SetOpenConstraints(self, arrOpenConstraints: np.array, intRound = 5): #pass the linear constraint positions that are open
+        arrPositions = np.subtract(np.matmul(self.__RealPoints, np.transpose(self.__LinearConstraints[arrOpenConstraints,:-1])), np.transpose(self.__LinearConstraints[arrOpenConstraints,-1]))
+        arrOpen = np.argwhere(np.round(arrPositions,intRound) == 0)[:,0]   #makes the selected constraints open and removes points on the boundary
+        for j in arrOpenConstraints: #update the linear constraint label types
+            self.__ConstraintTypes[j] = 'o'    
+        if np.size(arrOpen) > 0:
+            self.__DeletePoints(arrOpen)
+    def GetConstraintTypes(self):
+        return self.__ConstraintTypes
     def GetNumberOfAtoms(self)->int:
         return len(self.__RealPoints)
     def GetAtomType(self)->int:
@@ -205,7 +223,27 @@ class ExtrudedRectangle(GeneralLattice):
         arrConstraints[5] = np.array([0,0,-1,0])
         GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
-    
+
+class ExtrudedParalleogram(GeneralLattice):
+    def __init__(self, arrLength: np.array, arrWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
+        arrZ = np.array([0,0,1])
+        arrConstraints = np.zeros([6,4])
+        arrConstraints[0,:3] = gf.NormaliseVector(np.cross(arrLength, arrZ))
+        arrConstraints[0,3] = 0
+        arrConstraints[1,:3] = -gf.NormaliseVector(np.cross(arrLength, arrZ))
+        arrConstraints[1,3] = np.linalg.norm(np.cross(arrLength,arrWidth)/np.linalg.norm(arrWidth))
+        arrConstraints[2,:3] = -gf.NormaliseVector(np.cross(arrWidth, arrZ))
+        arrConstraints[2,3] = 0
+        arrConstraints[3,:3] = gf.NormaliseVector(np.cross(arrWidth, arrZ))
+        arrConstraints[3,3] = np.linalg.norm(np.cross(arrLength,arrWidth)/np.linalg.norm(arrLength))
+        arrConstraints[4,:3] = -arrZ
+        arrConstraints[4,3] = 0
+        arrConstraints[5,:3] = arrZ
+        arrConstraints[5,3] = fltHeight
+        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
+        self.MakeRealPoints(arrConstraints)
+
+
 class ExtrudedRegularPolygon(GeneralLattice):
     def __init__(self, fltSideLength: float, fltHeight: float, intNumberOfSides: int, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin: np.array, inCellBasis=None):
         intDimensions = len(inBasisVectors[0])
@@ -231,8 +269,6 @@ class ExtrudedRegularPolygon(GeneralLattice):
         arrConstraints[-1,-1] = fltHeight
         GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
-
-
 
 class SimulationCell(object):
     def __init__(self, inBoxVectors: np.array):
