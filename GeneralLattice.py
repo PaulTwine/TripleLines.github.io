@@ -89,6 +89,11 @@ class GeneralLattice(RealCell):
         self.__ConstrainType = []
         for j in range(self.Dimensions()):
             self.__RealBasisVectors[j] = inLatticeParameters[j]*inBasisVectors[j]
+        self.__intConstraintRound = 8 #default value for the rounding precision for points lying on a linear constraint
+    def GetConstraintRounding(self):
+        return self.__intConstraintRound
+    def SetConstraintRounding(self, intValue: int):
+        self.__intConstraintRound = intValue #take care to call MakeRealPoints() for this to take effect
     def GetUnitBasisVectors(self)->np.array:
         return self.__UnitBasisVectors
     def GetRealBasisVectors(self)->np.array:
@@ -145,11 +150,11 @@ class GeneralLattice(RealCell):
         self.__LatticeConstraints = rtnArray
     def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
-        arrClosed = np.argwhere(np.round(arrPositions,10) > 0)[:,0]                
+        arrClosed = np.argwhere(np.round(arrPositions,self.__intConstraintRound) > 0)[:,0]                
         return np.unique(arrClosed)
     def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
-        arrClosed = np.argwhere(np.round(arrPositions,10) > 0)[:,0]       
+        arrClosed = np.argwhere(np.round(arrPositions,self.__intConstraintRound) > 0)[:,0]       
         return np.unique(arrClosed)
     def SetOpenConstraints(self, arrOpenConstraints: np.array, intRound = 5): #pass the linear constraint positions that are open
         arrPositions = np.subtract(np.matmul(self.__RealPoints, np.transpose(self.__LinearConstraints[arrOpenConstraints,:-1])), np.transpose(self.__LinearConstraints[arrOpenConstraints,-1]))
