@@ -6,8 +6,9 @@ import GeneralLattice as gl
 import LAMMPSTool as LT
 import sys
 
+strDirectory = str(sys.argv[1])
+intSigma = int(sys.argv[2])
 arrAxis = np.array([1,1,1])
-intSigma = 21
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
 print(gf.CubicCSLGenerator(arrAxis, 5))
@@ -36,8 +37,8 @@ for j in lstRotations:
     MySimulationCell.AddGrain(objHex3, 'Hex3')
     MySimulationCell.WrapAllPointsIntoSimulationCell()
     MySimulationCell.SetFileHeader('Sigma ' + str(intSigma) + ' about ' + str(arrAxis) + ' with Hexagonal grains 1,2 and 3 with angle array ' + str(arrRotation))
-    strFileName = 'Hex' + str(j[0]+1) + 'and' + str(j[1]+1) + 'and' + str(j[2]+1) + 'Sigma' + str(intSigma) + '.dat'
-    MySimulationCell.WriteLAMMPSDataFile('../PythonLAMMPS/' + strFileName)
+    strFileName = 'Hex' + str(j[0]+1) + str(j[1]+1) + str(j[2]+1) + 'Sigma' + str(intSigma) + '.dat'
+    MySimulationCell.WriteLAMMPSDataFile(strDirectory + strFileName)
 
 
 
