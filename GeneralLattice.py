@@ -63,7 +63,10 @@ class RealCell(PureCell):
         self.__RealCellVectors = np.zeros([self.Dimensions(),self.Dimensions()])
         for j in range(self.Dimensions()):
             self.__RealCellVectors[j] = inLatticeParameters[j]*self.__CellVectors[j]
-        arrDistanceMatrix = sc.spatial.distance_matrix(self.__RealCellVectors,self.__RealCellVectors)
+        self.__RealNodes = np.ones([self.GetNumberOfCellNodes(),self.Dimensions()])
+        for k in range(self.GetNumberOfCellNodes()):
+            self.__RealNodes[k] = np.matmul(self.__RealCellVectors,self.GetCellNodes()[k])
+        arrDistanceMatrix = sc.spatial.distance_matrix(self.__RealNodes,self.__RealNodes)
         self.__NearestNeighbourDistance = np.min(arrDistanceMatrix[arrDistanceMatrix > 0])
     def GetCellVectors(self)->np.array:
         return self.__CellVectors
@@ -90,6 +93,10 @@ class GeneralLattice(RealCell):
         for j in range(self.Dimensions()):
             self.__RealBasisVectors[j] = inLatticeParameters[j]*inBasisVectors[j]
         self.__intConstraintRound = 8 #default value for the rounding precision for points lying on a linear constraint
+        self.__BoundaryPointIndices = []
+        self.__InteriorPointIndices = []
+        self.__RemovedBoundaryPoints = []
+        self.__blnFoundBoundaryPoints = False
     def GetConstraintRounding(self):
         return self.__intConstraintRound
     def SetConstraintRounding(self, intValue: int):
@@ -105,7 +112,7 @@ class GeneralLattice(RealCell):
     def __DeletePoints(self,lstDeletedIndices: list):
         self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
         self.__LatticePoints  = np.delete(self.__LatticePoints, lstDeletedIndices, axis=0) 
-    def GetRealPoints(self)->np.array:
+    def GetRealPoints(self)->np.array: #if points on the boundary have been removed don't include them unless blnRemoved is set to false
         return self.__RealPoints
     def MakeRealPoints(self, inClosedConstraints: np.array):
         #assumes constraints are closed (e.g. includes boundary points) To change this call
@@ -174,7 +181,7 @@ class GeneralLattice(RealCell):
     def SetOrigin(self, inArray: np.array):
         self.__Origin = inArray
     def MatLabPlot(self):
-        return zip(*self.GetRealPoints())
+        return tuple(zip(*self.GetRealPoints()))
     def LinearConstrainRealPoints(self, inConstraint: np.array):
         lstDeletedIndices = gf.CheckLinearConstraint(self.__RealPoints, inConstraint)
         self.__DeletePoints(lstDeletedIndices)
@@ -217,6 +224,33 @@ class GeneralLattice(RealCell):
         return self.__LinearConstraints
     def GetLatticeConstraints(self):
         return self.__LatticeConstraints
+    def FindBoundaryPoints(self):
+        if not(self.__blnFoundBoundaryPoints):
+            self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.__RealPoints, 12, self.GetNearestNeighbourDistance())
+            lstInteriorPoints = list(set(range(self.GetNumberOfAtoms())).difference(list(self.__BoundaryPointIndices)))
+            self.__RefinedBoundaryPointIndices = list(np.copy(self.__BoundaryPointIndices))
+            self.__InteriorPointIndices = lstInteriorPoints
+            self.__blnFoundBoundaryPoints = True 
+    def GetInteriorPoints(self):
+        if not(self.__blnFoundBoundaryPoints):
+            self.FindBoundaryPoints()
+        return self.__RealPoints[self.__InteriorPointIndices]
+    def GetBoundaryPoints(self):
+        if not(self.__blnFoundBoundaryPoints):
+            self.FindBoundaryPoints()
+        return self.__RealPoints[self.__BoundaryPointIndices]
+    def RemoveBoundaryPoints(self, inIndexPositions):
+        for j in inIndexPositions:
+            if j >= len(self.__RefinedBoundaryPointIndices):
+                inIndexPositions.remove(j)
+        self.__RefinedBoundaryPointIndices = np.delete(self.__RefinedBoundaryPointIndices, inIndexPositions)
+    def GetRefinedBoundaryPoints(self):
+        if not(self.__blnFoundBoundaryPoints):
+            self.FindBoundaryPoints()
+        return self.__RealPoints[self.__RefinedBoundaryPointIndices]
+
+    
+
 class ExtrudedRectangle(GeneralLattice):
     def __init__(self, fltLength: float, fltWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
         arrConstraints = np.zeros([6,4])
@@ -278,13 +312,16 @@ class ExtrudedRegularPolygon(GeneralLattice):
 class SimulationCell(object):
     def __init__(self, inBoxVectors: np.array):
         self.Dimensions = len(inBoxVectors[0])
-        self.BoundaryTypes = ['p']*self.Dimensions #assume periodic boundary conditions as a default
+        self.BoundaryTypes = ['pp']*self.Dimensions #assume periodic boundary conditions as a default
         self.SetOrigin(np.zeros(self.Dimensions))
         self.dctGrains = dict() #dictionary of RealGrain objects which form the simulation cell
         self.SetParallelpipedVectors(inBoxVectors)
         self.blnPointsAreWrapped = False
         self.__FileHeader = ''
         self.GrainList = []
+        # self.__UnitBasisVectors = []
+        # self.__BasisVectors = []
+        # self.__InverseBasis =[]
     def AddGrain(self,inGrain, strName = None):
         if strName is None:
             strName = str(len(self.dctGrains.keys())+1)
@@ -300,7 +337,7 @@ class SimulationCell(object):
         else: 
             intNumberOfAtoms = 0
             for j in self.GrainList:
-                intNumberOfAtoms += self.GetGrain(j).GetNumberOfAtoms()
+                intNumberOfAtoms += self.GetGrain(j).GetNumberOfAtoms() 
         return intNumberOfAtoms
     def GetRealBasisVectors(self):
         return self.__BasisVectors
@@ -313,19 +350,6 @@ class SimulationCell(object):
             if intCurrentAtomType not in lstAtomTypes: 
                 lstAtomTypes.append(intCurrentAtomType)
         return len(lstAtomTypes)
-    def GetMinimumSimulationBox(self)->np.array:
-        arrSize = self.GrainList[0].GetBoundingBox()
-        for CurrentGrain in self.GrainList:
-            arrCurrentBox = CurrentGrain.GetBoundingBox()
-            for coordinate, arrDimensions in enumerate(arrCurrentBox):
-                if arrDimensions[0] < arrSize[coordinate][0]:
-                    arrSize[coordinate][0] = arrDimensions[0]
-                if arrDimensions[1] > arrSize[coordinate][1]:
-                    arrSize[coordinate][1] = arrDimensions[1]
-        return arrSize
-    def UseMinimumSimulationBox(self):
-        arrSize = self.GetMinimumSimulationBox()
-        self._Size = arrSize
     def SetFileHeader(self, inString: str):
         self.__FileHeader = inString
     def WrapVectorIntoSimulationBox(self, inVector: np.array)->np.array:
@@ -378,13 +402,14 @@ class SimulationCell(object):
             self.__UnitBasisVectors = np.array(lstBasisVectors)
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
-    def WrapAllPointsIntoSimulationCell(self, intRound = 5)->np.array:
+    def WrapAllPointsIntoSimulationCell(self, intRound=5)->np.array:
         lstUniqueRowindices = []
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
         i = 0
         for j in self.GrainList:
-            for fltPoint in self.GetGrain(j).GetRealPoints():
+            arrPoints = np.append(self.GetGrain(j).GetInteriorPoints(), self.GetGrain(j).GetRefinedBoundaryPoints(),axis=0)
+            for fltPoint in arrPoints:
                 arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
@@ -392,6 +417,32 @@ class SimulationCell(object):
         self.__UniqueRealPoints,lstUniqueRowindices = np.unique(arrAllAtoms,axis=0,return_index=True)
         self.__AtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
         self.blnPointsAreWrapped = True
+    def RemoveTooCloseAtoms(self, fltDistance: float): #assumes grains are correctly positioned so they don't interpenetrate
+        lstRemainingGrains = list(np.copy(self.GrainList))
+        while len(lstRemainingGrains) > 0:
+            strCurrentGrain = lstRemainingGrains.pop()
+            lstPoints = []
+            arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetRefinedBoundaryPoints()) 
+            # arrTranslations = gf.PeriodicEquivalents(np.zeros(3),self.__BasisVectors,self.__InverseBasis,self.BoundaryTypes, False)
+            # intLength = np.size(arrPoints)
+            lstPoints.append(arrPoints)
+            lstClosePoints = []
+            intCounter = 0
+            if len(arrPoints) > 0:
+                while intCounter < len(lstRemainingGrains):
+                    strNextGrain = lstRemainingGrains[intCounter]
+                    arrNextPoints =  self.WrapVectorIntoSimulationBox(self.GetGrain(strNextGrain).GetRefinedBoundaryPoints())
+                    arrNextPoints = gf.AddPeriodicWrapper(arrNextPoints, self.__BasisVectors,fltDistance)
+                    if len(arrNextPoints) > 0:
+                        arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints,arrNextPoints)
+                        arrClosePoints = np.where(arrDistanceMatrix <= fltDistance)[0]
+                        #arrClosePoints = np.mod(arrClosePoints, intLength)
+                        arrClosePoints = np.unique(arrClosePoints)
+                        lstClosePoints.append(arrClosePoints)
+                    intCounter += 1
+                if len(lstClosePoints)> 0:
+                    lstIndices = list(np.unique(np.concatenate(lstClosePoints)))
+                    self.GetGrain(strCurrentGrain).RemoveBoundaryPoints(lstIndices)
     def PlotSimulationCellAtoms(self):
         if self.blnPointsAreWrapped:
             return tuple(zip(*self.__UniqueRealPoints))

@@ -262,15 +262,16 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def GetPlaneNormalVectors(self):
         return self.__PlaneNormalVectors
     def CategoriseAtoms(self, fltTolerance = None):    
-        self.__DefectiveAtomIDs = []
-        self.__NonDefectiveAtomIDs = []
-        lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
-        lstPTMAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
-        lstNonPTMAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') != self._LatticeStructure)[0])
-        self.__PTMAtomIDs = list(self.GetAtomData()[lstPTMAtoms,0].astype('int'))
-        self.__NonPTMAtomIDs = list(self.GetAtomData()[lstNonPTMAtoms,0].astype('int'))
-        self.__OtherAtomIDs = list(self.GetAtomData()[lstOtherAtoms,0].astype('int'))
-        self.FindDefectiveAtoms(fltTolerance)
+        if 'StructureType' in self.GetColumnNames():
+            self.__DefectiveAtomIDs = []
+            self.__NonDefectiveAtomIDs = []
+            lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
+            lstPTMAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == self._LatticeStructure)[0])
+            lstNonPTMAtoms =  list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') != self._LatticeStructure)[0])
+            self.__PTMAtomIDs = list(self.GetAtomData()[lstPTMAtoms,0].astype('int'))
+            self.__NonPTMAtomIDs = list(self.GetAtomData()[lstNonPTMAtoms,0].astype('int'))
+            self.__OtherAtomIDs = list(self.GetAtomData()[lstOtherAtoms,0].astype('int'))
+            self.FindDefectiveAtoms(fltTolerance)
     def GetLatticeAtomIDs(self):
         return self.__LatticeAtomIDs
     def GetNonLatticeAtomIDs(self):

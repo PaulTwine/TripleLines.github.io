@@ -8,6 +8,7 @@ import numpy as np
 import itertools as it
 import scipy as sc
 from sklearn.cluster import DBSCAN
+from sklearn.neighbors import KDTree
 import warnings
 #import shapely as sp
 #import geopandas as gpd
@@ -155,7 +156,7 @@ def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: flo
         return arrPositions    
 def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list, fltMinDistance = 0.5):
         lstPoints = []
-        clustering = DBSCAN(fltMinDistance, 1).fit(inPoints)
+        clustering = DBSCAN(fltMinDistance, min_samples=1).fit(inPoints)
         arrValues = clustering.labels_
         arrUniqueValues, arrCounts = np.unique(arrValues, return_counts=True)
         intMaxClusterValue = arrUniqueValues[np.argmax(arrCounts)] # find the largest cluster
@@ -173,6 +174,7 @@ def IsVectorOutsideSimulationCell(inMatrix: np.array, invMatrix: np.array, inVec
                 return True
         else:
                 return False
+
 def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
         if len(np.shape(inVector)) > 1:
                 if np.shape(inVector)[1] == 2:
@@ -241,6 +243,43 @@ def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCel
             for k in range(len(inVectors2)):
                 arrPeriodicDistance[j,k] = PeriodicMinimumDistance(inVectors1[j],inVectors2[k], inCellVectors, inBasisConversion, inBoundaryList)
         return arrPeriodicDistance
+def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: float):
+        arrInverseMatrix = np.linalg.inv(inCellVectors)
+        arrCoefficients = np.matmul(inPoints, arrInverseMatrix)
+        arrProportions = np.zeros(3)
+        for i in range(len(inCellVectors)):
+                arrProportions[i] = fltDistance/np.linalg.norm(inCellVectors[i])
+        lstNewPoints = []
+        lstNewPoints.append(arrCoefficients)
+        for j in range(3):
+                arrVector = np.zeros(3)
+                arrVector[j] = 1
+                arrRows = np.where((arrCoefficients[:,j] >= 0) & (arrCoefficients[:,j] <= arrProportions[j]))[0]
+                arrNewPoints = arrCoefficients[arrRows] + arrVector
+                lstNewPoints.append(arrNewPoints)
+                arrRows = np.where((arrCoefficients[:,j] >= 1-arrProportions[j]) & (arrCoefficients[:,j] <= 1))[0]
+                arrNewPoints = arrCoefficients[arrRows] - arrVector
+                lstNewPoints.append(arrNewPoints)
+                arrCoefficients = np.concatenate(lstNewPoints)
+        return np.matmul(arrCoefficients, inCellVectors)
+                
+        # for j in range(len(arrNormalMatrix)):
+        #         arrComponents = np.matmul(arrNormalMatrix, np.transpose(arrNewPoints))
+        #         arrRows = np.where((arrComponents[j] <= fltDistance) & (arrComponents[j] >= 0))        
+        #         lstNewPoints.append(arrNewPoints[arrRows] + inCellVectors[np.mod(j+1,3)])
+        #         arrRows = np.where((arrComponents[j] >= np.linalg.norm(inCellVectors[j]) - fltDistance) & (arrComponents[j] <= np.linalg.norm(inCellVectors[j])))
+        #         lstNewPoints.append(arrNewPoints[arrRows] - inCellVectors[np.mod(j+1,3)])
+        #         arrNewPoints = np.concatenate(lstNewPoints)
+        # return arrNewPoints
+                
+        
+
+
+# def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
+#         arrPeriodicDistance = np.zeros([len(inVectors1), len(inVectors2)])
+#         lstResults = list(map(lambda x: list(map(lambda y: PeriodicMinimumDistance(x,y,inCellVectors, inBasisConversion, inBoundaryList),inVectors2)),inVectors1))
+#         return arrPeriodicDistance
+
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
         return np.linalg.norm(inVector2-inVector1, axis=0)
@@ -407,7 +446,7 @@ def ParseConic(lstCentre: list, lstScaling: list, lstPower:list, lstVariables = 
 def InvertRegion(strInput: str)->str: #changes an "inside closed surface to outside closed surface"
         return '-(' + strInput + ')'
 
-def CubicCSLGenerator(inAxis: np.array, intIterations)->list:
+def CubicCSLGenerator(inAxis: np.array, intIterations=5)->list: #usually five iterations is find the first 5 sigma values
         intGCD = np.gcd.reduce(inAxis)
         inAxis = inAxis*1/intGCD
         intSquared = np.sum(inAxis*inAxis).astype('int')
@@ -434,7 +473,11 @@ def CubicCSLGenerator(inAxis: np.array, intIterations)->list:
                 arrReturn[k,1] = dctSigma[lstKeys[k]]
                 arrReturn[k,2] = 180*arrReturn[k,1]/np.pi
         return arrReturn
-
+def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float):
+        objSpatial = KDTree(inPoints)
+        arrCounts = objSpatial.query_radius(inPoints, 1.05*fltRadius, count_only=True)
+        arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours)[0]
+        return arrBoundaryIndices         
 
 
 
