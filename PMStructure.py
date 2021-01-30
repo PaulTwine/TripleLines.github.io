@@ -16,4 +16,4 @@ pipeline.compute()
 #vp.zoom_all()
 #vp.render_image(filename=strFilename + '.png', size=(320, 240),frame=n-1,  renderer=TachyonRenderer())
 #print(pipeline.output) #debug information
-io.export_file(pipeline, strFilename , "lammps_dump", frame = n, columns = ['Particle Identifier','Position.X','Position.Y', 'Position.Z', 'Velocity.X', 'Velocity.Y','Velocity.Z','c_pe1','c_v[1]','Structure Type', 'Volumetric Strain'])
+io.export_file(pipeline, strFilename +'PM', "lammps_dump", frame = n, columns = ['Particle Identifier','Position.X','Position.Y', 'Position.Z', 'Velocity.X', 'Velocity.Y','Velocity.Z','c_pe1','c_v[1]','Structure Type', 'Volumetric Strain'])
