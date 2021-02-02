@@ -3,6 +3,7 @@ import GeometryFunctions as gf
 #import LatticeShapes as ls
 import LatticeDefinitions as ld
 import scipy as sc
+from sklearn.neighbors import KDTree
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import lambdify
 from sympy.abc import x,y,z
@@ -22,6 +23,9 @@ class PureCell(object):
         else:
             arrVector[-intNumber] = -1
         return np.array(arrVector)
+    def GetNumberOfNodesPerCell(self):
+        arrUnique = np.unique(np.mod(self.__CellNodes, np.ones([self.__NumberOfCellNodes, self.__Dimensions])),axis=0)
+        return len(arrUnique)
     def GetCellCentre(self)->np.array:
         return 0.5*np.ones(self.Dimensions())
     def GetCellNode(self, inIndex: int)->np.array:
@@ -76,7 +80,8 @@ class RealCell(PureCell):
         return self.__LatticeParameters
     def GetNearestNeighbourDistance(self):
         return self.__NearestNeighbourDistance
-    
+    def GetCellVolume(self):
+        return np.abs(np.dot(self.__RealCellVectors[0], np.cross(self.__RealCellVectors[1],self.__RealCellVectors[2])))    
 class GeneralLattice(RealCell):
     def __init__(self,inBasisVectors:np.array,inCellNodes: np.array,inLatticeParameters:np.array,inOrigin: np.array,inCellBasis = None):
         RealCell.__init__(self, inCellNodes,inLatticeParameters, inCellBasis)
@@ -97,6 +102,7 @@ class GeneralLattice(RealCell):
         self.__InteriorPointIndices = []
         self.__RemovedBoundaryPoints = []
         self.__blnFoundBoundaryPoints = False
+        self.__VacancyIndices = []
     def GetConstraintRounding(self):
         return self.__intConstraintRound
     def SetConstraintRounding(self, intValue: int):
@@ -138,6 +144,7 @@ class GeneralLattice(RealCell):
         arrRealPoints = np.round(np.matmul(inLatticePoints, self.GetRealCellVectors()),10)
         self.__RealPoints = np.round(np.matmul(arrRealPoints, self.GetUnitBasisVectors()),10)
         self.__RealPoints = np.add(self.__Origin, self.__RealPoints)
+        self.__SpatialPoints = KDTree(self.__RealPoints)
     def GenerateLatticeConstraints(self, inConstraints: np.array):
         rtnArray = np.zeros([len(inConstraints),len(inConstraints[0])])
         tmpArray = np.zeros([3])
@@ -248,8 +255,32 @@ class GeneralLattice(RealCell):
         if not(self.__blnFoundBoundaryPoints):
             self.FindBoundaryPoints()
         return self.__RealPoints[self.__RefinedBoundaryPointIndices]
+    def MakeVacancySpace(self, inPoint: np.array, intNumber: int):
+        arrPoints = self.__SpatialPoints.query(np.array(inPoint),intNumber)[1]
+        self.__DeletePoints(arrPoints)
+    def MakeManyVacancies(self, intNumber, fltSeparation):
+        lstPoints = []
+        lstPositions = []
+        self.FindBoundaryPoints()
+        intLength = len(self.__InteriorPointIndices)
+        intSeparation = np.round(intLength/intNumber,0).astype('int')
+        intCounter = 0
+        while len(lstPoints) < intNumber:
+            intIndex = self.__InteriorPointIndices[np.mod(intCounter*intSeparation, intLength)]
+            arrPoint = self.__RealPoints[intIndex]
+            if len(lstPoints) > 0:
+                arrDistanceMatrix= sc.spatial.distance_matrix(np.array([arrPoint]),np.vstack(lstPoints))
+                lstPositions = np.where(arrDistanceMatrix <= fltSeparation)[0]
+                if len(lstPositions) == 0:
+                    lstPoints.append(arrPoint)
+                    self.__VacancyIndices.append(intIndex)    
+            else:
+                lstPoints.append(arrPoint)
+                self.__VacancyIndices.append(intIndex)
+            intCounter +=1
+            
 
-    
+
 
 class ExtrudedRectangle(GeneralLattice):
     def __init__(self, fltLength: float, fltWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
@@ -413,6 +444,7 @@ class SimulationCell(object):
                 arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
+        arrAllAtoms = arrAllAtoms[:i]
         arrAllAtoms = np.round(self.WrapVectorIntoSimulationBox(arrAllAtoms),intRound)
         self.__UniqueRealPoints,lstUniqueRowindices = np.unique(arrAllAtoms,axis=0,return_index=True)
         self.__AtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
@@ -423,8 +455,6 @@ class SimulationCell(object):
             strCurrentGrain = lstRemainingGrains.pop()
             lstPoints = []
             arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetRefinedBoundaryPoints()) 
-            # arrTranslations = gf.PeriodicEquivalents(np.zeros(3),self.__BasisVectors,self.__InverseBasis,self.BoundaryTypes, False)
-            # intLength = np.size(arrPoints)
             lstPoints.append(arrPoints)
             lstClosePoints = []
             intCounter = 0
@@ -436,7 +466,6 @@ class SimulationCell(object):
                     if len(arrNextPoints) > 0:
                         arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints,arrNextPoints)
                         arrClosePoints = np.where(arrDistanceMatrix <= fltDistance)[0]
-                        #arrClosePoints = np.mod(arrClosePoints, intLength)
                         arrClosePoints = np.unique(arrClosePoints)
                         lstClosePoints.append(arrClosePoints)
                     intCounter += 1
@@ -454,6 +483,8 @@ class SimulationCell(object):
             return self.__UniqueRealPoints
         else:
             raise("Error: Points need to be wrapped into simulation cell")
+    def GetSimulationCellVolume(self):
+        return np.abs(np.dot(self.__BasisVectors[0], np.cross(self.__BasisVectors[1], self.__BasisVectors[2])))
 
 class Grain(object):
     def __init__(self, intGrainNumber: int):

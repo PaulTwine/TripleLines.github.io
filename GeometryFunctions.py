@@ -263,22 +263,6 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
                 arrCoefficients = np.concatenate(lstNewPoints)
         return np.matmul(arrCoefficients, inCellVectors)
                 
-        # for j in range(len(arrNormalMatrix)):
-        #         arrComponents = np.matmul(arrNormalMatrix, np.transpose(arrNewPoints))
-        #         arrRows = np.where((arrComponents[j] <= fltDistance) & (arrComponents[j] >= 0))        
-        #         lstNewPoints.append(arrNewPoints[arrRows] + inCellVectors[np.mod(j+1,3)])
-        #         arrRows = np.where((arrComponents[j] >= np.linalg.norm(inCellVectors[j]) - fltDistance) & (arrComponents[j] <= np.linalg.norm(inCellVectors[j])))
-        #         lstNewPoints.append(arrNewPoints[arrRows] - inCellVectors[np.mod(j+1,3)])
-        #         arrNewPoints = np.concatenate(lstNewPoints)
-        # return arrNewPoints
-                
-        
-
-
-# def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->np.array:
-#         arrPeriodicDistance = np.zeros([len(inVectors1), len(inVectors2)])
-#         lstResults = list(map(lambda x: list(map(lambda y: PeriodicMinimumDistance(x,y,inCellVectors, inBasisConversion, inBoundaryList),inVectors2)),inVectors1))
-#         return arrPeriodicDistance
 
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
