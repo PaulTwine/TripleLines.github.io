@@ -13,7 +13,7 @@ ax = fig.add_subplot(111, projection='3d')
 #intSigma = int(sys.argv[2])
 strDirectory = '../PythonLAMMPS/'
 arrAxis = np.array([1,1,1])
-intSigma = 7
+intSigma = 3
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
 gf.CubicCSLGenerator(arrAxis, 5)
@@ -30,7 +30,7 @@ z = a2*np.array([0,0,h])
 intIncrement = np.ceil(1/s).astype('int')
 fltAngle, arrVector = gf.FindRotationVectorAndAngle(arrAxis, np.array([0,0,1]))
 arr111BasisVectors = gf.RotatedBasisVectors(fltAngle, arrVector)
-for j in range(2*intIncrement,11+2*intIncrement):
+for j in range(intIncrement,11+intIncrement,intIncrement):
     l = j*s*intIncrement
     arrHorizontalVector = l*a1*arrSigmaBasis[0]
     arrDiagonalVector =  l*a1*arrSigmaBasis[1]
@@ -42,7 +42,7 @@ for j in range(2*intIncrement,11+2*intIncrement):
     MySimulationCell.AddGrain(objHex2,'Hex2')
     MySimulationCell.AddGrain(objHex3, 'Hex3')
     MySimulationCell.RemoveTooCloseAtoms(a1/(4*np.sqrt(2)))
-    MySimulationCell.WrapAllPointsIntoSimulationCell()
+    MySimulationCell.WrapAllAtomsIntoSimulationCell()
     MySimulationCell.SetFileHeader('Sigma ' + str(intSigma) + ' about ' + str(arrAxis) + ' with Hexagonal grains 1,2 and 3 with angle array ' + str(arrRotation) + ' and length multiple of ' + str(j))
     strFileName = 'Hex' + '123' + 'Sigma' + str(intSigma) + 'length' + str(j)  + '.dat'
     MySimulationCell.WriteLAMMPSDataFile(strDirectory + strFileName)

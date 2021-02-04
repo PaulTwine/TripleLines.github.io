@@ -89,7 +89,6 @@ class GeneralLattice(RealCell):
         self.__RealPoints = []
         self.__LatticePoints = []
         self.__CellPoints = []
-        self.__AtomType = 1
         self.__Origin = inOrigin
         self.__LatticeParameters = inLatticeParameters
         self.__RealBasisVectors = np.zeros([self.Dimensions(),self.Dimensions()])
@@ -102,7 +101,6 @@ class GeneralLattice(RealCell):
         self.__InteriorPointIndices = []
         self.__RemovedBoundaryPoints = []
         self.__blnFoundBoundaryPoints = False
-        self.__VacancyIndices = []
     def GetConstraintRounding(self):
         return self.__intConstraintRound
     def SetConstraintRounding(self, intValue: int):
@@ -179,10 +177,8 @@ class GeneralLattice(RealCell):
             self.__DeletePoints(arrOpen)
     def GetConstraintTypes(self):
         return self.__ConstraintTypes
-    def GetNumberOfAtoms(self)->int:
+    def GetNumberOfPoints(self)->int:
         return len(self.__RealPoints)
-    def GetAtomType(self)->int:
-        return self.__AtomType
     def GetOrigin(self)->np.array:
         return self.__Origin
     def SetOrigin(self, inArray: np.array):
@@ -234,8 +230,7 @@ class GeneralLattice(RealCell):
     def FindBoundaryPoints(self):
         if not(self.__blnFoundBoundaryPoints):
             self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.__RealPoints, 12, self.GetNearestNeighbourDistance())
-            lstInteriorPoints = list(set(range(self.GetNumberOfAtoms())).difference(list(self.__BoundaryPointIndices)))
-            self.__RefinedBoundaryPointIndices = list(np.copy(self.__BoundaryPointIndices))
+            lstInteriorPoints = list(set(range(self.GetNumberOfPoints())).difference(list(self.__BoundaryPointIndices)))
             self.__InteriorPointIndices = lstInteriorPoints
             self.__blnFoundBoundaryPoints = True 
     def GetInteriorPoints(self):
@@ -246,19 +241,31 @@ class GeneralLattice(RealCell):
         if not(self.__blnFoundBoundaryPoints):
             self.FindBoundaryPoints()
         return self.__RealPoints[self.__BoundaryPointIndices]
-    def RemoveBoundaryPoints(self, inIndexPositions):
-        for j in inIndexPositions:
-            if j >= len(self.__RefinedBoundaryPointIndices):
-                inIndexPositions.remove(j)
-        self.__RefinedBoundaryPointIndices = np.delete(self.__RefinedBoundaryPointIndices, inIndexPositions)
-    def GetRefinedBoundaryPoints(self):
+    def GetBoundaryIndices(self):
         if not(self.__blnFoundBoundaryPoints):
-            self.FindBoundaryPoints()
-        return self.__RealPoints[self.__RefinedBoundaryPointIndices]
+            self.FindBoundaryPoints()    
+        return self.__BoundaryPointIndices
+    def FoundBoundaries(self):
+        return self.__blnFoundBoundaryPoints
+    # def RemoveBoundaryPoints(self, inIndexPositions):
+    #     for j in inIndexPositions:
+    #         if j >= len(self.__RefinedBoundaryPointIndices):
+    #             inIndexPositions.remove(j)
+    #     self.__dBoundaryPointIndices = np.delete(self.__BoundaryPointIndices, inIndexPositions)
+    # # def GetRefinedBoundaryPoints(self):
+    #     if not(self.__blnFoundBoundaryPoints):
+    #         self.FindBoundaryPoints()
+    #     return self.__RealPoints[self.__RefinedBoundaryPointIndices]
+            
+class GeneralGrain(GeneralLattice):
+    def __init__(self,inBasisVectors:np.array,inCellNodes: np.array,inLatticeParameters:np.array,inOrigin: np.array,inCellBasis = None):
+        self.__AtomType = 1
+        self.__VacancyIndices = []
+        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
     def MakeVacancySpace(self, inPoint: np.array, intNumber: int):
         arrPoints = self.__SpatialPoints.query(np.array(inPoint),intNumber)[1]
         self.__DeletePoints(arrPoints)
-    def MakeManyVacancies(self, intNumber, fltSeparation):
+    def MakeNVacancies(self, intNumber, fltSeparation):
         lstPoints = []
         lstPositions = []
         self.FindBoundaryPoints()
@@ -278,11 +285,32 @@ class GeneralLattice(RealCell):
                 lstPoints.append(arrPoint)
                 self.__VacancyIndices.append(intIndex)
             intCounter +=1
-            
+    def AddVacancies(self, inList): #pass the row indices of the real points
+        self.__VacancyIndices.extend(inList)
+        self.__VacancyIndices =list(np.unique(self.__VacancyIndices)) 
+    def GetNumberOfVacancies(self):
+        return len(self.__VacancyIndices)
+    def GetVacancies(self):
+        return self.GetRealPoints()[self.__VacancyIndices]
+    def GetAtomPositions(self):
+        setAll = set(range(self.GetNumberOfPoints()))
+        lstRows = list(setAll.difference(self.__VacancyIndices))
+        return self.GetRealPoints()[lstRows]
+    def GetNumberOfAtoms(self):
+        return self.GetNumberOfPoints()-self.GetNumberOfVacancies()
+    def GetAtomType(self)->int:
+        return self.__AtomType
+    def SetAtomType(self, inInt):
+        self.__AtomType = inInt
+    def GetBoundaryAtoms(self):
+        if not(self.FoundBoundaries()):
+            self.FindBoundaryPoints()
+        setBoundaryPoints = set(self.GetBoundaryIndices())
+        lstRows = list(setBoundaryPoints.difference(self.__VacancyIndices)) 
+        return self.GetRealPoints()[lstRows]
+  
 
-
-
-class ExtrudedRectangle(GeneralLattice):
+class ExtrudedRectangle(GeneralGrain):
     def __init__(self, fltLength: float, fltWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
         arrConstraints = np.zeros([6,4])
         arrConstraints[0] = np.array([1,0,0,fltLength])
@@ -291,10 +319,10 @@ class ExtrudedRectangle(GeneralLattice):
         arrConstraints[3] = np.array([0,-1,0,0])
         arrConstraints[4] = np.array([0,0,1,fltHeight])
         arrConstraints[5] = np.array([0,0,-1,0])
-        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
+        GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
 
-class ExtrudedParalleogram(GeneralLattice):
+class ExtrudedParalleogram(GeneralGrain):
     def __init__(self, arrLength: np.array, arrWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
         arrZ = np.array([0,0,1])
         arrConstraints = np.zeros([6,4])
@@ -310,11 +338,11 @@ class ExtrudedParalleogram(GeneralLattice):
         arrConstraints[4,3] = 0
         arrConstraints[5,:3] = arrZ
         arrConstraints[5,3] = fltHeight
-        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
+        GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
 
 
-class ExtrudedRegularPolygon(GeneralLattice):
+class ExtrudedRegularPolygon(GeneralGrain):
     def __init__(self, fltSideLength: float, fltHeight: float, intNumberOfSides: int, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin: np.array, inCellBasis=None):
         intDimensions = len(inBasisVectors[0])
         arrConstraints = np.zeros([intNumberOfSides + 2,intDimensions+1])
@@ -337,7 +365,7 @@ class ExtrudedRegularPolygon(GeneralLattice):
         arrConstraints[-2,-1] = 0
         arrConstraints[-1,-2] = 1
         arrConstraints[-1,-1] = fltHeight
-        GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
+        GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
 
 class SimulationCell(object):
@@ -350,9 +378,6 @@ class SimulationCell(object):
         self.blnPointsAreWrapped = False
         self.__FileHeader = ''
         self.GrainList = []
-        # self.__UnitBasisVectors = []
-        # self.__BasisVectors = []
-        # self.__InverseBasis =[]
     def AddGrain(self,inGrain, strName = None):
         if strName is None:
             strName = str(len(self.dctGrains.keys())+1)
@@ -407,7 +432,7 @@ class SimulationCell(object):
             else:
                 count = 1
                 for j in self.GrainList:
-                    for position in self.GetGrain(j).GetRealPoints():
+                    for position in self.GetGrain(j).GetAtomPositions():
                         fdata.write('{} {} {} {} {}\n'.format(count,self.GetGrain(j).GetAtomType(), *position))
                         count = count + 1
     def SetOrigin(self,inOrigin: np.array):
@@ -433,13 +458,14 @@ class SimulationCell(object):
             self.__UnitBasisVectors = np.array(lstBasisVectors)
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
-    def WrapAllPointsIntoSimulationCell(self, intRound=5)->np.array:
+    def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
         lstUniqueRowindices = []
         arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
         i = 0
         for j in self.GrainList:
-            arrPoints = np.append(self.GetGrain(j).GetInteriorPoints(), self.GetGrain(j).GetRefinedBoundaryPoints(),axis=0)
+            #arrPoints = np.append(self.GetGrain(j).GetInteriorPoints(), self.GetGrain(j).GetBoundaryPoints(),axis=0)
+            arrPoints = self.GetGrain(j).GetAtomPositions()
             for fltPoint in arrPoints:
                 arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
                 arrAllAtoms[i] = fltPoint
@@ -453,25 +479,28 @@ class SimulationCell(object):
         lstRemainingGrains = list(np.copy(self.GrainList))
         while len(lstRemainingGrains) > 0:
             strCurrentGrain = lstRemainingGrains.pop()
-            lstPoints = []
-            arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetRefinedBoundaryPoints()) 
-            lstPoints.append(arrPoints)
-            lstClosePoints = []
+            lstVacancies = []
+            lstCurrentIndices = self.GetGrain(strCurrentGrain).GetBoundaryIndices()
+            arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetBoundaryAtoms()) 
+            lstCloseIndices = []
             intCounter = 0
             if len(arrPoints) > 0:
                 while intCounter < len(lstRemainingGrains):
                     strNextGrain = lstRemainingGrains[intCounter]
-                    arrNextPoints =  self.WrapVectorIntoSimulationBox(self.GetGrain(strNextGrain).GetRefinedBoundaryPoints())
+                    arrNextPoints =  self.WrapVectorIntoSimulationBox(self.GetGrain(strNextGrain).GetBoundaryAtoms())
                     arrNextPoints = gf.AddPeriodicWrapper(arrNextPoints, self.__BasisVectors,fltDistance)
                     if len(arrNextPoints) > 0:
-                        arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints,arrNextPoints)
-                        arrClosePoints = np.where(arrDistanceMatrix <= fltDistance)[0]
-                        arrClosePoints = np.unique(arrClosePoints)
-                        lstClosePoints.append(arrClosePoints)
+                        objTree = KDTree(arrNextPoints)
+                        arrCounts = objTree.query_radius(arrPoints, r=fltDistance, count_only=True)
+                        if len(arrCounts) > 0:
+                            lstRows = np.where(arrCounts > 0)[0]
+                            lstCloseIndices.extend(lstRows)
                     intCounter += 1
-                if len(lstClosePoints)> 0:
-                    lstIndices = list(np.unique(np.concatenate(lstClosePoints)))
-                    self.GetGrain(strCurrentGrain).RemoveBoundaryPoints(lstIndices)
+                if len(lstCloseIndices)> 0:
+                    lstCloseIndices = list(np.unique(lstCloseIndices))
+                    for j in lstCloseIndices:
+                        lstVacancies.append(lstCurrentIndices[j]) 
+                    self.GetGrain(strCurrentGrain).AddVacancies(lstVacancies)
     def PlotSimulationCellAtoms(self):
         if self.blnPointsAreWrapped:
             return tuple(zip(*self.__UniqueRealPoints))

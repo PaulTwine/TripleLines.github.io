@@ -262,8 +262,6 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
                 lstNewPoints.append(arrNewPoints)
                 arrCoefficients = np.concatenate(lstNewPoints)
         return np.matmul(arrCoefficients, inCellVectors)
-                
-
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
         return np.linalg.norm(inVector2-inVector1, axis=0)
@@ -459,7 +457,7 @@ def CubicCSLGenerator(inAxis: np.array, intIterations=5)->list: #usually five it
         return arrReturn
 def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float):
         objSpatial = KDTree(inPoints)
-        arrCounts = objSpatial.query_radius(inPoints, 1.05*fltRadius, count_only=True)
+        arrCounts = objSpatial.query_radius(inPoints, 1.01*fltRadius, count_only=True)
         arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours)[0]
         return arrBoundaryIndices         
 
