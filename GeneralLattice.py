@@ -16,6 +16,7 @@ class PureCell(object):
         self.__CellNodes = inCellNodes
         self.__NumberOfCellNodes = len(inCellNodes)
         self.__Dimensions = len(inCellNodes[0])
+        self.__MinimalNodeMotif = np.unique(np.mod(self.__CellNodes, np.ones([self.__NumberOfCellNodes, self.__Dimensions])),axis=0)
     def UnitVector(self, intNumber: int)->np.array:
         arrVector = np.zeros(self.Dimensions())
         if intNumber >= 0:
@@ -24,8 +25,7 @@ class PureCell(object):
             arrVector[-intNumber] = -1
         return np.array(arrVector)
     def GetNumberOfNodesPerCell(self):
-        arrUnique = np.unique(np.mod(self.__CellNodes, np.ones([self.__NumberOfCellNodes, self.__Dimensions])),axis=0)
-        return len(arrUnique)
+        return len(self.__MinimalNodeMotif)
     def GetCellCentre(self)->np.array:
         return 0.5*np.ones(self.Dimensions())
     def GetCellNode(self, inIndex: int)->np.array:
@@ -36,7 +36,9 @@ class PureCell(object):
         return self.__NumberOfCellNodes
     def Dimensions(self)->int:
         return self.__Dimensions
-    def CellDirectionalMotif(self, intBasisVector: int, intSign = 1)->np.array:
+    def GetMinimalNodeMotif(self): #assumes 
+        return self.__MinimalNodeMotif
+    def GetCellDirectionalMotif(self, intBasisVector: int, intSign = 1)->np.array:
         inBasisVector = self.UnitVector(intBasisVector)
         if intSign ==-1:
                 inBasisVector = -1*inBasisVector
@@ -109,9 +111,12 @@ class GeneralLattice(RealCell):
         return self.__UnitBasisVectors
     def GetRealBasisVectors(self)->np.array:
         return self.__RealBasisVectors
-    def RemovePoints(self, inRealPoints: np.array):
+    def FindRealPointIndices(self, inRealPoints: np.array)->list:
         arrCheck = (self.__RealPoints[:, None] == inRealPoints).all(-1).any(-1)
         lstIndices = list(arrCheck == True)
+        return lstIndices
+    def RemovePoints(self, inRealPoints: np.array):
+        lstIndices = self.FindRealPointIndices(inRealPoints)
         self.__DeletePoints(lstIndices)
     def __DeletePoints(self,lstDeletedIndices: list):
         self.__RealPoints = np.delete(self.__RealPoints, lstDeletedIndices, axis=0)
@@ -126,23 +131,27 @@ class GeneralLattice(RealCell):
         self.GenerateLatticeConstraints(inClosedConstraints)
         arrBounds = self.FindBoxConstraints(self.__LatticeConstraints)
         arrBounds[:,0] = np.floor(arrBounds[:,0])
-        arrBounds[:,1] = np.ceil(arrBounds[:,1])
+        arrBounds[:,1] = np.ceil(arrBounds[:,1]) +np.ones(self.Dimensions())
         arrCellPoints = np.array(gf.CreateCuboidPoints(arrBounds))
         arrLatticePoints = self.MakeLatticePoints(arrCellPoints)
         arrLatticePoints = np.delete(arrLatticePoints, self.CheckLatticeConstraints(arrLatticePoints), axis = 0)
         self.GenerateRealPoints(arrLatticePoints)
     def MakeLatticePoints(self, inCellPoints):
-        arrLatticePoints = np.empty([self.GetNumberOfCellNodes()*len(inCellPoints), self.Dimensions()])
-        for i, position in enumerate(inCellPoints):
-            for j, cell in enumerate(self.GetCellNodes()):
-                arrLatticePoints[j+i*self.GetNumberOfCellNodes()] = np.add(position,cell)
+        arrLatticePoints = np.zeros([self.GetNumberOfNodesPerCell()*len(inCellPoints), self.Dimensions()])
+        #lstLatticePoints = []
+        intCounter = 0
+        arrNodes = self.GetMinimalNodeMotif()
+        for position in inCellPoints:
+            for cell in arrNodes:
+                arrLatticePoints[intCounter] = np.add(position,cell)
+                intCounter +=1
+        #arrLatticePoints = np.vstack(lstLatticePoints)
         return np.unique(arrLatticePoints, axis = 0)
     def GenerateRealPoints(self, inLatticePoints):
         self.__LatticePoints = inLatticePoints
         arrRealPoints = np.round(np.matmul(inLatticePoints, self.GetRealCellVectors()),10)
         self.__RealPoints = np.round(np.matmul(arrRealPoints, self.GetUnitBasisVectors()),10)
         self.__RealPoints = np.add(self.__Origin, self.__RealPoints)
-        self.__SpatialPoints = KDTree(self.__RealPoints)
     def GenerateLatticeConstraints(self, inConstraints: np.array):
         rtnArray = np.zeros([len(inConstraints),len(inConstraints[0])])
         tmpArray = np.zeros([3])
@@ -247,15 +256,6 @@ class GeneralLattice(RealCell):
         return self.__BoundaryPointIndices
     def FoundBoundaries(self):
         return self.__blnFoundBoundaryPoints
-    # def RemoveBoundaryPoints(self, inIndexPositions):
-    #     for j in inIndexPositions:
-    #         if j >= len(self.__RefinedBoundaryPointIndices):
-    #             inIndexPositions.remove(j)
-    #     self.__dBoundaryPointIndices = np.delete(self.__BoundaryPointIndices, inIndexPositions)
-    # # def GetRefinedBoundaryPoints(self):
-    #     if not(self.__blnFoundBoundaryPoints):
-    #         self.FindBoundaryPoints()
-    #     return self.__RealPoints[self.__RefinedBoundaryPointIndices]
             
 class GeneralGrain(GeneralLattice):
     def __init__(self,inBasisVectors:np.array,inCellNodes: np.array,inLatticeParameters:np.array,inOrigin: np.array,inCellBasis = None):
@@ -263,27 +263,28 @@ class GeneralGrain(GeneralLattice):
         self.__VacancyIndices = []
         GeneralLattice.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
     def MakeVacancySpace(self, inPoint: np.array, intNumber: int):
+        self.__SpatialPoints = KDTree(self.GetAtomPositions())
         arrPoints = self.__SpatialPoints.query(np.array(inPoint),intNumber)[1]
-        self.__DeletePoints(arrPoints)
+        lstIndices = self.FindRealPointIndices(arrPoints)
+        self.AddVacancies(lstIndices)
     def MakeNVacancies(self, intNumber, fltSeparation):
+        self.__SpatialPoints = KDTree(self.GetAtomPositions())
         lstPoints = []
         lstPositions = []
         self.FindBoundaryPoints()
-        intLength = len(self.__InteriorPointIndices)
-        intSeparation = np.round(intLength/intNumber,0).astype('int')
         intCounter = 0
+        intIndex = 0
         while len(lstPoints) < intNumber:
-            intIndex = self.__InteriorPointIndices[np.mod(intCounter*intSeparation, intLength)]
-            arrPoint = self.__RealPoints[intIndex]
+            arrPoint = self.GetAtomPositions()[intIndex]
             if len(lstPoints) > 0:
                 arrDistanceMatrix= sc.spatial.distance_matrix(np.array([arrPoint]),np.vstack(lstPoints))
                 lstPositions = np.where(arrDistanceMatrix <= fltSeparation)[0]
                 if len(lstPositions) == 0:
                     lstPoints.append(arrPoint)
-                    self.__VacancyIndices.append(intIndex)    
+                    self.AddVacancies([intIndex])   
             else:
                 lstPoints.append(arrPoint)
-                self.__VacancyIndices.append(intIndex)
+                self.AddVacancies([intIndex])
             intCounter +=1
     def AddVacancies(self, inList): #pass the row indices of the real points
         self.__VacancyIndices.extend(inList)
