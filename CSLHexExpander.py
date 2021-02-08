@@ -6,14 +6,14 @@ import GeneralLattice as gl
 import LAMMPSTool as LT
 import sys
 from mpl_toolkits.mplot3d import Axes3D
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-#strDirectory = str(sys.argv[1])
-#intSigma = int(sys.argv[2])
-strDirectory = '../PythonLAMMPS/'
+#fig = plt.figure()
+#ax = fig.add_subplot(111, projection='3d')
+strDirectory = str(sys.argv[1])
+intSigma = int(sys.argv[2])
+intMax = int(sys.argv[3])
+#strDirectory = '../PythonLAMMPS/'
 arrAxis = np.array([1,1,1])
-intSigma = 3
+#intSigma = 3
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
 gf.CubicCSLGenerator(arrAxis, 5)
@@ -30,7 +30,7 @@ z = a2*np.array([0,0,h])
 intIncrement = np.ceil(1/s).astype('int')
 fltAngle, arrVector = gf.FindRotationVectorAndAngle(arrAxis, np.array([0,0,1]))
 arr111BasisVectors = gf.RotatedBasisVectors(fltAngle, arrVector)
-for j in range(intIncrement,11+intIncrement,intIncrement):
+for j in range(intIncrement,intMax +1+intIncrement):
     l = j*s*intIncrement
     arrHorizontalVector = l*a1*arrSigmaBasis[0]
     arrDiagonalVector =  l*a1*arrSigmaBasis[1]
