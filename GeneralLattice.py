@@ -131,7 +131,8 @@ class GeneralLattice(RealCell):
         self.GenerateLatticeConstraints(inClosedConstraints)
         arrBounds = self.FindBoxConstraints(self.__LatticeConstraints)
         arrBounds[:,0] = np.floor(arrBounds[:,0])
-        arrBounds[:,1] = np.ceil(arrBounds[:,1]) +np.ones(self.Dimensions())
+        arrBounds[:,1] = np.ceil(arrBounds[:,1]) +np.ones(self.Dimensions()) #add one extra lattice points in each 
+        #abstract direction as using the minimal node motif
         arrCellPoints = np.array(gf.CreateCuboidPoints(arrBounds))
         arrLatticePoints = self.MakeLatticePoints(arrCellPoints)
         arrLatticePoints = np.delete(arrLatticePoints, self.CheckLatticeConstraints(arrLatticePoints), axis = 0)
@@ -170,9 +171,15 @@ class GeneralLattice(RealCell):
             rtnArray[i,3] = gf.InnerProduct(rtnArray[i,:3], tmpArray,np.linalg.inv(self.GetCellVectors()))
         self.__LatticeConstraints = rtnArray
     def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
-        arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
-        arrClosed = np.argwhere(np.round(arrPositions,self.__intConstraintRound) > 0)[:,0]                
-        return np.unique(arrClosed)
+        # arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
+        # arrClosed = np.argwhere(np.round(arrPositions,self.__intConstraintRound) > 0)[:,0]                
+        # return np.unique(arrClosed)
+        lstIndices = []
+        for j in self.__LinearConstraints:
+            arrPositions = np.subtract(np.matmul(inPoints, np.transpose(j[:-1])), j[-1])
+            arrClosed = np.where(np.round(arrPositions,self.__intConstraintRound) > 0)[0]
+            lstIndices.append(arrClosed)
+        return np.unique(np.concatenate(lstIndices))       
     def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
         # arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
         # arrClosed = np.argwhere(np.round(arrPositions,self.__intConstraintRound) > 0)[:,0]       
@@ -182,8 +189,7 @@ class GeneralLattice(RealCell):
             arrPositions = np.subtract(np.matmul(inPoints, np.transpose(j[:-1])), j[-1])
             arrClosed = np.where(np.round(arrPositions,self.__intConstraintRound) > 0)[0]
             lstIndices.append(arrClosed)
-        return np.unique(np.concatenate(lstIndices))       
-     
+        return np.unique(np.concatenate(lstIndices))        
     def SetOpenConstraints(self, arrOpenConstraints: np.array, intRound = 5): #pass the linear constraint positions that are open
         arrPositions = np.subtract(np.matmul(self.__RealPoints, np.transpose(self.__LinearConstraints[arrOpenConstraints,:-1])), np.transpose(self.__LinearConstraints[arrOpenConstraints,-1]))
         arrOpen = np.argwhere(np.round(arrPositions,intRound) == 0)[:,0]   #makes the selected constraints open and removes points on the boundary
