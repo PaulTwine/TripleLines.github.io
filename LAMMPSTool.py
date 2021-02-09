@@ -289,7 +289,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             fltThreshold = fltTolerance
         lstRowDefectiveAtoms = np.where(self.GetPTMAtoms()[:,self._intPE] > fltThreshold )[0]
         lstDefectivePTMIDs = list(self.GetAtomData()[lstRowDefectiveAtoms,0])
-        self.__NonLatticeAtomIDs = list(set(lstDefectivePTMIDs) & set(self.GetNonPTMAtomIDs))
+        self.__NonLatticeAtomIDs = list(set(lstDefectivePTMIDs) & set(self.GetNonPTMAtomIDs()))
         setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
         self.__LatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__NonLatticeAtomIDs))
         self.__DefectiveAtomIDs =lstDefectivePTMIDs
