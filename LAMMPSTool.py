@@ -281,10 +281,10 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             #fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
             #fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue
             arrPTM = stats.gamma.fit(self.GetPTMAtoms()[:,self._intPE])
-            fltMeanPTM = stats.gamma(*arrPTM).stats(moments='mv')[0]
+            fltMedianPTM = stats.gamma(*arrPTM).median()
             arrNonPTM = stats.gamma.fit(self.GetNonPTMAtoms()[:,self._intPE])
-            fltMeanNonPTM = stats.gamma(*arrNonPTM).stats(moments='mv')[0]
-            fltThreshold = np.mean([fltMeanPTM,fltMeanNonPTM])
+            fltMedianNonPTM = stats.gamma(*arrNonPTM).median()
+            fltThreshold = np.mean([fltMedianPTM,fltMedianNonPTM])
         else:
             fltThreshold = fltTolerance
         lstRowDefectiveAtoms = np.where(self.GetPTMAtoms()[:,self._intPE] > fltThreshold)[0]
