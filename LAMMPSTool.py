@@ -280,27 +280,30 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         if fltTolerance is None:
             #fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
             #fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue
-            arrPTM = stats.gamma.fit(self.GetPTMAtoms()[:,7])
+            arrPTM = stats.gamma.fit(self.GetPTMAtoms()[:,self._intPE])
             fltMeanPTM = stats.gamma(*arrPTM).stats(moments='mv')[0]
-            arrNonPTM = stats.gamma.fit(self.GetNonPTMAtoms()[:,7])
+            arrNonPTM = stats.gamma.fit(self.GetNonPTMAtoms()[:,self._intPE])
             fltMeanNonPTM = stats.gamma(*arrNonPTM).stats(moments='mv')[0]
             fltThreshold = np.mean([fltMeanPTM,fltMeanNonPTM])
         else:
             fltThreshold = fltTolerance
-        lstRowDefectiveAtoms = np.where(self.GetPTMAtoms()[:,self._intPE] > fltThreshold )[0]
+        lstRowDefectiveAtoms = np.where(self.GetPTMAtoms()[:,self._intPE] > fltThreshold)[0]
         lstDefectivePTMIDs = list(self.GetAtomData()[lstRowDefectiveAtoms,0])
-        self.__NonLatticeAtomIDs = list(set(lstDefectivePTMIDs) & set(self.GetNonPTMAtomIDs()))
+        self.__NonLatticeAtomIDs = list(set(lstDefectivePTMIDs) | set(self.__NonPTMAtomIDs))
         setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
         self.__LatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__NonLatticeAtomIDs))
         self.__DefectiveAtomIDs =lstDefectivePTMIDs
         #lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue - fltTolerance))[0]
-        
         # self.__DefectiveAtomIDs = lstDefectiveAtomIDs
         # setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
         # self.__DefectiveAtomIDs = setAllLatticeAtomIDs.difference(self.__NonDefectiveAtomIDs)
         # self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
         # setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
         # self.__NonLatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__LatticeAtomIDs))
+    def GetLatticeAtoms(self):
+        return self.GetAtomsByID(self.__LatticeAtomIDs)
+    def GetNonLatticeAtoms(self):    
+        return self.GetAtomsByID(self.__NonLatticeAtomIDs)
     def GetOtherAtomIDs(self):
         return self.__OtherAtomIDs
     def GetPTMAtomIDs(self):
