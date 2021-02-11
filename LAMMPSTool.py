@@ -2,6 +2,7 @@ import re
 import numpy as np
 import GeometryFunctions as gf
 import GeneralLattice as gl
+import LatticeDefinitions as ld
 from scipy import spatial, optimize, ndimage, stats 
 from skimage.morphology import skeletonize, thin, medial_axis, remove_small_holes, remove_small_objects, skeletonize_3d, binary_dilation
 from scipy.cluster.vq import kmeans,vq
@@ -281,6 +282,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             #fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
             #fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue
             arrPTM = stats.gamma.fit(self.GetPTMAtoms()[:,self._intPE])
+            fltMedian = 0
             fltMedianPTM = stats.gamma(*arrPTM).median()
             arrNonPTM = stats.gamma.fit(self.GetNonPTMAtoms()[:,self._intPE])
             fltMedianNonPTM = stats.gamma(*arrNonPTM).median()
@@ -459,6 +461,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.blnAdjustedMeshPointsAssigned = False
         self.intGrainNumber = -1 #set to a dummy value to check 
         self.intGrainBoundary = -1
+        self.__objRealCell = gl.RealCell(ld.GetCellNodes(str(intLatticeType)),fltLatticeParameter*np.ones(3))
     def GetUnassignedGrainAtomIDs(self):
         if 'GrainNumber' not in self.GetColumnNames():
             warnings.warn('Grain labels not set.')
@@ -508,7 +511,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 lstGrainLabels.remove(-1)
             arrDistances = np.zeros([len(lstOfIDs), len(lstGrainLabels)])
             for intPosition,intLabel in enumerate(lstGrainLabels):
-                arrDistances[:,intPosition] = self.__Grains[intLabel].query(arrAtoms[:,1:4],1,distance_upper_bound = 4.05/np.sqrt(2))[0]
+                arrDistances[:,intPosition] = self.__Grains[intLabel].query(arrAtoms[:,1:4],1,distance_upper_bound = self.__objRealCell.GetNearestNeighbourDistance())[0]
             for j in range(len(lstGrainLabels)):
                 arrRows = np.where((arrDistances[:,j] == np.min(arrDistances, axis = 1)) & (np.isfinite(arrDistances[:,j])))[0]
                 arrGrainNumbers = lstGrainLabels[j]*np.ones(len(arrRows)).astype('int')
@@ -762,6 +765,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if intGrainBoundary in lstAdjacentGrainBoundaries:
             lstAdjacentGrainBoundaries.remove(intGrainBoundary)
         return lstAdjacentGrainBoundaries
+    def GetExteriorGrainAtomIDs(self,intGrainID):
+        lstIndices = gf.GetBoundaryPoints(self.GetAtomsByID(self.GetGrainAtomIDs(intGrainID))[:,1:4],self.__objRealCell.GetNumberOfNeighbours(), self.__objRealCell.GetNearestNeighbourDistance())
+        return np.array(self.GetAtomsByID(intGrainID))[lstIndices].tolist()
+  
     
     
 class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to correlate labels over different time steps

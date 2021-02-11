@@ -455,11 +455,16 @@ def CubicCSLGenerator(inAxis: np.array, intIterations=5)->list: #usually five it
                 arrReturn[k,1] = dctSigma[lstKeys[k]]
                 arrReturn[k,2] = 180*arrReturn[k,1]/np.pi
         return arrReturn
-def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float):
+def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inCellVectors = None):
+        intLength = len(inPoints)
+        if inCellVectors is not(None):
+                inPoints = AddPeriodicWrapper(inPoints, inCellVectors, 20)
         objSpatial = KDTree(inPoints)
-        arrCounts = objSpatial.query_radius(inPoints, 1.01*fltRadius, count_only=True)
+        arrCounts = objSpatial.query_radius(inPoints, fltRadius, count_only=True)
         arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours)[0]
-        return arrBoundaryIndices         
+        arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
+        return arrBoundaryIndices 
+
 
 
 

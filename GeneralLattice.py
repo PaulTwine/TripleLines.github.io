@@ -74,12 +74,26 @@ class RealCell(PureCell):
             self.__RealNodes[k] = np.matmul(self.__RealCellVectors,self.GetCellNodes()[k])
         arrDistanceMatrix = sc.spatial.distance_matrix(self.__RealNodes,self.__RealNodes)
         self.__NearestNeighbourDistance = np.min(arrDistanceMatrix[arrDistanceMatrix > 0])
+        arrPoints = np.matmul(self.GetMinimalNodeMotif(), np.transpose(self.__RealCellVectors))
+        lstPoints = []
+        for j in range(self.Dimensions()):
+            lstPoints.append(arrPoints)
+            lstPoints.append(arrPoints + self.__RealCellVectors[j])
+            lstPoints.append(arrPoints  - self.__RealCellVectors[j])
+            arrPoints = np.concatenate(lstPoints, axis = 0)
+            lstPoints = []
+        self.__NumberOfNeighbours = len(np.where(np.linalg.norm(arrPoints,axis=1) <= self.__NearestNeighbourDistance)[0]) -1 #include all the points close to the origin but don't the actual point
+        lstPoints = []
+    def GetRealCellCentre(self):
+        return np.matmul(self.__RealCellVectors, 0.5*np.ones(self.Dimensions()))
     def GetCellVectors(self)->np.array:
         return self.__CellVectors
     def GetRealCellVectors(self)->np.array:
         return self.__RealCellVectors
     def GetLatticeParameters(self):
         return self.__LatticeParameters
+    def GetNumberOfNeighbours(self):
+        return self.__NumberOfNeighbours
     def GetNearestNeighbourDistance(self):
         return self.__NearestNeighbourDistance
     def GetCellVolume(self):
@@ -249,9 +263,9 @@ class GeneralLattice(RealCell):
         return self.__LinearConstraints
     def GetLatticeConstraints(self):
         return self.__LatticeConstraints
-    def FindBoundaryPoints(self):
+    def FindBoundaryPoints(self, inPeriodicVectors = None):
         if not(self.__blnFoundBoundaryPoints):
-            self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.__RealPoints, 12, self.GetNearestNeighbourDistance())
+            self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.__RealPoints, 12, self.GetNearestNeighbourDistance(),inPeriodicVectors)
             lstInteriorPoints = list(set(range(self.GetNumberOfPoints())).difference(list(self.__BoundaryPointIndices)))
             self.__InteriorPointIndices = lstInteriorPoints
             self.__blnFoundBoundaryPoints = True 
@@ -263,9 +277,9 @@ class GeneralLattice(RealCell):
         if not(self.__blnFoundBoundaryPoints):
             self.FindBoundaryPoints()
         return self.__RealPoints[self.__BoundaryPointIndices]
-    def GetBoundaryIndices(self):
+    def GetBoundaryIndices(self, inPeriodicVectors = None):
         if not(self.__blnFoundBoundaryPoints):
-            self.FindBoundaryPoints()    
+            self.FindBoundaryPoints(inPeriodicVectors)    
         return self.__BoundaryPointIndices
     def FoundBoundaries(self):
         return self.__blnFoundBoundaryPoints
@@ -316,10 +330,10 @@ class GeneralGrain(GeneralLattice):
         return self.__AtomType
     def SetAtomType(self, inInt):
         self.__AtomType = inInt
-    def GetBoundaryAtoms(self):
+    def GetBoundaryAtoms(self, inPeriodicVectors = None):
         if not(self.FoundBoundaries()):
             self.FindBoundaryPoints()
-        setBoundaryPoints = set(self.GetBoundaryIndices())
+        setBoundaryPoints = set(self.GetBoundaryIndices(inPeriodicVectors))
         lstRows = list(setBoundaryPoints.difference(self.__VacancyIndices)) 
         return self.GetRealPoints()[lstRows]
   
@@ -495,13 +509,13 @@ class SimulationCell(object):
             strCurrentGrain = lstRemainingGrains.pop()
             lstVacancies = []
             lstCurrentIndices = self.GetGrain(strCurrentGrain).GetBoundaryIndices()
-            arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetBoundaryAtoms()) 
+            arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetBoundaryAtoms(self.GetRealBasisVectors())) 
             lstCloseIndices = []
             intCounter = 0
             if len(arrPoints) > 0:
                 while intCounter < len(lstRemainingGrains):
                     strNextGrain = lstRemainingGrains[intCounter]
-                    arrNextPoints =  self.WrapVectorIntoSimulationBox(self.GetGrain(strNextGrain).GetBoundaryAtoms())
+                    arrNextPoints =  self.WrapVectorIntoSimulationBox(self.GetGrain(strNextGrain).GetBoundaryAtoms(self.GetRealBasisVectors()))
                     arrNextPoints = gf.AddPeriodicWrapper(arrNextPoints, self.__BasisVectors,fltDistance)
                     if len(arrNextPoints) > 0:
                         objTree = KDTree(arrNextPoints)
