@@ -765,14 +765,14 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if intGrainBoundary in lstAdjacentGrainBoundaries:
             lstAdjacentGrainBoundaries.remove(intGrainBoundary)
         return lstAdjacentGrainBoundaries
-    def GetExteriorGrainAtomIDs(self,intGrainID):
-        arrPoints = self.GetAtomsByID(self.GetGrainAtomIDs(intGrainID))[:,0:4]
-        arrIndices = gf.GetBoundaryPoints(arrPoints[:,1:4],self.__objRealCell.GetNumberOfNeighbours(),self.__objRealCell.GetNearestNeighbourDistance())
-        lstIDs = arrPoints[0,arrIndices]
-        return lstIDs
     def GetInteriorGrainAtomIDs(self,intGrainID):
+        lstIDs = self.GetGrainAtomIDs(intGrainID)
+        arrIndices = gf.GetBoundaryPoints(self.GetAtomsByID(lstIDs)[:,1:4],self.__objRealCell.GetNumberOfNeighbours(),self.__objRealCell.GetNearestNeighbourDistance())
+        lstIDs = np.delete(np.array(lstIDs),arrIndices, axis= 0)
+        return list(lstIDs)
+    def GetExteriorGrainAtomIDs(self,intGrainID):
         setAllAtomIDs = set(self.GetGrainAtomIDs(intGrainID))
-        lstExteriorIDs = self.GetExteriorGrainAtomIDs(intGrainID)
+        lstExteriorIDs = self.GetInteriorGrainAtomIDs(intGrainID)
         return list(setAllAtomIDs.difference(lstExteriorIDs))
          
 class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to correlate labels over different time steps
