@@ -766,15 +766,15 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             lstAdjacentGrainBoundaries.remove(intGrainBoundary)
         return lstAdjacentGrainBoundaries
     def GetExteriorGrainAtomIDs(self,intGrainID):
-        lstIndices = gf.GetBoundaryPoints(self.GetAtomsByID(self.GetGrainAtomIDs(intGrainID))[:,1:4],self.__objRealCell.GetNumberOfNeighbours(), self.__objRealCell.GetNearestNeighbourDistance())
-        return np.array(self.GetAtomsByID(intGrainID))[lstIndices].tolist()
+        arrPoints = self.GetAtomsByID(self.GetGrainAtomIDs(intGrainID))[:,0:4]
+        arrIndices = gf.GetBoundaryPoints(arrPoints[:,1:4],self.__objRealCell.GetNumberOfNeighbours(),self.__objRealCell.GetNearestNeighbourDistance())
+        lstIDs = arrPoints[0,arrIndices]
+        return lstIDs
     def GetInteriorGrainAtomIDs(self,intGrainID):
         setAllAtomIDs = set(self.GetGrainAtomIDs(intGrainID))
         lstExteriorIDs = self.GetExteriorGrainAtomIDs(intGrainID)
         return list(setAllAtomIDs.difference(lstExteriorIDs))
-  
-    
-    
+         
 class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to correlate labels over different time steps
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
         LAMMPSAnalysis3D.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType,fltLatticeParameter)
