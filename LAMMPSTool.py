@@ -768,6 +768,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def GetExteriorGrainAtomIDs(self,intGrainID):
         lstIndices = gf.GetBoundaryPoints(self.GetAtomsByID(self.GetGrainAtomIDs(intGrainID))[:,1:4],self.__objRealCell.GetNumberOfNeighbours(), self.__objRealCell.GetNearestNeighbourDistance())
         return np.array(self.GetAtomsByID(intGrainID))[lstIndices].tolist()
+    def GetInteriorGrainAtomIDs(self,intGrainID):
+        setAllAtomIDs = set(self.GetGrainAtomIDs(intGrainID))
+        lstExteriorIDs = self.GetExteriorGrainAtomIDs(intGrainID)
+        return list(setAllAtomIDs.difference(lstExteriorIDs))
   
     
     
