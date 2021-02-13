@@ -766,9 +766,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             lstAdjacentGrainBoundaries.remove(intGrainBoundary)
         return lstAdjacentGrainBoundaries
     def GetInteriorGrainAtomIDs(self,intGrainID):
-        lstIDs = self.GetGrainAtomIDs(intGrainID)
-        arrIndices = gf.GetBoundaryPoints(self.GetAtomsByID(lstIDs)[:,1:4],self.__objRealCell.GetNumberOfNeighbours(),self.__objRealCell.GetNearestNeighbourDistance())
-        lstIDs = np.delete(np.array(lstIDs),arrIndices, axis= 0)
+        arrPoints = self.GetAtomsByID(self.GetGrainAtomIDs(intGrainID))[:,0:4]
+        arrIndices = gf.GetBoundaryPoints(arrPoints[:,1:4],self.__objRealCell.GetNumberOfNeighbours(),1.05*self.__objRealCell.GetNearestNeighbourDistance(),self.GetCellVectors())
+        lstIDs = np.delete(arrPoints[:,0],arrIndices, axis= 0)
         return list(lstIDs)
     def GetExteriorGrainAtomIDs(self,intGrainID):
         setAllAtomIDs = set(self.GetGrainAtomIDs(intGrainID))
