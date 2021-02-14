@@ -475,8 +475,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             fltRadius = 3*self.__LatticeParameter
         objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
         self.FindDefectiveAtoms(fltTolerance)
-        lstGrainAtoms = self.GetLatticeAtomIDs()
-        lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
+        #lstGrainAtoms = self.GetLatticeAtomIDs()
+        #lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
+        lstGrainAtoms = self.GetPTMAtomIDs()
+        lstNonGrainAtoms = self.GetNonPTMAtomIDs()
         lstGrainNumbers = objQuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4],True)
         self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
         objQuantisedCuboidPoints.FindJunctionLines()
@@ -524,6 +526,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if len(lstOfIDs) > 0:
             warnings.warn(str(len(lstOfIDs)) + ' grain atom(s) have been assigned a grain number of -1 after ' + str(intCounter) + ' iterations.')
     def GetGrainLabels(self):
+        if len(self.__GrainLabels) == 0:
+            self.__GrainLabels = list(np.unique(self.GetColumnByName('GrainNumber'), axis=0))
         return self.__GrainLabels
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
         if 'GrainNumber' not in self.GetColumnNames():
@@ -767,8 +771,12 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         return lstAdjacentGrainBoundaries
     def GetInteriorGrainAtomIDs(self,intGrainID):
         arrPoints = self.GetAtomsByID(self.GetGrainAtomIDs(intGrainID))[:,0:4]
-        arrIndices = gf.GetBoundaryPoints(arrPoints[:,1:4],self.__objRealCell.GetNumberOfNeighbours(),1.05*self.__objRealCell.GetNearestNeighbourDistance(),self.GetCellVectors())
-        lstIDs = np.delete(arrPoints[:,0],arrIndices, axis= 0)
+        if len(arrPoints) > 0:
+            arrIndices = gf.GetBoundaryPoints(arrPoints[:,1:4],self.__objRealCell.GetNumberOfNeighbours(),1.05*self.__objRealCell.GetNearestNeighbourDistance(),self.GetCellVectors())
+            lstIDs = np.delete(arrPoints[:,0],arrIndices, axis= 0)
+        else:
+            warnings.warn('No points!')
+            lstIDs = []
         return list(lstIDs)
     def GetExteriorGrainAtomIDs(self,intGrainID):
         setAllAtomIDs = set(self.GetGrainAtomIDs(intGrainID))
