@@ -452,6 +452,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__GrainBoundaries = dict()
         self.__JunctionLines = dict()
         self.__Grains = dict()
+        self.__InteriorGrains = dict() #include only the interior atoms of each grain
         self.__LatticeParameter = fltLatticeParameter
         self.__GrainLabels = []
         self.__JunctionLineIDs = []
@@ -528,6 +529,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def GetGrainLabels(self):
         if len(self.__GrainLabels) == 0:
             self.__GrainLabels = list(np.unique(self.GetColumnByName('GrainNumber'), axis=0))
+        if 0 in self.__GrainLabels: #these are non PTM atoms and defects
+            self.__GrainLabels.remove(0)
+        if -1 in self.__GrainLabels: #these are PTM atoms but can't be assigned a grain
+            self.__GrainLabels.remove(0)    
         return self.__GrainLabels
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
         if 'GrainNumber' not in self.GetColumnNames():
@@ -602,6 +607,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if 0 in lstGrainLabels:
             lstGrainLabels.remove(0)
         for k in self.__GrainLabels:
+            lstInteriorIDs = self.GetInteriorGrainAtomIDs(k)
+            self.__InteriorGrains[k] = spatial.KDTree(self.GetAtomsByID(lstInteriorIDs)[:,1:4]) 
             lstIDs = self.GetGrainAtomIDs(k)
             self.__Grains[k] = spatial.KDTree(self.GetAtomsByID(lstIDs)[:,1:4])
     def FinaliseGrainBoundaries(self):
@@ -664,7 +671,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 lstClosestGrains = []
                 for k in self.__JunctionLines[i].GetAdjacentGrains():
                     arrPeriodicVariants = self.PeriodicEquivalents(arrPosition)
-                    lstDistances,lstIndices = self.__Grains[k].query(arrPeriodicVariants,1)
+                    lstDistances,lstIndices = self.__InteriorGrains[k].query(arrPeriodicVariants,1)
                     intIndex = np.argmin(lstDistances)
                     lstGrainDistances.append(lstDistances[intIndex])
                     lstGrainLabels.append(k)

@@ -456,7 +456,7 @@ def CubicCSLGenerator(inAxis: np.array, intIterations=5)->list: #usually five it
                 arrReturn[k,2] = 180*arrReturn[k,1]/np.pi
         return arrReturn
 def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inCellVectors = None):
-        intLength = len(inPoints)
+        intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
         if inCellVectors is not(None):
                 inPoints = AddPeriodicWrapper(inPoints, inCellVectors, 2*fltRadius)
         objSpatial = KDTree(inPoints)
