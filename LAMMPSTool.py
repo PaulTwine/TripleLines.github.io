@@ -278,7 +278,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         return self.__NonLatticeAtomIDs  
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
-            fltThreshold = np.mean(self.GetNonPTMAtoms()[:,self.GetColumnByName('c_pe1')])
+            fltThreshold = np.mean(self.GetNonPTMAtoms()[:,self.GetColumnIndex('c_pe1')])
         else:
             fltThreshold = fltTolerance
         lstRowDefectiveAtoms = np.where(self.GetPTMAtoms()[:,self._intPE] > fltThreshold)[0]
