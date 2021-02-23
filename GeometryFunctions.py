@@ -170,7 +170,7 @@ def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisCo
         return np.concatenate(lstPoints)
 def IsVectorOutsideSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array):
         arrCoefficients = np.matmul(inVector, invMatrix)
-        if np.any(arrCoefficients >= 1) or np.an(arrCoefficients < 0):
+        if np.any(arrCoefficients >= 1) or np.any(arrCoefficients < 0):
                 return True
         else:
                 return False

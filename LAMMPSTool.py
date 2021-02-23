@@ -10,13 +10,12 @@ from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 from skimage.filters import gaussian, threshold_otsu
 from skimage import measure
 from sklearn.cluster import DBSCAN
-#import hdbscan
-#import shapely as sp
 import copy
 import warnings
 from functools import reduce
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics.pairwise import pairwise_distances
+from sklearn.neighbors import NearestNeighbors, KDTree
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter: float, objAnalysis: object):
@@ -279,14 +278,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         return self.__NonLatticeAtomIDs  
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
-            #fltStdLatticeValue = np.std(self.GetPTMAtoms()[:,self._intPE])
-            #fltTolerance = self.__fltGrainTolerance*fltStdLatticeValue
-            arrPTM = stats.gamma.fit(self.GetPTMAtoms()[:,self._intPE])
-            fltMedian = 0
-            fltMedianPTM = stats.gamma(*arrPTM).median()
-            arrNonPTM = stats.gamma.fit(self.GetNonPTMAtoms()[:,self._intPE])
-            fltMedianNonPTM = stats.gamma(*arrNonPTM).median()
-            fltThreshold = np.mean([fltMedianPTM,fltMedianNonPTM])
+            fltThreshold = np.mean(self.GetNonPTMAtoms()[:,self.GetColumnByName('c_pe1')])
         else:
             fltThreshold = fltTolerance
         lstRowDefectiveAtoms = np.where(self.GetPTMAtoms()[:,self._intPE] > fltThreshold)[0]
@@ -295,13 +287,6 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
         self.__LatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__NonLatticeAtomIDs))
         self.__DefectiveAtomIDs =lstDefectivePTMIDs
-        #lstNonDefectiveAtoms = np.where((self.GetColumnByIndex(self._intPE) < fltMeanLatticeValue +fltTolerance) & (self.GetColumnByIndex(self._intPE) > fltMeanLatticeValue - fltTolerance))[0]
-        # self.__DefectiveAtomIDs = lstDefectiveAtomIDs
-        # setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
-        # self.__DefectiveAtomIDs = setAllLatticeAtomIDs.difference(self.__NonDefectiveAtomIDs)
-        # self.__LatticeAtomIDs = list(set(self.__NonDefectiveAtomIDs) & set(self.__PTMAtomIDs))
-        # setAllLatticeAtomIDs = set(list(self.GetAtomData()[:,0]))
-        # self.__NonLatticeAtomIDs = list(setAllLatticeAtomIDs.difference(self.__LatticeAtomIDs))
     def GetLatticeAtoms(self):
         return self.GetAtomsByID(self.__LatticeAtomIDs)
     def GetNonLatticeAtoms(self):    
@@ -490,15 +475,22 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__JunctionLines[i].SetAdjacentGrainBoundaries(objQuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
             self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
         self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
+        self.MakeNonPTMTree()
         for k in self.__GrainBoundaryIDs:
             self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(np.round(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),1),k)
             self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
-            for l in self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()):
-                lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, fltRadius))
-                self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
-        #self.RefineGrainLabels()
+            arrPoints = gf.PeriodicEquivalents(self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()),self.GetCellVectors(),self.GetBasisConversions(), self.GetBoundaryTypes(),blnInsideCell= True)
+            arrIndices = self.__NonPTMTree.query_radius(arrPoints, fltRadius) 
+            lstIDs = list(np.array(self.GetNonPTMAtomIDs())[arrIndices])
+            self.__GrainBoundaries[k].AddAtomIDs(lstIDs)
+    #        for l in self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()):
+    #            lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, fltRadius))
+    #            self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
+    def MakeNonPTMTree(self):
+        objTree = KDTree
+        self.__NonPTMTree = objTree.fit(self.GetNonPTMAtoms()[:,1:4])
     def RefineGrainLabels(self): #try to assign any lattice atoms with -1 grain number to a grain.
         lstOfOldIDs = []
         self.MakeGrainTrees() #this will include defects with grain number 0 and 
