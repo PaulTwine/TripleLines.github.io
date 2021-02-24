@@ -437,7 +437,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__GrainBoundaries = dict()
         self.__JunctionLines = dict()
         self.__Grains = dict()
-        self.__InteriorGrains = dict() #include only the interior atoms of each grain
+        self.__ExteriorGrains = dict() #include only the interior atoms of each grain
         self.__LatticeParameter = fltLatticeParameter
         self.__GrainLabels = []
         self.__JunctionLineIDs = []
@@ -458,7 +458,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__LatticeParameter = fltParameter
     def LabelAtomsByGrain(self, fltTolerance = 3.14, fltRadius = None):
         if fltRadius is None:
-            fltRadius = 3*self.__LatticeParameter
+            fltRadius = 2*self.__LatticeParameter
         objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
         self.FindDefectiveAtoms(fltTolerance)
         #lstGrainAtoms = self.GetLatticeAtomIDs()
@@ -476,22 +476,56 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
         self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
         self.MakeNonPTMTree()
+        self.MakeNearestNeighbourTree()
         for k in self.__GrainBoundaryIDs:
             self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(np.round(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),1),k)
             self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
-            arrPoints = gf.PeriodicEquivalents(self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()),self.GetCellVectors(),self.GetBasisConversions(), self.GetBoundaryTypes(),blnInsideCell= True)
+            arrPoints = gf.AddPeriodicWrapper(self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()),self.GetCellVectors(), fltRadius)
             arrIndices = self.__NonPTMTree.query_radius(arrPoints, fltRadius) 
+            arrIndices = np.unique(np.concatenate(arrIndices))
             lstIDs = list(np.array(self.GetNonPTMAtomIDs())[arrIndices])
             self.__GrainBoundaries[k].AddAtomIDs(lstIDs)
-    #        for l in self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()):
-    #            lstSurroundingAtoms = list(self.FindSphericalAtoms(self.GetAtomsByID(lstNonGrainAtoms)[:,0:4],l, fltRadius))
-    #            self.__GrainBoundaries[k].AddAtomIDs(lstSurroundingAtoms)
+            lstNewIDs = self.SpreadToHigherEnergy(lstIDs)
+            self.__GrainBoundaries[k].AddAtomIDs(lstNewIDs)
+            self.SetColumnByIDs(np.array(lstNewIDs), self.GetColumnIndex('GrainNumber'), np.zeros(len(lstNewIDs)))
+        self.MakeGrainTrees()
+    def SpreadToHigherEnergy(self, inlstIDs: list):
+        lstReturnIDs = inlstIDs
+        lstAllIDs = []
+        while len(lstReturnIDs) > 0:
+            lstNewIDs = []
+            for x in inlstIDs:
+                arrCentre = self.GetAtomsByID(x)[:,1:4]
+                lstNewIDs.extend(self.HigherPEPoints(arrCentre))
+            lstReturnIDs = list(set(lstNewIDs).difference(lstReturnIDs))
+            inlstIDs = lstReturnIDs
+            lstAllIDs.extend(lstReturnIDs)
+        return list(set(lstAllIDs))
+    def HigherPEPoints(self,arrPoint):
+        lstReturn = []
+        lstIndices = self.__NearestNeighbour.kneighbors(arrPoint,return_distance = False)[0]
+        lstIDs = self.GetRows(lstIndices)[:,0].astype('int')
+        arrPE = self.GetColumnByIDs(lstIDs,self.GetColumnIndex('c_pe1'))
+        fltCurrentPE = np.mean(arrPE)
+        for i in lstIDs:
+            arrCentre = self.GetAtomsByID([i])[:,1:4]
+            lstNewIndices = self.__NearestNeighbour.kneighbors(arrCentre, return_distance = False)[0]
+            lstNewIDs = self.GetRows(lstNewIndices)[:,0].astype('int')
+            arrPE = self.GetColumnByIDs(lstNewIDs,self.GetColumnIndex('c_pe1'))
+            fltNewPE = np.mean(arrPE)
+            if fltNewPE >= fltCurrentPE:
+                  lstReturn.append(int(i))
+        return lstReturn
+    def MakeNearestNeighbourTree(self):
+        objNearest = NearestNeighbors(n_neighbors=self.__objRealCell.GetNumberOfNeighbours(), radius=self.__LatticeParameter)           
+        self.__NearestNeighbour = objNearest.fit(self.GetAtomData()[:,1:4])
     def MakeNonPTMTree(self):
         objTree = KDTree
-        self.__NonPTMTree = objTree.fit(self.GetNonPTMAtoms()[:,1:4])
+        self.__NonPTMTree = objTree(self.GetNonPTMAtoms()[:,1:4])
     def RefineGrainLabels(self): #try to assign any lattice atoms with -1 grain number to a grain.
+        self.MakeGrainTrees()
         lstOfOldIDs = []
         self.MakeGrainTrees() #this will include defects with grain number 0 and 
         lstOfIDs = self.GetUnassignedGrainAtomIDs()
@@ -499,7 +533,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         intGrainNumber = self.GetColumnNames().index('GrainNumber')
         while (lstOfIDs != lstOfOldIDs) and intCounter < 10:
             arrAtoms = self.GetAtomsByID(lstOfIDs)[:,0:4]
-            lstGrainLabels = self.__GrainLabels
+            lstGrainLabels = self.GetGrainLabels()
             if 0 in lstGrainLabels:
                 lstGrainLabels.remove(0)
             if -1 in lstGrainLabels:
@@ -519,18 +553,13 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if len(lstOfIDs) > 0:
             warnings.warn(str(len(lstOfIDs)) + ' grain atom(s) have been assigned a grain number of -1 after ' + str(intCounter) + ' iterations.')
     def GetGrainLabels(self):
-        if len(self.__GrainLabels) == 0:
-            self.__GrainLabels = list(np.unique(self.GetColumnByName('GrainNumber'), axis=0))
-        if 0 in self.__GrainLabels: #these are non PTM atoms and defects
-            self.__GrainLabels.remove(0)
-        if -1 in self.__GrainLabels: #these are PTM atoms but can't be assigned a grain
-            self.__GrainLabels.remove(0)    
+        self.__GrainLabels = list(np.unique(self.GetColumnByName('GrainNumber'), axis=0).astype('int'))  
         return self.__GrainLabels
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
         if 'GrainNumber' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainNumber', '%i')
         arrGrainNumbers = np.array([lstGrainNumbers])
-        self.__GrainLabels = list(np.unique(lstGrainNumbers))
+        #self.__GrainLabels = list(np.unique(lstGrainNumbers))
         np.reshape(arrGrainNumbers, (len(lstGrainNumbers),1))
         intGrainNumber = self.GetColumnIndex('GrainNumber')
         if lstGrainAtoms is None:
@@ -595,14 +624,14 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 self.__GrainBoundaries[j].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
         self.blnAdjustedMeshPointsAssigned = True
     def MakeGrainTrees(self):
-        lstGrainLabels = self.__GrainLabels
-        if 0 in lstGrainLabels:
-            lstGrainLabels.remove(0)
-        for k in self.__GrainLabels:
-            lstInteriorIDs = self.GetInteriorGrainAtomIDs(k)
-            self.__InteriorGrains[k] = spatial.KDTree(self.GetAtomsByID(lstInteriorIDs)[:,1:4]) 
+        lstGrainLabels = self.GetGrainLabels()
+        for k in self.GetGrainLabels():
+            lstExteriorIDs = self.GetExteriorGrainAtomIDs(k)
+            if len(lstExteriorIDs) > 0:
+                self.__ExteriorGrains[k] = spatial.KDTree(self.GetAtomsByID(lstExteriorIDs)[:,1:4]) 
             lstIDs = self.GetGrainAtomIDs(k)
-            self.__Grains[k] = spatial.KDTree(self.GetAtomsByID(lstIDs)[:,1:4])
+            if len(lstIDs) > 0:
+                self.__Grains[k] = spatial.KDTree(self.GetAtomsByID(lstIDs)[:,1:4])
     def FinaliseGrainBoundaries(self):
         lstGBIDs =  list(np.copy(self.__GrainBoundaryIDs))
         while len(lstGBIDs) > 0:
@@ -622,11 +651,12 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                         lstClosestGrains = []
                         lstGrainDistances = []
                         lstGrainLabels = []
-                        for k in self.__GrainLabels:
-                            arrPeriodicVariants = self.PeriodicEquivalents(arrPosition)
-                            lstDistances,lstIndices = self.__Grains[k].query(arrPeriodicVariants,1)
-                            lstGrainDistances.append(min(lstDistances))
-                            lstGrainLabels.append(k)
+                        for k in self.GetGrainLabels():
+                            if k > 0:
+                                arrPeriodicVariants = self.PeriodicEquivalents(arrPosition)
+                                lstDistances,lstIndices = self.__ExteriorGrains[k].query(arrPeriodicVariants,1)
+                                lstGrainDistances.append(min(lstDistances))
+                                lstGrainLabels.append(k)
                         lstIndices = np.argsort(lstGrainDistances)
                         lstClosestGrains.append(lstGrainLabels[lstIndices[0]])
                         lstClosestGrains.append(lstGrainLabels[lstIndices[1]])
@@ -663,11 +693,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 lstClosestGrains = []
                 for k in self.__JunctionLines[i].GetAdjacentGrains():
                     arrPeriodicVariants = self.PeriodicEquivalents(arrPosition)
-                    lstDistances,lstIndices = self.__InteriorGrains[k].query(arrPeriodicVariants,1)
+                    lstDistances,lstIndices = self.__ExteriorGrains[k].query(arrPeriodicVariants,1)
                     intIndex = np.argmin(lstDistances)
                     lstGrainDistances.append(lstDistances[intIndex])
                     lstGrainLabels.append(k)
-                    lstVectors.append(self.PeriodicShiftCloser(arrPosition,self.__Grains[k].data[lstIndices[intIndex]]))
+                    lstVectors.append(self.PeriodicShiftCloser(arrPosition,self.__ExteriorGrains[k].data[lstIndices[intIndex]]))
                 lstIndices = np.argsort(lstGrainDistances)
                 lstClosestGrains.append(lstGrainLabels[lstIndices[0]])
                 lstClosestGrains.append(lstGrainLabels[lstIndices[1]])

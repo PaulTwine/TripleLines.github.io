@@ -219,7 +219,7 @@ def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBa
         for i,strBoundary in enumerate(inBoundaryList):
                 if strBoundary == 'pp':
                         lstOfArrays.append(arrVector)
-                        if blnInsideCell: #limits the search to points within +/- 0.5 of each periodic vecotr
+                        if blnInsideCell: #limits the search to points within +/- 0.5 of each periodic vector only use if you pass a single vector
                                 if  arrCoefficients[i] > 0.5:
                                         lstOfArrays.append(arrVector - inCellVectors[i])
                                 elif arrCoefficients[i] <= 0.5:
@@ -248,7 +248,10 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
         arrCoefficients = np.matmul(inPoints, arrInverseMatrix)
         arrProportions = np.zeros(3)
         for i in range(len(inCellVectors)):
-                arrProportions[i] = fltDistance/np.linalg.norm(inCellVectors[i])
+                arrUnitVector = np.zeros(3)
+                arrUnitVector[i] = 1
+                fltComponent = np.dot(NormaliseVector(inCellVectors[i]),arrUnitVector)
+                arrProportions[i] = fltDistance/(np.linalg.norm(inCellVectors[i])*fltComponent)
         lstNewPoints = []
         lstNewPoints.append(arrCoefficients)
         for j in range(3):
