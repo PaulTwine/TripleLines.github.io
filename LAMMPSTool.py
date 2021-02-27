@@ -478,7 +478,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.MakeNonPTMTree()
         self.MakeNearestNeighbourTree()
         for k in self.__GrainBoundaryIDs:
-            self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(np.round(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),1),k)
+            self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),k)
             self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
@@ -492,15 +492,14 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.SetColumnByIDs(np.array(lstNewIDs), self.GetColumnIndex('GrainNumber'), np.zeros(len(lstNewIDs)))
         self.MakeGrainTrees()
     def SpreadToHigherEnergy(self, inlstIDs: list):
-        lstReturnIDs = inlstIDs
-        lstAllIDs = []
+        lstReturnIDs = list(set(inlstIDs))
+        lstAllIDs = list(set(inlstIDs))
         while len(lstReturnIDs) > 0:
             lstNewIDs = []
-            for x in inlstIDs:
+            for x in lstReturnIDs:
                 arrCentre = self.GetAtomsByID(x)[:,1:4]
                 lstNewIDs.extend(self.HigherPEPoints(arrCentre))
-            lstReturnIDs = list(set(lstNewIDs).difference(lstReturnIDs))
-            inlstIDs = lstReturnIDs
+            lstReturnIDs = list(set(lstNewIDs).difference(lstAllIDs))
             lstAllIDs.extend(lstReturnIDs)
         return list(set(lstAllIDs))
     def HigherPEPoints(self,arrPoint):
@@ -518,8 +517,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             if fltNewPE >= fltCurrentPE:
                   lstReturn.append(int(i))
         return lstReturn
-    def MakeNearestNeighbourTree(self):
-        objNearest = NearestNeighbors(n_neighbors=self.__objRealCell.GetNumberOfNeighbours(), radius=self.__LatticeParameter)           
+    def MakeNearestNeighbourTree(self): #only query this for an actual atomistic position inside the simulation cell
+        objNearest = NearestNeighbors(n_neighbors=self.__objRealCell.GetNumberOfNeighbours()+1, radius=self.__LatticeParameter)           
         self.__NearestNeighbour = objNearest.fit(self.GetAtomData()[:,1:4])
     def MakeNonPTMTree(self):
         objTree = KDTree
@@ -559,7 +558,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if 'GrainNumber' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainNumber', '%i')
         arrGrainNumbers = np.array([lstGrainNumbers])
-        #self.__GrainLabels = list(np.unique(lstGrainNumbers))
+        self.__GrainLabels = list(np.unique(lstGrainNumbers))
         np.reshape(arrGrainNumbers, (len(lstGrainNumbers),1))
         intGrainNumber = self.GetColumnIndex('GrainNumber')
         if lstGrainAtoms is None:
@@ -1397,3 +1396,24 @@ class QuantisedCuboidPoints(object):
     def GetGrainCentre(self, intGrainNumber):
         arrPoints = np.argwhere(self.__Grains == intGrainNumber)
         return np.mean(arrPoints, axis =0)
+    def GetExtraJunctionLinePoints(self, intJunctionLine: int): #includes periodic extension for junction line length calculation
+        arrPoints = np.argwhere(self.__JunctionLinesArray == intJunctionLine)      
+        lstPeriodicDirections = self.GetPeriodicExtensions(intJunctionLine, 'JunctionLine')
+        lstExtraPoints = []
+        for k in lstPeriodicDirections:
+            arrRows = np.where(arrPoints[:,k] == 0)[0]
+            if len(arrRows) > 0:
+                lstExtraPoints.append(arrPoints[arrRows]+self.__ModArray[k])
+        arrPoints = np.concatenate(lstExtraPoints, axis=0)
+        return np.matmul(np.matmul(self.MergeMeshPoints(arrPoints) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
+    def GetExtraGrainBoundaryPoints(self, intGrainBoundary: int): #includes periodic extension for the grain boundary surface area calculation
+        arrPoints = np.argwhere(self.__GrainBoundariesArray == intGrainBoundary)      
+        lstPeriodicDirections = self.GetPeriodicExtensions(intGrainBoundary, 'GrainBoundary')
+        lstExtraPoints = []
+        for k in lstPeriodicDirections:
+            arrRows = np.where(arrPoints[:,k] == 0)[0]
+            if len(arrRows) > 0:
+                lstExtraPoints.append(arrPoints[arrRows]+self.__ModArray[k])
+        arrPoints = np.concatenate(lstExtraPoints, axis=0)
+        return np.matmul(np.matmul(self.MergeMeshPoints(arrPoints) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
+                

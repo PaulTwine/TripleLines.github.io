@@ -7,9 +7,11 @@ Created on Fri May 31 10:38:14 2019
 import numpy as np
 import itertools as it
 import scipy as sc
+from scipy import spatial
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import KDTree
 import warnings
+import pyvista as pv 
 #import shapely as sp
 #import geopandas as gpd
 #All angles are assumed to be in radians
@@ -467,7 +469,14 @@ def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inC
         arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours)[0]
         arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
         return arrBoundaryIndices 
-
+def FindSurfaceArea(inPoints: np.array):
+        cloud = pv.PolyData(inPoints)
+        surf = cloud.delaunay_2d()
+        return surf.area
+def FindSplineLength(inPoints: np.array):
+        arrPoints = SortInDistanceOrder(inPoints)[0]
+        objSpline = pv.Spline(arrPoints)
+        return objSpline.length       
 
 
 

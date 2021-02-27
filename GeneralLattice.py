@@ -11,6 +11,7 @@ from datetime import datetime
 import copy as cp
 import warnings
 
+
 class PureCell(object):
     def __init__(self,inCellNodes: np.array): 
         self.__CellNodes = inCellNodes
@@ -573,6 +574,8 @@ class DefectMeshObject(object):
         self.__AdjustedMeshPoints = [] #these are general mesh points adjusted to correct for the limited accuracy of the QuantisedCuboid object
         self.__Volume = 0
         self.__PE = 0
+        self.__PeriodicVectors = [] #used to mesh points in the periodic directions.
+        self.__ExtendedMeshPoints = []
     def GetMeshPoints(self):
         return np.copy(self.__MeshPoints)
     def GetOriginalID(self):
@@ -628,7 +631,10 @@ class DefectMeshObject(object):
     def GetPEPerVolume(self, fltPEDatum = None):
         if self.__Volume > 0:
             return self.GetTotalPE(fltPEDatum)/self.__Volume
-    
+    def SetPeriodicVectors(self, inVectors):
+        self.__PeriodicVectors
+    def SetExtendedMeshPoints(self, inPoints):
+        self.__ExtendedMeshPoints = inPoints
 
 class GeneralJunctionLine(DefectMeshObject):
     def __init__(self,inMeshPoints: np.array, intID: int):
@@ -636,6 +642,7 @@ class GeneralJunctionLine(DefectMeshObject):
         self.__AdjacentGrains = []
         self.__AdjacentGrainBoundaries = []
         self.__PeriodicDirections = []
+        self.__JunctionLength = gf.FindSplineLength(inMeshPoints)
     def SetAdjacentGrains(self, inList):
         self.__AdjacentGrains = inList
     def GetAdjacentGrains(self)->list:
@@ -644,6 +651,8 @@ class GeneralJunctionLine(DefectMeshObject):
         self.__AdjacentGrainBoundaries = inList
     def GetAdjacentGrainBoundaries(self)->list:
         return cp.copy(self.__AdjacentGrainBoundaries)
+    def GetLength(self):
+        return self.__JunctionLength
    
 class GeneralGrainBoundary(DefectMeshObject):
     def __init__(self,inMeshPoints: np.array, intID: str):
@@ -652,7 +661,7 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentJunctionLines = []
         self.__AdjacentGrainBoundaries = []
         self.__PeriodicDirections = [] 
-        self.__GlobalAdjacentJunctionLines = []   
+        self.__SurfaceArea= 0  
     def SetAdjacentGrains(self, inList):
         self.__AdjacentGrains = inList
     def GetAdjacentGrains(self)->list:
@@ -661,6 +670,19 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentJunctionLines = inList
     def GetAdjacentJunctionLines(self)->list:
         return cp.copy(self.__AdjacentJunctionLines)
+    def GetSurfaceArea(self):
+        self.__SurfaceArea = gf.FindSurfaceArea(self.GetMeshPoints()) 
+        return self.__SurfaceArea
+    def GetGrainBoundaryWidth(self):
+        if self.__SurfaceArea == 0:
+            self.GetSurfaceArea()
+        return self.GetVolume()/self.__SurfaceArea
+    def GetEnergyPerSurfaceArea(self,fltDatum: float, blnSIUnits = True):
+        self.GetSurfaceArea()
+        fltValue =  self.GetTotalPE(fltDatum)/self.__SurfaceArea
+        if blnSIUnits:
+            fltValue *= 16.0217662 #convert from eV/Anstrom**2 to J/m**2
+        return fltValue
    
 class DefectObject(object):
     def __init__(self, fltTimeStep = None):
