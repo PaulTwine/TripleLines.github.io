@@ -474,6 +474,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__JunctionLines[i].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
             self.__JunctionLines[i].SetAdjacentGrainBoundaries(objQuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
             self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
+            self.__JunctionLines[i].SetExtraMeshPoints(objQuantisedCuboidPoints.GetExtraJunctionLinePoints(i))
         self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
         self.MakeNonPTMTree()
         self.MakeNearestNeighbourTree()
@@ -482,6 +483,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
+            self.__GrainBoundaries[k].SetExtraMeshPoints(objQuantisedCuboidPoints.GetExtraGrainBoundaryPoints(k))
+            self.__GrainBoundaries[k].SetSurfaceMesh(objQuantisedCuboidPoints.GetSurfaceMesh(k))
             arrPoints = gf.AddPeriodicWrapper(self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()),self.GetCellVectors(), fltRadius)
             arrIndices = self.__NonPTMTree.query_radius(arrPoints, fltRadius) 
             arrIndices = np.unique(np.concatenate(arrIndices))
@@ -496,26 +499,38 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstAllIDs = list(set(inlstIDs))
         while len(lstReturnIDs) > 0:
             lstNewIDs = []
-            for x in lstReturnIDs:
-                arrCentre = self.GetAtomsByID(x)[:,1:4]
-                lstNewIDs.extend(self.HigherPEPoints(arrCentre))
+            arrCentres = self.GetAtomsByID(lstReturnIDs)[:,0:4]
+            for x in arrCentres:
+                lstNewIDs.extend(self.HigherPEPoints(x))
             lstReturnIDs = list(set(lstNewIDs).difference(lstAllIDs))
             lstAllIDs.extend(lstReturnIDs)
-        return list(set(lstAllIDs))
+        return list(set(lstAllIDs).difference(inlstIDs))
     def HigherPEPoints(self,arrPoint):
         lstReturn = []
-        lstIndices = self.__NearestNeighbour.kneighbors(arrPoint,return_distance = False)[0]
-        lstIDs = self.GetRows(lstIndices)[:,0].astype('int')
+        intID = arrPoint[0]
+        lstDistances,lstIndices = self.__NearestNeighbour.kneighbors(np.array([arrPoint[1:4]]))
+        lstIDs = self.GetRows(lstIndices[0])[:,0].astype('int')
+        # if intID in lstIDs:
+        #     intIndex = lstIDs.index(intID)
+        #     del lstIDs[intIndex]
+        #     del lstDistances[intIndex]
         arrPE = self.GetColumnByIDs(lstIDs,self.GetColumnIndex('c_pe1'))
-        fltCurrentPE = np.mean(arrPE)
-        for i in lstIDs:
-            arrCentre = self.GetAtomsByID([i])[:,1:4]
-            lstNewIndices = self.__NearestNeighbour.kneighbors(arrCentre, return_distance = False)[0]
-            lstNewIDs = self.GetRows(lstNewIndices)[:,0].astype('int')
+        s =self.__LatticeParameter
+        arrDistances = np.array(list(map(lambda x: 1/(x/s+1), lstDistances[0])))
+        fltCurrentPE = np.mean(arrPE*arrDistances)
+        arrCentres = self.GetAtomsByID(lstIDs)[:,0:4]
+        for i in arrCentres:
+            lstNewDistances,lstNewIndices = self.__NearestNeighbour.kneighbors(np.array([i[1:4]]))
+            lstNewIDs = self.GetRows(lstNewIndices[0])[:,0].astype('int')
+            # if i[0] in lstNewIDs:
+            #     intIndex = lstNewIDs.index(intID)
+            #     del lstNewIDs[intIndex]
+            #     del lstNewDistances[intIndex]
             arrPE = self.GetColumnByIDs(lstNewIDs,self.GetColumnIndex('c_pe1'))
-            fltNewPE = np.mean(arrPE)
+            arrDistances = np.array(list(map(lambda x: 1/(x/s+1), lstNewDistances[0])))
+            fltNewPE = np.mean(arrPE*arrDistances)
             if fltNewPE >= fltCurrentPE:
-                  lstReturn.append(int(i))
+                  lstReturn.append(int(i[0]))
         return lstReturn
     def MakeNearestNeighbourTree(self): #only query this for an actual atomistic position inside the simulation cell
         objNearest = NearestNeighbors(n_neighbors=self.__objRealCell.GetNumberOfNeighbours()+1, radius=self.__LatticeParameter)           
@@ -623,7 +638,6 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 self.__GrainBoundaries[j].SetAdjustedMeshPoints(arrAdjustedMeshPoints)
         self.blnAdjustedMeshPointsAssigned = True
     def MakeGrainTrees(self):
-        lstGrainLabels = self.GetGrainLabels()
         for k in self.GetGrainLabels():
             lstExteriorIDs = self.GetExteriorGrainAtomIDs(k)
             if len(lstExteriorIDs) > 0:
@@ -1023,10 +1037,12 @@ class QuantisedCuboidPoints(object):
     def __init__(self, in3DPoints: np.array, inBasisConversion: np.array, inCellVectors: np.array, arrGridDimensions: np.array, intWrapper = None):
         arrCuboidCellVectors = np.matmul(inCellVectors,inBasisConversion)
         arrModArray = np.zeros([3])
+        self.__BasisVectors = np.zeros([3,3])
         for i in range(len(arrCuboidCellVectors)): #calculate a scaling factor that splits into exact integer multiples
             intValue = np.round(np.linalg.norm(arrCuboidCellVectors[i])/arrGridDimensions[i]).astype('int')
             arrModArray[i] = intValue
             arrGridDimensions[i] = np.linalg.norm(arrCuboidCellVectors[i])/intValue
+            self.__BasisVectors[i,i] = intValue
         self.__BasisConversion = inBasisConversion
         self.__InverseBasisConversion = np.linalg.inv(inBasisConversion)
         self.__GridDimensions = arrGridDimensions
@@ -1402,8 +1418,10 @@ class QuantisedCuboidPoints(object):
         lstExtraPoints = []
         for k in lstPeriodicDirections:
             arrRows = np.where(arrPoints[:,k] == 0)[0]
+            arrVector = np.zeros(3)
+            arrVector[k] = self.__ModArray[k]
             if len(arrRows) > 0:
-                lstExtraPoints.append(arrPoints[arrRows]+self.__ModArray[k])
+                lstExtraPoints.append(arrPoints[arrRows]+arrVector)
         arrPoints = np.concatenate(lstExtraPoints, axis=0)
         return np.matmul(np.matmul(self.MergeMeshPoints(arrPoints) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
     def GetExtraGrainBoundaryPoints(self, intGrainBoundary: int): #includes periodic extension for the grain boundary surface area calculation
@@ -1412,8 +1430,55 @@ class QuantisedCuboidPoints(object):
         lstExtraPoints = []
         for k in lstPeriodicDirections:
             arrRows = np.where(arrPoints[:,k] == 0)[0]
+            arrVector = np.zeros(3)
+            arrVector[k] = self.__ModArray[k]
             if len(arrRows) > 0:
-                lstExtraPoints.append(arrPoints[arrRows]+self.__ModArray[k])
+                lstExtraPoints.append(arrPoints[arrRows]+arrVector)
         arrPoints = np.concatenate(lstExtraPoints, axis=0)
         return np.matmul(np.matmul(self.MergeMeshPoints(arrPoints) +np.ones(3)*0.5, self.__InverseScaling), self.__InverseBasisConversion) 
-                
+    def GetSurfaceMesh(self, intGrainBoundary: int):
+        arrMeshPoints = np.argwhere(self.__GrainBoundariesArray == intGrainBoundary)
+        arrPoints = self.MergeMeshPoints(arrMeshPoints)
+        lstTJIDs = self.GetAdjacentJunctionLines(intGrainBoundary)
+        lstReturnPoints = []
+        lstBoundaryType = ['pp','pp','pp']
+        for k in self.GetCompleteDirections(arrMeshPoints):
+            lstBoundaryType[k] = 'f'
+        objNearest = KDTree(arrPoints)
+        if len(lstTJIDs) > 1:
+            arrStartPoints = self.MergeMeshPoints(np.argwhere(skeletonize_3d(self.__JunctionLinesArray == lstTJIDs[0])))
+            arrDistances, arrIndices = objNearest.query(arrStartPoints, k=1, return_distance=True)
+            arrEndPoints = self.MergeMeshPoints(np.argwhere(skeletonize_3d(self.__JunctionLinesArray == lstTJIDs[0])))
+            if np.all(arrDistances > np.round(np.sqrt(3),3)):
+           # if len(arrIndices) == 0: #this junction line is no longer adjacent to the merged mesh points
+                arrEndPoints = arrStartPoints
+                arrStartPoints = self.MergeMeshPoints(np.argwhere(skeletonize_3d(self.__JunctionLinesArray == lstTJIDs[1])))
+                arrIndices = np.unique(np.concatenate(objNearest.query(arrStartPoints, k=1,return_distance=False),axis=0))
+            #    intEnd = 0
+        blnNonZero = True
+       # lstReturnPoints.append(arrStartPoints)
+        objEndPoints = KDTree(arrEndPoints)
+        while blnNonZero and len(arrPoints)> 0:
+            objNearest= KDTree(arrPoints)
+            arrDistances, arrIndices = objNearest.query(arrStartPoints, k=1)    
+            arrRows = np.where(arrDistances <= np.round(np.sqrt(3),3))[0]
+            if len(arrIndices) > 0 and len(arrRows) > 0:
+                arrIndices = np.unique(np.concatenate(arrIndices[arrRows],axis=0))
+                arrStartPoints = arrPoints[arrIndices]   
+                lstReturnPoints.append(arrStartPoints)
+                arrPoints = np.delete(arrPoints, arrIndices.astype('int'),axis=0)
+            else:
+                blnNonZero = False
+        # if len(lstTJIDs) == 2:
+        #     arrEndPoints =  np.argwhere(skeletonize_3d(self.__JunctionLinesArray == lstTJIDs[intEnd]))
+        #     arrEndPoints = gf.PeriodicShiftAllCloser(np.mean(lstReturnPoints[-1],axis=0),arrEndPoints, self.__BasisVectors, np.linalg.inv(self.__BasisVectors),lstBoundaryType)
+        #     lstReturnPoints.append(arrEndPoints)
+        return lstReturnPoints
+    def GetCompleteDirections(self, arrPoints: np.array):
+        lstPeriodicDirections = []
+        for j in range(3):
+            if list(np.unique(arrPoints[:,j])) == list(range(self.__ModArray[j])):
+                lstPeriodicDirections.append(j)
+        return lstPeriodicDirections
+    def GetGrainBoundaryArray(self):
+        return self.__GrainBoundariesArray

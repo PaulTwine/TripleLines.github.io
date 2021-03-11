@@ -12,6 +12,7 @@ import copy as cp
 import warnings
 
 
+
 class PureCell(object):
     def __init__(self,inCellNodes: np.array): 
         self.__CellNodes = inCellNodes
@@ -397,6 +398,25 @@ class ExtrudedRegularPolygon(GeneralGrain):
         GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
 
+
+class BaseSuperCell(object):
+    def __init__(self,inBasisVectors: np.array, lstBoundaryTypes: list):
+        self.__BasisVectors = inBasisVectors
+        self.__Dimensions = np.shape(inBasisVectors)[0]
+        self.__BoundaryTypes = lstBoundaryTypes
+        self.__InverseMatrix = np.linalg.inv(inBasisVectors)
+    def GetBasisVectors(self):
+        return self.__BasisVectors
+    def GetDimensions(self):
+        return self.__Dimensions
+    def GetBoundaryTypes(self):
+        return self.__BoundaryTypes
+    def GetInverseMatrix(self): ##multiplied by a real point gives a SuperCell coordinate
+        return self.__InverseMatrix
+    def WrapVectorIntoSimulationBox(self, inVector: np.array)->np.array:
+        return gf.WrapVectorIntoSimulationCell(self.__BasisVectors, self.__InverseMatrix, inVector)
+
+
 class SimulationCell(object):
     def __init__(self, inBoxVectors: np.array):
         self.Dimensions = len(inBoxVectors[0])
@@ -633,8 +653,10 @@ class DefectMeshObject(object):
             return self.GetTotalPE(fltPEDatum)/self.__Volume
     def SetPeriodicVectors(self, inVectors):
         self.__PeriodicVectors
-    def SetExtendedMeshPoints(self, inPoints):
-        self.__ExtendedMeshPoints = inPoints
+    def SetExtraMeshPoints(self, inPoints):
+        self.__ExtraMeshPoints = inPoints
+    def GetExtraMeshPoints(self):
+        return self.__ExtraMeshPoints
 
 class GeneralJunctionLine(DefectMeshObject):
     def __init__(self,inMeshPoints: np.array, intID: int):
@@ -642,7 +664,7 @@ class GeneralJunctionLine(DefectMeshObject):
         self.__AdjacentGrains = []
         self.__AdjacentGrainBoundaries = []
         self.__PeriodicDirections = []
-        self.__JunctionLength = gf.FindSplineLength(inMeshPoints)
+        self.__JunctionLength = 0
     def SetAdjacentGrains(self, inList):
         self.__AdjacentGrains = inList
     def GetAdjacentGrains(self)->list:
@@ -651,7 +673,11 @@ class GeneralJunctionLine(DefectMeshObject):
         self.__AdjacentGrainBoundaries = inList
     def GetAdjacentGrainBoundaries(self)->list:
         return cp.copy(self.__AdjacentGrainBoundaries)
-    def GetLength(self):
+    def FindJunctionLength(self):
+        self.__JunctionLength = gf.FindSplineLength(np.append(self.GetMeshPoints(), self.GetExtraMeshPoints(),axis=0))
+    def GetJunctionLineLength(self):
+        if self.__JunctionLength == 0:
+            self.FindJunctionLength()
         return self.__JunctionLength
    
 class GeneralGrainBoundary(DefectMeshObject):
@@ -662,6 +688,7 @@ class GeneralGrainBoundary(DefectMeshObject):
         self.__AdjacentGrainBoundaries = []
         self.__PeriodicDirections = [] 
         self.__SurfaceArea= 0  
+        self.__SurfaceMesh = []
     def SetAdjacentGrains(self, inList):
         self.__AdjacentGrains = inList
     def GetAdjacentGrains(self)->list:
@@ -671,8 +698,16 @@ class GeneralGrainBoundary(DefectMeshObject):
     def GetAdjacentJunctionLines(self)->list:
         return cp.copy(self.__AdjacentJunctionLines)
     def GetSurfaceArea(self):
-        self.__SurfaceArea = gf.FindSurfaceArea(self.GetMeshPoints()) 
+        self.__SurfaceArea = gf.FindSurfaceArea(np.append(self.GetMeshPoints(),self.GetExtraMeshPoints(),axis=0)) 
+       #self.__SurfaceArea = gf.FindSurfaceArea(self.GetMeshPoints()) 
         return self.__SurfaceArea
+    def SetSurfaceMesh(self, lstPoints):
+        self.__SurfaceMesh = lstPoints
+    def GetSurfaceMesh(self, intIndex = None):
+        if intIndex is None:
+            return np.vstack(self.__SurfaceMesh)
+        else:
+            return self.__SurfaceMesh[intIndex]
     def GetGrainBoundaryWidth(self):
         if self.__SurfaceArea == 0:
             self.GetSurfaceArea()
