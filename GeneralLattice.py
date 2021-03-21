@@ -333,12 +333,14 @@ class GeneralGrain(GeneralLattice):
     def SetAtomType(self, inInt):
         self.__AtomType = inInt
     def GetBoundaryAtoms(self, inPeriodicVectors = None):
+        lstRows = self.GetBoundaryAtomIndices(inPeriodicVectors)
+        return self.GetRealPoints()[lstRows]
+    def GetBoundaryAtomIndices(self, inPeriodicVectors = None):
         if not(self.FoundBoundaries()):
             self.FindBoundaryPoints()
         setBoundaryPoints = set(self.GetBoundaryIndices(inPeriodicVectors))
-        lstRows = list(setBoundaryPoints.difference(self.__VacancyIndices)) 
-        return self.GetRealPoints()[lstRows]
-  
+        lstRows = list(setBoundaryPoints.difference(self.__VacancyIndices))
+        return lstRows
 
 class ExtrudedRectangle(GeneralGrain):
     def __init__(self, fltLength: float, fltWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
@@ -436,13 +438,16 @@ class SimulationCell(object):
         return self.dctGrains[strName]
     def GetNumberOfGrains(self)->int:
         return len(self.GrainList)
+    def GetUpdatedAtomNumbers(self):
+        intNumberOfAtoms = 0
+        for j in self.GrainList:
+            intNumberOfAtoms += self.GetGrain(j).GetNumberOfAtoms()
+        return intNumberOfAtoms
     def GetTotalNumberOfAtoms(self):
         if self.blnPointsAreWrapped:
-            intNumberOfAtoms = len(self.__UniqueRealPoints)
+            intNumberOfAtoms = len(self.__UniqueRealPoints) 
         else: 
-            intNumberOfAtoms = 0
-            for j in self.GrainList:
-                intNumberOfAtoms += self.GetGrain(j).GetNumberOfAtoms() 
+            intNumberOfAtoms = self.GetUpdatedAtomNumbers()
         return intNumberOfAtoms
     def GetRealBasisVectors(self):
         return self.__BasisVectors
@@ -464,7 +469,7 @@ class SimulationCell(object):
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
         with open(inFileName, 'w') as fdata:
             fdata.write('## ' + strDateTime + ' ' + self.__FileHeader + '\n')
-            fdata.write('{} atoms\n'.format(self.GetTotalNumberOfAtoms()))
+            fdata.write('{} atoms\n'.format(self.GetUpdatedAtomNumbers()))
             fdata.write('{} atom types\n'.format(self.GetNumberOfAtomTypes()))
             fdata.write('{} {} xlo xhi\n'.format(self.__xlo,self.__xhi))
             fdata.write('{} {} ylo yhi\n'.format(self.__ylo,self.__yhi))
@@ -476,8 +481,8 @@ class SimulationCell(object):
             fdata.write('\n')
             fdata.write('Atoms\n\n')
             if self.blnPointsAreWrapped:
-                for j in range(len(self.__UniqueRealPoints)):
-                    fdata.write('{} {} {} {} {}\n'.format(j+1,self.__AtomTypes[j], *self.__UniqueRealPoints[j]))
+                for j in range(len(self.__AtomPositions)):
+                    fdata.write('{} {} {} {} {}\n'.format(j+1,self.__AtomTypes[j], *self.__AtomPositions[j]))
             else:
                 count = 1
                 for j in self.GrainList:
@@ -509,27 +514,27 @@ class SimulationCell(object):
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
     def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
         lstUniqueRowindices = []
-        arrAllAtoms = np.zeros([self.GetTotalNumberOfAtoms(),self.Dimensions])
-        arrAllAtomTypes = np.ones([self.GetTotalNumberOfAtoms()],dtype=np.int8)
+        arrAllAtoms = np.zeros([self.GetUpdatedAtomNumbers(),self.Dimensions])
+        arrAllAtomTypes = np.ones([self.GetUpdatedAtomNumbers()],dtype=np.int8)
         i = 0
         for j in self.GrainList:
-            #arrPoints = np.append(self.GetGrain(j).GetInteriorPoints(), self.GetGrain(j).GetBoundaryPoints(),axis=0)
             arrPoints = self.GetGrain(j).GetAtomPositions()
             for fltPoint in arrPoints:
                 arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
-        arrAllAtoms = arrAllAtoms[:i]
         arrAllAtoms = np.round(self.WrapVectorIntoSimulationBox(arrAllAtoms),intRound)
+        self.__AtomPositions = arrAllAtoms
+        self.__AtomTypes = arrAllAtomTypes
         self.__UniqueRealPoints,lstUniqueRowindices = np.unique(arrAllAtoms,axis=0,return_index=True)
-        self.__AtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
+        self.__UniqueAtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
         self.blnPointsAreWrapped = True
     def RemoveTooCloseAtoms(self, fltDistance: float): #assumes grains are correctly positioned so they don't interpenetrate
         lstRemainingGrains = list(np.copy(self.GrainList))
         while len(lstRemainingGrains) > 0:
             strCurrentGrain = lstRemainingGrains.pop()
             lstVacancies = []
-            lstCurrentIndices = self.GetGrain(strCurrentGrain).GetBoundaryIndices()
+            lstCurrentIndices = self.GetGrain(strCurrentGrain).GetBoundaryAtomIndices()
             arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetBoundaryAtoms(self.GetRealBasisVectors())) 
             lstCloseIndices = []
             intCounter = 0
@@ -563,6 +568,11 @@ class SimulationCell(object):
             raise("Error: Points need to be wrapped into simulation cell")
     def GetSimulationCellVolume(self):
         return np.abs(np.dot(self.__BasisVectors[0], np.cross(self.__BasisVectors[1], self.__BasisVectors[2])))
+    def GetNumberOfVacancies(self):
+        intNumberOfVacancies = 0
+        for j in self.GrainList:
+            intNumberOfVacancies += self.GetGrain(j).GetNumberOfVacancies()
+        return intNumberOfVacancies
 
 class Grain(object):
     def __init__(self, intGrainNumber: int):
@@ -870,10 +880,10 @@ class SigmaCell(object):
         arrSigma = self.GetSigmaValues(2*intSigmaValue)
         arrRows = np.argwhere(arrSigma[:,0] == intSigmaValue)
         if len(arrRows) > 0:
-            intSigmaValue == arrSigma[arrRows[0],0]
+            intSigmaValue = int(arrSigma[arrRows[0],0])
             h = self.__CellHeight
             l = intSigmaValue
-            fltSigma = arrSigma[arrRows[0],1]
+            fltSigma = float(arrSigma[arrRows[0],1])
             objFirstLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(0,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
             objSecondLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(fltSigma,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
             arrPoints1 = objFirstLattice.GetRealPoints()
