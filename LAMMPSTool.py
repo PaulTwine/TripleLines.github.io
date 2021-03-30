@@ -17,6 +17,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import NearestNeighbors, KDTree
 
+
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter: float, objAnalysis: object):
         self.__dctTimeSteps = dict()

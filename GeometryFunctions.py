@@ -186,7 +186,7 @@ def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVect
                 inMatrix = inMatrix[:2,:2]
                 invMatrix = invMatrix[:2,:2]                
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
-        arrCoefficients = np.round(arrCoefficients, 10)
+        arrCoefficients = np.round(arrCoefficients, 15)
         arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
         if blnReturnCellCoordinates:
                 return np.matmul(arrCoefficients, inMatrix),arrCoefficients #return the wrapped vector in the standard basis
@@ -253,7 +253,8 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
                 arrUnitVector = np.zeros(3)
                 arrUnitVector[i] = 1
                 fltComponent = np.dot(NormaliseVector(inCellVectors[i]),arrUnitVector)
-                arrProportions[i] = fltDistance/(np.linalg.norm(inCellVectors[i])*fltComponent)
+                if fltComponent != 0:
+                        arrProportions[i] = fltDistance/(np.linalg.norm(inCellVectors[i])*fltComponent)
         lstNewPoints = []
         lstNewPoints.append(arrCoefficients)
         for j in range(3):
@@ -477,7 +478,5 @@ def FindSplineLength(inPoints: np.array):
         arrPoints = SortInDistanceOrder(inPoints)[0]
         objSpline = pv.Spline(arrPoints)
         return objSpline.length       
-
-
 
         

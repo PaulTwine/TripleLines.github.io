@@ -10,7 +10,7 @@ from sympy.abc import x,y,z
 from datetime import datetime
 import copy as cp
 import warnings
-
+import lammps
 
 
 class PureCell(object):
@@ -100,6 +100,7 @@ class RealCell(PureCell):
         return self.__NearestNeighbourDistance
     def GetCellVolume(self):
         return np.abs(np.dot(self.__RealCellVectors[0], np.cross(self.__RealCellVectors[1],self.__RealCellVectors[2])))    
+
 class GeneralLattice(RealCell):
     def __init__(self,inBasisVectors:np.array,inCellNodes: np.array,inLatticeParameters:np.array,inOrigin: np.array,inCellBasis = None):
         RealCell.__init__(self, inCellNodes,inLatticeParameters, inCellBasis)
@@ -434,6 +435,11 @@ class SimulationCell(object):
             strName = str(len(self.dctGrains.keys())+1)
         self.dctGrains[strName] = inGrain
         self.GrainList = list(self.dctGrains.keys())
+    def RemoveGrain(self, strName: str):
+        self.dctGrains.popitem(strName)
+    def RemoveAllGrains(self):
+        self.GrainList = []
+        self.dctGrains = dict()
     def GetGrain(self, strName: str):
         return self.dctGrains[strName]
     def GetNumberOfGrains(self)->int:
@@ -513,7 +519,7 @@ class SimulationCell(object):
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
     def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
-        lstUniqueRowindices = []
+        lstUniqueRowIndices = []
         arrAllAtoms = np.zeros([self.GetUpdatedAtomNumbers(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetUpdatedAtomNumbers()],dtype=np.int8)
         i = 0
@@ -527,7 +533,7 @@ class SimulationCell(object):
         self.__AtomPositions = arrAllAtoms
         self.__AtomTypes = arrAllAtomTypes
         self.__UniqueRealPoints,lstUniqueRowindices = np.unique(arrAllAtoms,axis=0,return_index=True)
-        self.__UniqueAtomTypes = arrAllAtomTypes[lstUniqueRowindices]  
+        self.__UniqueAtomTypes = arrAllAtomTypes[lstUniqueRowIndices]  
         self.blnPointsAreWrapped = True
     def RemoveTooCloseAtoms(self, fltDistance: float): #assumes grains are correctly positioned so they don't interpenetrate
         lstRemainingGrains = list(np.copy(self.GrainList))
@@ -573,6 +579,38 @@ class SimulationCell(object):
         for j in self.GrainList:
             intNumberOfVacancies += self.GetGrain(j).GetNumberOfVacancies()
         return intNumberOfVacancies
+    def LAMMPSMinimisePositions(self,strDirectory: str,strFileOutput: str, strTemplate: str, intRange: int, fltMean: float, fltNearestNeighbour = None):
+        if fltNearestNeighbour is None:
+            lstDistances = []
+            for i in self.GrainList:
+                lstDistances.append(self.GetGrain(i).GetNearestNeighbourDistance())
+            fltNearestNeighbour = min(lstDistances)
+        lstj = []
+        lstAtoms = []
+        lstPE = []
+        lstAdjusted = []
+        intMin = 0
+        self.WrapAllAtomsIntoSimulationCell()
+        for j in range(0, intRange+1):
+            lstj.append(fltNearestNeighbour*j/(intRange))
+            self.RemoveTooCloseAtoms(lstj[-1])
+            lstAtoms.append(self.GetUpdatedAtomNumbers())
+            self.SetFileHeader('Something')
+            self.WrapAllAtomsIntoSimulationCell()
+            self.WriteLAMMPSDataFile(strDirectory + 'read.dat')
+            objLammps = lammps.PyLammps()
+            objLammps.file(strDirectory + strTemplate) #must potential energy
+            lstPE.append(objLammps.eval('pe'))
+            if len(lstj) ==1:
+                lstAdjusted.append(0.0)
+            else: 
+                lstAdjusted.append(lstPE[-1] - lstPE[-2] + fltMean*(lstAtoms[-2]-lstAtoms[-1]))
+            arrMins =  np.where(np.array(lstAdjusted) == min(lstAdjusted))[0]
+            if lstAdjusted[j] == lstAdjusted[arrMins[0]] and len(arrMins) == 1:
+                    objLammps.command('write_data ' + strDirectory + strFileOutput)
+                    intMin = j
+            objLammps.close()
+        return lstAtoms[intMin], lstPE[intMin]
 
 class Grain(object):
     def __init__(self, intGrainNumber: int):
