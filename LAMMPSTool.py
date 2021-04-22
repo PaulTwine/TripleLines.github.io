@@ -163,6 +163,11 @@ class LAMMPSTimeStep(object):
                 arrCellVectors[0,0] = arrCellVectors[0,0] -arrCellVectors[1,0] 
                 arrCellVectors[2,0] = lstBoundBox[1][2]
                 arrCellVectors[2,1] = lstBoundBox[2][2]
+        arrNonZero = np.argwhere(arrCellVectors != 0.0)
+        if len(arrNonZero) == 3: #if there is no tilt then each coordinate direction is of the form [a 0 0], [0 b 0] and [0 0 c]
+            self.__blnCuboid = True
+        else: 
+            self.__blnCuboid = False
         self.__Origin = np.array(lstOrigin)
         self.__CellVectors  = arrCellVectors   
         self.__CellCentre = np.mean(arrCellVectors,axis=0)*self.__Dimensions/2+self.__Origin
@@ -219,9 +224,14 @@ class LAMMPSTimeStep(object):
         strHeader += str(self.GetTimeStep()) + '\n'
         strHeader += 'ITEM: NUMBER OF ATOMS \n'
         strHeader += str(self.GetNumberOfAtoms()) + '\n'
-        strHeader += 'ITEM: BOX BOUNDS xy xz yz ' + ' '.join(self.__BoundaryTypes) + '\n'
-        for j in range(3):
-            strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(self.__BoundBoxDimensions[j,2]) + '\n'
+        if self.__blnCuboid:
+            strHeader += 'ITEM: BOX BOUNDS ' + ' '.join(self.__BoundaryTypes) + '\n'
+            for j in range(3):
+                strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + '\n'
+        else:
+            strHeader += 'ITEM: BOX BOUNDS xy xz yz ' + ' '.join(self.__BoundaryTypes) + '\n'
+            for j in range(3):
+                strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(self.__BoundBoxDimensions[j,2]) + '\n'
         strHeader += 'ITEM: ATOMS ' + ' '.join(self.__ColumnNames)
         np.savetxt(strFilename, self.GetAtomData(), fmt= ' '.join(self.__ColumnTypes), header=strHeader, comments='')
 
@@ -475,7 +485,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__JunctionLines[i].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
             self.__JunctionLines[i].SetAdjacentGrainBoundaries(objQuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
             self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
-            self.__JunctionLines[i].SetExtraMeshPoints(objQuantisedCuboidPoints.GetExtraJunctionLinePoints(i))
+            #self.__JunctionLines[i].SetExtraMeshPoints(objQuantisedCuboidPoints.GetExtraJunctionLinePoints(i))
         self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
         self.MakeNonPTMTree()
         self.MakeNearestNeighbourTree()
@@ -485,7 +495,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
             self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
             self.__GrainBoundaries[k].SetExtraMeshPoints(objQuantisedCuboidPoints.GetExtraGrainBoundaryPoints(k))
-            self.__GrainBoundaries[k].SetSurfaceMesh(objQuantisedCuboidPoints.GetSurfaceMesh(k))
+            #self.__GrainBoundaries[k].SetSurfaceMesh(objQuantisedCuboidPoints.GetSurfaceMesh(k))
             arrPoints = gf.AddPeriodicWrapper(self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()),self.GetCellVectors(), fltRadius)
             arrIndices = self.__NonPTMTree.query_radius(arrPoints, fltRadius) 
             arrIndices = np.unique(np.concatenate(arrIndices))

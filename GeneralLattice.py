@@ -479,11 +479,9 @@ class SimulationCell(object):
             fdata.write('{} atom types\n'.format(self.GetNumberOfAtomTypes()))
             fdata.write('{} {} xlo xhi\n'.format(self.__xlo,self.__xhi))
             fdata.write('{} {} ylo yhi\n'.format(self.__ylo,self.__yhi))
-            if self.Dimensions == 3:
-                fdata.write('{} {} zlo zhi\n'.format(self.__zlo,self.__zhi))
+            fdata.write('{} {} zlo zhi\n'.format(self.__zlo,self.__zhi))
+            if not self.__blnCuboid:   
                 fdata.write('{}  {} {} xy xz yz \n'.format(self.__xy,self.__xz,self.__yz))
-            elif self.Dimensions ==2:
-                fdata.write('{}  xy \n'.format(self.__xy))
             fdata.write('\n')
             fdata.write('Atoms\n\n')
             if self.blnPointsAreWrapped:
@@ -518,6 +516,11 @@ class SimulationCell(object):
             self.__UnitBasisVectors = np.array(lstBasisVectors)
             self.__InverseUnitBasis = np.linalg.inv(self.__UnitBasisVectors)
             self.__InverseBasis = np.linalg.inv(self.__BasisVectors)
+            arrNonZero = np.argwhere(self.__BasisVectors !=0)
+            if len(arrNonZero) ==3:
+                self.__blnCuboid = True
+            else:
+                self.__blnCuboid = False
     def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
         lstUniqueRowIndices = []
         arrAllAtoms = np.zeros([self.GetUpdatedAtomNumbers(),self.Dimensions])

@@ -15,17 +15,21 @@ import copy as cp
 fig = plt.figure(figsize=plt.figaspect(1))
 ax = fig.gca(projection='3d')
 arrAxis = np.array([0,0,1])
-intSigma = 5
+intSigma = 13
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
-gf.CubicCSLGenerator(arrAxis, 5)
+print(gf.CubicCSLGenerator(arrAxis, 5))
 fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
 arrSigmaBasis = objSigma.GetBasisVectors()
 s = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 a = 4.05 ##lattice parameter
-w = 15*a*s
-l = 15*a*s
-h= 15*a*np.round(s)
+x = np.round(40/s,0)
+w = x*a*s
+l = x*a*s
+h= x*a*np.round(s,0)
+#w = 15*a*s
+#l = 15*a*s
+#h= 15*a*np.round(s)
 z = np.array([0,0,h])
 arr100BasisVectors = gf.StandardBasisVectors(3)
 arrHorizontalVector = np.array([w,0,0])
@@ -57,7 +61,7 @@ MySimulationCell.RemoveAllGrains()
 
 
 for j in range(1,11):
-    r = a*(j+1)
+    r = a*j
     strSphere = gf.ParseConic([w/2,l/2,h/2],[r,r,r],[2,2,2])
     objSphere3 = cp.deepcopy(objFullCell3)
     objSphere3.ApplyGeneralConstraint(strSphere)
