@@ -115,7 +115,7 @@ class GeneralLattice(RealCell):
         self.__ConstrainType = []
         for j in range(self.Dimensions()):
             self.__RealBasisVectors[j] = inLatticeParameters[j]*inBasisVectors[j]
-        self.__intConstraintRound = 8 #default value for the rounding precision for points lying on a linear constraint
+        self.__intConstraintRound = 10 #default value for the rounding precision for points lying on a linear constraint
         self.__BoundaryPointIndices = []
         self.__InteriorPointIndices = []
         self.__RemovedBoundaryPoints = []
@@ -188,9 +188,6 @@ class GeneralLattice(RealCell):
             rtnArray[i,3] = gf.InnerProduct(rtnArray[i,:3], tmpArray,np.linalg.inv(self.GetCellVectors()))
         self.__LatticeConstraints = rtnArray
     def CheckLinearConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete for real coordinates  
-        # arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LinearConstraints[:,:-1])), np.transpose(self.__LinearConstraints[:,-1])) #if it fails any constraint then the point is put in the deleted list
-        # arrClosed = np.argwhere(np.round(arrPositions,self.__intConstraintRound) > 0)[:,0]                
-        # return np.unique(arrClosed)
         lstIndices = []
         for j in self.__LinearConstraints:
             arrPositions = np.subtract(np.matmul(inPoints, np.transpose(j[:-1])), j[-1])
@@ -198,9 +195,6 @@ class GeneralLattice(RealCell):
             lstIndices.append(arrClosed)
         return np.unique(np.concatenate(lstIndices))       
     def CheckLatticeConstraints(self,inPoints: np.array)-> np.array: #returns indices to delete   
-        # arrPositions = np.subtract(np.matmul(inPoints, np.transpose(self.__LatticeConstraints[:,:-1])), np.transpose(self.__LatticeConstraints[:,-1]))
-        # arrClosed = np.argwhere(np.round(arrPositions,self.__intConstraintRound) > 0)[:,0]       
-        # return np.unique(arrClosed)
         lstIndices = []
         for j in self.__LatticeConstraints:
             arrPositions = np.subtract(np.matmul(inPoints, np.transpose(j[:-1])), j[-1])
@@ -355,18 +349,22 @@ class ExtrudedRectangle(GeneralGrain):
         GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
 
-class ExtrudedParalleogram(GeneralGrain):
+class ExtrudedParallelogram(GeneralGrain):
     def __init__(self, arrLength: np.array, arrWidth: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
         arrZ = np.array([0,0,1])
         arrConstraints = np.zeros([6,4])
-        arrConstraints[0,:3] = gf.NormaliseVector(np.cross(arrLength, arrZ))
+        arrNormal = gf.NormaliseVector(np.cross(arrLength, arrZ))
+        arrConstraints[0,:3] = arrNormal
         arrConstraints[0,3] = 0
-        arrConstraints[1,:3] = -gf.NormaliseVector(np.cross(arrLength, arrZ))
-        arrConstraints[1,3] = np.linalg.norm(np.cross(arrLength,arrWidth)/np.linalg.norm(arrWidth))
-        arrConstraints[2,:3] = -gf.NormaliseVector(np.cross(arrWidth, arrZ))
+        arrNormal = -gf.NormaliseVector(np.cross(arrLength, arrZ))
+        arrConstraints[1,:3] = arrNormal
+        arrConstraints[1,3] = np.dot(arrWidth,arrNormal)
+        arrNormal = -gf.NormaliseVector(np.cross(arrWidth, arrZ))
+        arrConstraints[2,:3] = arrNormal
         arrConstraints[2,3] = 0
-        arrConstraints[3,:3] = gf.NormaliseVector(np.cross(arrWidth, arrZ))
-        arrConstraints[3,3] = np.linalg.norm(np.cross(arrLength,arrWidth)/np.linalg.norm(arrLength))
+        arrNormal = gf.NormaliseVector(np.cross(arrWidth, arrZ))
+        arrConstraints[3,:3] = arrNormal
+        arrConstraints[3,3] = np.dot(arrLength,arrNormal)
         arrConstraints[4,:3] = -arrZ
         arrConstraints[4,3] = 0
         arrConstraints[5,:3] = arrZ

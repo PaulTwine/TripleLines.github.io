@@ -463,13 +463,16 @@ def CubicCSLGenerator(inAxis: np.array, intIterations=5)->list: #usually five it
         return arrReturn
 def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inCellVectors = None):
         intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
-        if inCellVectors is not(None):
-                inPoints = AddPeriodicWrapper(inPoints, inCellVectors, 2*fltRadius)
-        objSpatial = KDTree(inPoints)
-        arrCounts = objSpatial.query_radius(inPoints, fltRadius, count_only=True)
-        arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours)[0]
-        arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
-        return arrBoundaryIndices 
+        if intLength > 0:
+                if inCellVectors is not(None):
+                        inPoints = AddPeriodicWrapper(inPoints, inCellVectors, 2*fltRadius)
+                objSpatial = KDTree(inPoints)
+                arrCounts = objSpatial.query_radius(inPoints, fltRadius, count_only=True)
+                arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours)[0]
+                arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
+                return arrBoundaryIndices
+        else:
+                return [] 
 def FindSurfaceArea(inPoints: np.array):
         cloud = pv.PolyData(inPoints)
         surf = cloud.delaunay_2d()
