@@ -11,7 +11,7 @@ from scipy import spatial
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import KDTree
 import warnings
-import pyvista as pv 
+from decimal import Decimal
 #import shapely as sp
 #import geopandas as gpd
 #All angles are assumed to be in radians
@@ -67,6 +67,12 @@ def FindBoundingBox(inVectors: np.array)->np.array:
                         lstCoordinate.append(fltCoordinate)
                 vctDimensions[j] = [min(lstCoordinate), max(lstCoordinate)]
         return vctDimensions
+def VectorToConstraint(inVector)->np.array:
+        rtnVector = np.zeros([len(inVector),4])
+        for j in range(len(inVector)):
+                rtnVector[j,:3] = NormaliseVector(inVector[j])
+                rtnVector[j,3] = np.linalg.norm(inVector[j])
+        return rtnVector
 def CheckLinearConstraint(inPoints: np.array, inConstraint: np.array)-> np.array:
         lstIndicesToDelete = []
         intDimensions = len(inConstraint)-1
@@ -177,21 +183,54 @@ def IsVectorOutsideSimulationCell(inMatrix: np.array, invMatrix: np.array, inVec
         else:
                 return False
 
-def WrapVectorIntoSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
-        if len(np.shape(inVector)) > 1:
-                if np.shape(inVector)[1] == 2:
-                        inMatrix = inMatrix[:2,:2]
-                        invMatrix = invMatrix[:2,:2]
-        elif np.shape(inVector)[0]==2:
-                inMatrix = inMatrix[:2,:2]
-                invMatrix = invMatrix[:2,:2]                
+def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
+        # if len(np.shape(inVector)) > 1:
+        #         if np.shape(inVector)[1] == 2:
+        #                 inMatrix = inMatrix[:2,:2]
+        #                 invMatrix = invMatrix[:2,:2]
+        # elif np.shape(inVector)[0]==2:
+        #         inMatrix = inMatrix[:2,:2]
+        #         invMatrix = invMatrix[:2,:2]  
+        arrUnitBasis = inBasis/np.linalg.norm(inBasis, ord=2, axis=1, keepdims=True)
+        invMatrix = np.linalg.inv(arrUnitBasis) 
+        arrMod = np.linalg.norm(inBasis, axis=1)           
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
-        arrCoefficients = np.round(arrCoefficients, 15)
-        arrCoefficients = np.mod(arrCoefficients, np.ones(np.shape(arrCoefficients))) #move so that they lie inside cell 
+        lstRows = np.where(np.any(arrCoefficients >= arrMod, axis=0) | np.any(arrCoefficients <0 , axis=0))[0]
+        return lstRows
+        # arrCoefficients = arrCoefficients[lstRows]
+        # # for j in range(3):
+        # #         arrRows = np.where(np.abs(arrCoefficients[:,j]) < 0.1)
+        # #         if len(arrRows) > 0:
+        # #                 arrCoefficients[arrRows,j] = np.zeros(len(arrRows))
+        # # arrCoefficients = np.mod(arrCoefficients, arrMod) #move so that they lie inside cell 
+        # # #arrCoefficients = np.unique(arrCoefficients, axis= 0)
+        # if blnReturnCellCoordinates:
+        #         return np.matmul(arrCoefficients, arrUnitBasis),arrCoefficients #return the wrapped vector in the standard basis
+        # else:        
+        #         return np.matmul(arrCoefficients, arrUnitBasis)
+
+def WrapVectorIntoSimulationCell(inBasis: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
+        # if len(np.shape(inVector)) > 1:
+        #         if np.shape(inVector)[1] == 2:
+        #                 inMatrix = inMatrix[:2,:2]
+        #                 invMatrix = invMatrix[:2,:2]
+        # elif np.shape(inVector)[0]==2:
+        #         inMatrix = inMatrix[:2,:2]
+        #         invMatrix = invMatrix[:2,:2]  
+        arrUnitBasis = inBasis/np.linalg.norm(inBasis, ord=2, axis=1, keepdims=True)
+        invMatrix = np.linalg.inv(arrUnitBasis) 
+        arrMod = np.linalg.norm(inBasis, axis=1)           
+        arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
+        # for j in range(3):
+        #         arrRows = np.where(np.abs(arrCoefficients[:,j]) < 0.1)
+        #         if len(arrRows) > 0:
+        #                 arrCoefficients[arrRows,j] = np.zeros(len(arrRows))
+        # arrCoefficients = np.mod(arrCoefficients, arrMod) #move so that they lie inside cell 
+        #arrCoefficients = np.unique(arrCoefficients, axis= 0)
         if blnReturnCellCoordinates:
-                return np.matmul(arrCoefficients, inMatrix),arrCoefficients #return the wrapped vector in the standard basis
+                return np.matmul(arrCoefficients, arrUnitBasis),arrCoefficients #return the wrapped vector in the standard basis
         else:        
-                return np.matmul(arrCoefficients, inMatrix)
+                return np.matmul(arrCoefficients, arrUnitBasis)
 def CheckVectorIsInSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
         arrCellCoordinates = np.matmul(inVector, invMatrix)
         arrModCoordinates = np.mod(arrCellCoordinates,np.ones(np.shape(arrCellCoordinates)))
@@ -245,7 +284,7 @@ def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCel
             for k in range(len(inVectors2)):
                 arrPeriodicDistance[j,k] = PeriodicMinimumDistance(inVectors1[j],inVectors2[k], inCellVectors, inBasisConversion, inBoundaryList)
         return arrPeriodicDistance
-def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: float):
+def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: float, blnRemoveOriginalPoints = False):
         arrInverseMatrix = np.linalg.inv(inCellVectors)
         arrCoefficients = np.matmul(inPoints, arrInverseMatrix)
         arrProportions = np.zeros(3)
@@ -256,7 +295,8 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
                 if fltComponent != 0:
                         arrProportions[i] = fltDistance/(np.linalg.norm(inCellVectors[i])*fltComponent)
         lstNewPoints = []
-        lstNewPoints.append(arrCoefficients)
+        if not blnRemoveOriginalPoints:
+                lstNewPoints.append(arrCoefficients)
         for j in range(3):
                 arrVector = np.zeros(3)
                 arrVector[j] = 1
@@ -465,21 +505,39 @@ def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inC
         intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
         if intLength > 0:
                 if inCellVectors is not(None):
-                        inPoints = AddPeriodicWrapper(inPoints, inCellVectors, 2*fltRadius)
+                        inPoints = AddPeriodicWrapper(inPoints, inCellVectors, 4*fltRadius)
                 objSpatial = KDTree(inPoints)
                 arrCounts = objSpatial.query_radius(inPoints, fltRadius, count_only=True)
-                arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours)[0]
+                arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours +1)[0]
                 arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
                 return arrBoundaryIndices
         else:
                 return [] 
-def FindSurfaceArea(inPoints: np.array):
-        cloud = pv.PolyData(inPoints)
-        surf = cloud.delaunay_2d()
-        return surf.area
-def FindSplineLength(inPoints: np.array):
-        arrPoints = SortInDistanceOrder(inPoints)[0]
-        objSpline = pv.Spline(arrPoints)
-        return objSpline.length       
+def GetPeriodicDuplicatePoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inCellVectors):
+        intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
+        if intLength > 0:
+                arrWrappedPoints = AddPeriodicWrapper(inPoints, inCellVectors, 4*fltRadius)
+                objSpatial = KDTree(arrWrappedPoints)
+                arrCounts = objSpatial.query_radius(inPoints, fltRadius, count_only=True)
+                arrBoundaryIndices = np.where(arrCounts > intNumberOfNeighbours+1)[0]
+                arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
+                return arrBoundaryIndices
+        else:
+                return [] 
+# def FindSurfaceArea(inPoints: np.array):
+#         cloud = pv.PolyData(inPoints)
+#         surf = cloud.delaunay_2d()
+#         return surf.area
+# def FindSplineLength(inPoints: np.array):
+#         arrPoints = SortInDistanceOrder(inPoints)[0]
+#         objSpline = pv.Spline(arrPoints)
+#         return objSpline.length  
+def DecimalArray(inArray: np.array):
+        if len(np.shape(inArray)) ==2:
+                lstDecimals = [[Decimal(str(x)) for x in y] for y in inArray]
+        elif len(np.shape(inArray)) ==1:
+                lstDecimals = [Decimal(str(x)) for x in inArray]
+        return np.array(lstDecimals)
+
 
         
