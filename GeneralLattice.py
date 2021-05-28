@@ -10,7 +10,7 @@ from sympy.abc import x,y,z
 from datetime import datetime
 import copy as cp
 import warnings
-import lammps
+#import lammps
 from decimal import Decimal
 
 
