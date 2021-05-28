@@ -147,14 +147,14 @@ class PureLattice(PureCell):
         rtnArray[:3] = rtnArray[:3]/fltLength 
         rtnArray[3] = np.round(gf.InnerProduct(rtnArray[:3], tmpArray,np.linalg.inv(inBasisVectors)),self.__intConstraintRound)
         return rtnArray
-    def CheckLatticeConstraints(self,inPoints: np.array, fltTolerance=0.0001)-> np.array: #returns indices to delete   
+    def CheckLatticeConstraints(self,inPoints: np.array, fltTolerance=0.01)-> np.array: #returns indices to delete   
         lstIndices = []
         for j in self.__LatticeConstraints:
             arrPositions = np.subtract(np.matmul(inPoints, np.transpose(j[:-1])), j[-1])
             arrClosed = np.where(np.round(arrPositions,self.__intConstraintRound) > fltTolerance)[0]
             lstIndices.append(arrClosed)
         return np.unique(np.concatenate(lstIndices))        
-    def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 0.0001)->np.array:
+    def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 0.01)->np.array:
         intLength = len(inConstraints)
         intCombinations = int(np.math.factorial(intLength)/(np.math.factorial(3)*np.math.factorial(intLength-3)))
         arrMatrix = np.zeros([3,4])
@@ -515,7 +515,10 @@ class SimulationCell(object):
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
         with open(inFileName, 'w') as fdata:
             fdata.write('## ' + strDateTime + ' ' + self.__FileHeader + '\n')
-            fdata.write('{} atoms\n'.format(self.GetUpdatedAtomNumbers()))
+            if self.blnPointsAreWrapped:
+                fdata.write('{} atoms\n'.format(len(self.__AtomPositions)))
+            else:
+                fdata.write('{} atoms\n'.format(self.GetUpdatedAtomNumbers()))
             fdata.write('{} atom types\n'.format(self.GetNumberOfAtomTypes()))
             fdata.write('{} {} xlo xhi\n'.format(self.__xlo,self.__xhi))
             fdata.write('{} {} ylo yhi\n'.format(self.__ylo,self.__yhi))
@@ -589,6 +592,7 @@ class SimulationCell(object):
         lstUniqueRowIndices = np.unique(np.round(arrAllAtoms,1),axis=0, return_index = True)[1]
         self.__AtomPositions = arrAllAtoms[lstUniqueRowIndices]
         self.__AtomTypes = arrAllAtomTypes[lstUniqueRowIndices]
+        self.blnPointsAreWrapped = True
     def RemovePeriodicDuplicates(self,fltDistance):
         for i in self.GrainList:
             arrIndices = list(np.unique(np.round(self.GetGrain(i).GetRealPoints(),1), axis=1))
@@ -677,8 +681,8 @@ class SimulationCell(object):
     def GetRealConstraints(self):
         arrConstraints = np.zeros([3,4])
         for j in range(len(self.__BasisVectors)):
-            arrConstraints[j,:3] =gf.NormaliseVector((-1)**j*np.cross(self.__BasisVectors[j], self.__BasisVectors[np.mod(j+1,3)]))
-            arrConstraints[j,3] = (-1)**j*np.dot(arrConstraints[j,:3],self.__BasisVectors[np.mod(j+2,3)])
+            arrConstraints[j,:3] =gf.NormaliseVector(np.cross(self.__BasisVectors[j], self.__BasisVectors[np.mod(j+1,3)]))
+            arrConstraints[j,3] = np.dot(arrConstraints[j,:3],self.__BasisVectors[np.mod(j+2,3)])
         return arrConstraints
     def RemoveAtomsOnOpenBoundaries(self):
         for j in self.GrainList:
