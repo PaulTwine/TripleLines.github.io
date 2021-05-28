@@ -242,6 +242,8 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         self._LatticeStructure = intLatticeType #lattice structure type as defined by OVITOS
         if 'StructureType' in self.GetColumnNames():
             self._intStructureType = int(self.GetColumnNames().index('StructureType'))
+        elif 'c_pt[1]' in self.GetColumnNames():
+            self._intStructureType = int(self.GetColumnNames().index('c_pt[1]'))
         else:
             warnings.warn('Error missing atom structure types in dump file.')
         if 'c_v1' in self.GetColumnNames():
@@ -273,7 +275,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
     def GetPlaneNormalVectors(self):
         return self.__PlaneNormalVectors
     def CategoriseAtoms(self, fltTolerance = None):    
-        if 'StructureType' in self.GetColumnNames():
+        if 'StructureType' in self.GetColumnNames() or 'c_pt[1]' in self.GetColumnNames():
             self.__DefectiveAtomIDs = []
             self.__NonDefectiveAtomIDs = []
             lstOtherAtoms = list(np.where(self.GetColumnByIndex(self._intStructureType).astype('int') == 0)[0])
