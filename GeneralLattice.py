@@ -147,14 +147,14 @@ class PureLattice(PureCell):
         rtnArray[:3] = rtnArray[:3]/fltLength 
         rtnArray[3] = np.round(gf.InnerProduct(rtnArray[:3], tmpArray,np.linalg.inv(inBasisVectors)),self.__intConstraintRound)
         return rtnArray
-    def CheckLatticeConstraints(self,inPoints: np.array, fltTolerance=0.01)-> np.array: #returns indices to delete   
+    def CheckLatticeConstraints(self,inPoints: np.array, fltTolerance=1e-5)-> np.array: #returns indices to delete   
         lstIndices = []
         for j in self.__LatticeConstraints:
             arrPositions = np.subtract(np.matmul(inPoints, np.transpose(j[:-1])), j[-1])
             arrClosed = np.where(np.round(arrPositions,self.__intConstraintRound) > fltTolerance)[0]
             lstIndices.append(arrClosed)
         return np.unique(np.concatenate(lstIndices))        
-    def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 0.01)->np.array:
+    def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 1e-5)->np.array:
         intLength = len(inConstraints)
         intCombinations = int(np.math.factorial(intLength)/(np.math.factorial(3)*np.math.factorial(intLength-3)))
         arrMatrix = np.zeros([3,4])
@@ -306,7 +306,7 @@ class GeneralLattice(PureLattice,RealCell):
     def SetOpenBoundaryPoints(self,inVectors: np.array):
         lstDeletedIndices = self.SetOpenConstraints(inVectors)
         self.DeletePoints(lstDeletedIndices)
-    def SetOpenConstraints(self, inRealConstraints: np.array, fltTolerance=0.0001):
+    def SetOpenConstraints(self, inRealConstraints: np.array, fltTolerance=1e-5):
         lstIndices = []
         lstConstraints = []
         intCounter = 0
