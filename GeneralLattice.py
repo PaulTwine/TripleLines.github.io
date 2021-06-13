@@ -153,7 +153,9 @@ class PureLattice(PureCell):
             arrPositions = np.subtract(np.matmul(inPoints, np.transpose(j[:-1])), j[-1])
             arrClosed = np.where(np.round(arrPositions,self.__intConstraintRound) > fltTolerance)[0]
             lstIndices.append(arrClosed)
-        return np.unique(np.concatenate(lstIndices))        
+        return np.unique(np.concatenate(lstIndices))
+    #FindBoxConstraint only works for linear constraints. 
+    #Searches for all the vertices where three constraints #simultaneously apply and then finds the points furthest from the origin.        
     def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 1e-5)->np.array:
         intLength = len(inConstraints)
         intCombinations = int(np.math.factorial(intLength)/(np.math.factorial(3)*np.math.factorial(intLength-3)))
@@ -271,7 +273,6 @@ class GeneralLattice(PureLattice,RealCell):
     def RemovePlaneOfAtoms(self, inPlane: np.array):
         lstDeletedIndices = gf.CheckLinearEquality(self.__RealPoints, inPlane, 0.01)
         self.DeletePoints(lstDeletedIndices)
-    #FindBoxConstraint only works for linear constraints. Searches for all the vertices where three constraints #simultaneously apply and then finds the points furthest from the origin.
     def ApplyGeneralConstraint(self,strFunction, strVariables='[x,y,z]'): #default scalar value is less than or equal to 0 if "inside" the region
         lstVariables = parse_expr(strVariables)
         fltFunction = lambdify(lstVariables,parse_expr(strFunction))
@@ -284,22 +285,20 @@ class GeneralLattice(PureLattice,RealCell):
     def GetLinearConstraints(self):
         return self.__LinearConstraints
     def FindBoundaryPoints(self, inPeriodicVectors = None):
-        if not(self.__blnFoundBoundaryPoints):
-            self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.__RealPoints, self.GetNumberOfNeighbours(), 1.05*self.GetNearestNeighbourDistance(),inPeriodicVectors)
-            lstInteriorPoints = list(set(range(self.GetNumberOfPoints())).difference(list(self.__BoundaryPointIndices)))
-            self.__InteriorPointIndices = lstInteriorPoints
-            self.__blnFoundBoundaryPoints = True 
+        self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.__RealPoints, self.GetNumberOfNeighbours(), 1.05*self.GetNearestNeighbourDistance(),inPeriodicVectors)
+        lstInteriorPoints = list(set(range(self.GetNumberOfPoints())).difference(list(self.__BoundaryPointIndices)))
+        self.__InteriorPointIndices = lstInteriorPoints
     def GetInteriorPoints(self):
-        if not(self.__blnFoundBoundaryPoints):
-            self.FindBoundaryPoints()
+        #if not(self.__blnFoundBoundaryPoints):
+        self.FindBoundaryPoints()
         return self.__RealPoints[self.__InteriorPointIndices]
     def GetBoundaryPoints(self, inPeriodicVectors = None):
-        if not(self.__blnFoundBoundaryPoints):
-            self.FindBoundaryPoints(inPeriodicVectors)
+        #if not(self.__blnFoundBoundaryPoints):
+        self.FindBoundaryPoints(inPeriodicVectors)
         return self.__RealPoints[self.__BoundaryPointIndices]
     def GetBoundaryIndices(self, inPeriodicVectors = None):
-        if not(self.__blnFoundBoundaryPoints):
-            self.FindBoundaryPoints(inPeriodicVectors)    
+        #if not(self.__blnFoundBoundaryPoints):
+        self.FindBoundaryPoints(inPeriodicVectors)    
         return self.__BoundaryPointIndices
     def FoundBoundaries(self):
         return self.__blnFoundBoundaryPoints
@@ -315,7 +314,7 @@ class GeneralLattice(PureLattice,RealCell):
                 j = self.ConvertRealToLatticeConstraint(i,self.GetCellVectors())
                 lstConstraints.append(j)
                 arrPositions = np.subtract(np.matmul(self.GetLatticePoints(), np.transpose(j[:-1])), j[-1])
-                arrClosed = np.where(np.round(np.abs(arrPositions),10) < fltTolerance)[0]
+                arrClosed = np.where(np.abs(arrPositions) < fltTolerance)[0]
                 lstIndices.append(arrClosed)
                 intCounter +=1
         self.__OpenConstraints = np.vstack(lstConstraints)
@@ -372,8 +371,7 @@ class GeneralGrain(GeneralLattice):
         lstRows = self.GetBoundaryAtomIndices(inPeriodicVectors)
         return self.GetRealPoints()[lstRows]
     def GetBoundaryAtomIndices(self, inPeriodicVectors = None):
-        if not(self.FoundBoundaries()):
-            self.FindBoundaryPoints(inPeriodicVectors)
+        self.FindBoundaryPoints(inPeriodicVectors)
         setBoundaryPoints = set(self.GetBoundaryIndices(inPeriodicVectors))
         lstRows = list(setBoundaryPoints.difference(self.__VacancyIndices))
         return lstRows
@@ -590,6 +588,8 @@ class SimulationCell(object):
                 i = i + 1
         arrAllAtoms = np.round(self.WrapVectorIntoSimulationBox(arrAllAtoms), intRound)
         lstUniqueRowIndices = np.unique(np.round(arrAllAtoms,1),axis=0, return_index = True)[1]
+        if len(lstUniqueRowIndices) < len(arrAllAtoms):
+            warnings.warn('Duplicate atoms detected within simulation cell and have bene removed.')
         self.__AtomPositions = arrAllAtoms[lstUniqueRowIndices]
         self.__AtomTypes = arrAllAtomTypes[lstUniqueRowIndices]
         self.blnPointsAreWrapped = True
@@ -604,30 +604,40 @@ class SimulationCell(object):
         lstRemainingGrains = list(np.copy(self.GrainList))
         intFirst = 0
         while intFirst < len(lstRemainingGrains):
-            strCurrentGrain = lstRemainingGrains[intFirst]
-            intFirst +=1
-            lstVacancies = []
-            lstCurrentIndices = self.GetGrain(strCurrentGrain).GetBoundaryAtomIndices()
-            arrPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(strCurrentGrain).GetBoundaryAtoms()) 
-            lstCloseIndices = []
-            intSecond = 0
-            if len(arrPoints) > 0:
+            strFirstGrain = lstRemainingGrains[intFirst]
+            lstVacanciesOne = []
+            lstIndicesOne = self.GetGrain(strFirstGrain).GetBoundaryAtomIndices()
+            arrPointsOne = self.WrapVectorIntoSimulationBox(self.GetGrain(strFirstGrain).GetBoundaryAtoms())
+            arrWrappedOne = gf.PeriodicEquivalents(arrPointsOne,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['p','p','p']) 
+            objTreeOne = KDTree(arrWrappedOne)
+            intSecond = intFirst + 1
+            if len(arrPointsOne) > 0:
                 while intSecond < len(lstRemainingGrains):
-                    strNextGrain = lstRemainingGrains[intSecond]
-                    arrNextPoints =  self.WrapVectorIntoSimulationBox(self.GetGrain(strNextGrain).GetBoundaryAtoms())
-                    arrNextPoints = gf.AddPeriodicWrapper(arrNextPoints, self.__BasisVectors,fltDistance, True)
-                    if len(arrNextPoints) > 0:
-                        objTree = KDTree(arrNextPoints)
-                        arrCounts = objTree.query_radius(arrPoints, r=fltDistance, count_only=True)
-                        if len(arrCounts) > 0:
-                            lstRows = np.where(arrCounts > 0)[0]
-                            lstCloseIndices.extend(lstRows)
+                    lstVacanciesTwo = []
+                    strSecondGrain = lstRemainingGrains[intSecond]
+                    lstIndicesTwo = self.GetGrain(strSecondGrain).GetBoundaryAtomIndices()
+                    arrPointsTwo =  self.WrapVectorIntoSimulationBox(self.GetGrain(strSecondGrain).GetBoundaryAtoms())
+                    if len(arrPointsTwo) > 0:
+                        arrDistancesOne, arrIndicesOne = objTreeOne.query(arrPointsTwo, k=1)
+                        arrClose = np.where(arrDistancesOne < fltDistance)[0]
+                        arrIndicesOne = arrIndicesOne[arrClose]
+                        arrIndicesOne = np.unique(np.mod(arrIndicesOne[:,0], len(arrPointsOne)))
+                        if len(arrIndicesOne) > 0:
+                            arrWrappedTwo = gf.PeriodicEquivalents(arrPointsTwo,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['p','p','p']) 
+                            objTreeTwo = KDTree(arrWrappedTwo)
+                            arrDistancesTwo, arrIndicesTwo = objTreeTwo.query(arrPointsOne[arrIndicesOne], k=1)
+                            arrClose = np.where(arrDistancesTwo < fltDistance)[0]
+                            arrIndicesTwo = arrIndicesTwo[arrClose]
+                            arrIndicesTwo = np.unique(np.mod(arrIndicesTwo[:,0], len(arrPointsTwo))) 
+                            if len(arrIndicesOne) == len(arrIndicesTwo):
+                                for i in arrIndicesOne.tolist()[::2]:
+                                    lstVacanciesOne.append(lstIndicesOne[i]) 
+                                self.GetGrain(strFirstGrain).AddVacancies(lstVacanciesOne)
+                                for j in arrIndicesTwo.tolist()[1::2]:
+                                    lstVacanciesTwo.append(lstIndicesTwo[j])
+                                self.GetGrain(strSecondGrain).AddVacancies(lstVacanciesTwo)
                     intSecond += 1
-                if len(lstCloseIndices)> 0:
-                    lstCloseIndices = list(np.unique(lstCloseIndices))
-                    for j in lstCloseIndices:
-                        lstVacancies.append(lstCurrentIndices[j]) 
-                    self.GetGrain(strCurrentGrain).AddVacancies(lstVacancies)
+            intFirst += 1
     def PlotSimulationCellAtoms(self):
         if self.blnPointsAreWrapped:
             return tuple(zip(*self.__UniqueRealPoints))
