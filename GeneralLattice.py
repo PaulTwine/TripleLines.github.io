@@ -1,6 +1,5 @@
 import numpy as np
 import GeometryFunctions as gf
-#import LatticeShapes as ls
 import LatticeDefinitions as ld
 import scipy as sc
 from sklearn.neighbors import KDTree
@@ -10,7 +9,7 @@ from sympy.abc import x,y,z
 from datetime import datetime
 import copy as cp
 import warnings
-#import lammps
+import lammps
 from decimal import Decimal
 
 
@@ -303,8 +302,9 @@ class GeneralLattice(PureLattice,RealCell):
     def FoundBoundaries(self):
         return self.__blnFoundBoundaryPoints
     def SetOpenBoundaryPoints(self,inVectors: np.array):
-        lstDeletedIndices = self.SetOpenConstraints(inVectors)
-        self.DeletePoints(lstDeletedIndices)
+        if len(inVectors) > 0:
+            lstDeletedIndices = self.SetOpenConstraints(inVectors)
+            self.DeletePoints(lstDeletedIndices)
     def SetOpenConstraints(self, inRealConstraints: np.array, fltTolerance=1e-5):
         lstIndices = []
         lstConstraints = []
@@ -316,9 +316,14 @@ class GeneralLattice(PureLattice,RealCell):
                 arrPositions = np.subtract(np.matmul(self.GetLatticePoints(), np.transpose(j[:-1])), j[-1])
                 arrClosed = np.where(np.abs(arrPositions) < fltTolerance)[0]
                 lstIndices.append(arrClosed)
-                intCounter +=1
-        self.__OpenConstraints = np.vstack(lstConstraints)
-        return list(np.unique(np.concatenate(lstIndices)))
+            intCounter +=1
+        if len(lstIndices) > 0:
+            self.__OpenConstraints = np.vstack(lstConstraints)
+            return list(np.unique(np.concatenate(lstIndices)))
+        else: 
+            self.__OpenConstraints = []
+            return []
+        
        
         
 class GeneralGrain(GeneralLattice):
@@ -575,8 +580,7 @@ class SimulationCell(object):
         lstRows = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors,arrAllAtoms)
         self.__AtomPositions = arrAllAtoms[lstRows]
         self.__AtomTypes = arrAllAtomTypes[lstRows]
-    def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
-        lstUniqueRowIndices = []
+    def UpdateAtomsPositions(self):
         arrAllAtoms = np.zeros([self.GetUpdatedAtomNumbers(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetUpdatedAtomNumbers()],dtype=np.int8)
         i = 0
@@ -586,12 +590,17 @@ class SimulationCell(object):
                 arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
-        arrAllAtoms = np.round(self.WrapVectorIntoSimulationBox(arrAllAtoms), intRound)
-        lstUniqueRowIndices = np.unique(np.round(arrAllAtoms,1),axis=0, return_index = True)[1]
-        if len(lstUniqueRowIndices) < len(arrAllAtoms):
+        self.__AtomPositions = arrAllAtoms
+        self.__AtomTypes = arrAllAtomTypes
+    def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
+        lstUniqueRowIndices = []
+        self.UpdateAtomsPositions()
+        self.__AtomPositions = np.round(self.WrapVectorIntoSimulationBox(self.__AtomPositions), intRound)
+        lstUniqueRowIndices = np.unique(np.round(self.__AtomPositions,1),axis=0, return_index = True)[1]
+        if len(lstUniqueRowIndices) < len(self.__AtomPositions):
             warnings.warn('Duplicate atoms detected within simulation cell and have bene removed.')
-        self.__AtomPositions = arrAllAtoms[lstUniqueRowIndices]
-        self.__AtomTypes = arrAllAtomTypes[lstUniqueRowIndices]
+        self.__AtomPositions = self.__AtomPositions[lstUniqueRowIndices]
+        self.__AtomTypes = self.__AtomTypes[lstUniqueRowIndices]
         self.blnPointsAreWrapped = True
     def RemovePeriodicDuplicates(self,fltDistance):
         for i in self.GrainList:
@@ -600,11 +609,12 @@ class SimulationCell(object):
             self.GetGrain(i).AddVacancies(lstRows)
             lstDeletes =  gf.GetPeriodicDuplicatePoints(self.GetGrain(i).GetAtomPositions(),self.GetGrain(i).GetNumberOfNeighbours(),1.05*self.GetGrain(i).GetNearestNeighbourDistance(),self.GetRealBasisVectors()) 
             self.GetGrain(i).DeletePoints(lstDeletes)
-    def RemoveTooCloseAtoms(self, fltDistance: float): #assumes grains are correctly positioned so they don't interpenetrate
-        lstRemainingGrains = list(np.copy(self.GrainList))
+    def RemoveTooCloseAtoms(self, fltDistance: float,lstGrains = []): #assumes grains are correctly positioned so they don't interpenetrate
+        if len(lstGrains) ==0:
+            lstGrains = list(np.copy(self.GrainList))
         intFirst = 0
-        while intFirst < len(lstRemainingGrains):
-            strFirstGrain = lstRemainingGrains[intFirst]
+        while intFirst < len(lstGrains):
+            strFirstGrain = lstGrains[intFirst]
             lstVacanciesOne = []
             lstIndicesOne = self.GetGrain(strFirstGrain).GetBoundaryAtomIndices()
             arrPointsOne = self.WrapVectorIntoSimulationBox(self.GetGrain(strFirstGrain).GetBoundaryAtoms())
@@ -612,9 +622,9 @@ class SimulationCell(object):
             objTreeOne = KDTree(arrWrappedOne)
             intSecond = intFirst + 1
             if len(arrPointsOne) > 0:
-                while intSecond < len(lstRemainingGrains):
+                while intSecond < len(lstGrains):
                     lstVacanciesTwo = []
-                    strSecondGrain = lstRemainingGrains[intSecond]
+                    strSecondGrain = lstGrains[intSecond]
                     lstIndicesTwo = self.GetGrain(strSecondGrain).GetBoundaryAtomIndices()
                     arrPointsTwo =  self.WrapVectorIntoSimulationBox(self.GetGrain(strSecondGrain).GetBoundaryAtoms())
                     if len(arrPointsTwo) > 0:
@@ -644,9 +654,9 @@ class SimulationCell(object):
     def RemovePlaneOfAtoms(self, inPlane: np.array, fltTolerance: float):
         arrPointsOnPlane = gf.CheckLinearEquality(np.round(self.__UniqueRealPoints,10), inPlane,fltTolerance)
         self.__UniqueRealPoints = np.delete(self.__UniqueRealPoints,arrPointsOnPlane, axis=0)   
-    def GetRealPoints(self)->np.array:
+    def GetAtomPoints(self)->np.array:
         if self.blnPointsAreWrapped:
-            return self.__UniqueRealPoints
+            return self.__AtomPositions
         else:
             raise("Error: Points need to be wrapped into simulation cell")
     def GetSimulationCellVolume(self):
@@ -656,7 +666,7 @@ class SimulationCell(object):
         for j in self.GrainList:
             intNumberOfVacancies += self.GetGrain(j).GetNumberOfVacancies()
         return intNumberOfVacancies
-    def LAMMPSMinimisePositions(self,strDirectory: str,strFileOutput: str, strTemplate: str, intRange: int, fltMean: float, fltNearestNeighbour = None):
+    def LAMMPSMinimisePositions(self,strDirectory: str,strFileOutput: str, strTemplate: str, intRange: int, fltDatum: float,fltNearestNeighbour = None):
         if fltNearestNeighbour is None:
             lstDistances = []
             for i in self.GrainList:
@@ -678,21 +688,19 @@ class SimulationCell(object):
             objLammps = lammps.PyLammps()
             objLammps.file(strDirectory + strTemplate) #must potential energy
             lstPE.append(objLammps.eval('pe'))
-            if len(lstj) ==1:
-                lstAdjusted.append(0.0)
-            else: 
-                lstAdjusted.append(lstPE[-1] - lstPE[-2] + fltMean*(lstAtoms[-2]-lstAtoms[-1]))
+            lstAdjusted.append(lstPE[-1] - lstPE[0] + fltDatum*(lstAtoms[0]-lstAtoms[-1]))
             arrMins =  np.where(np.array(lstAdjusted) == min(lstAdjusted))[0]
             if lstAdjusted[j] == lstAdjusted[arrMins[0]] and len(arrMins) == 1:
                     objLammps.command('write_data ' + strDirectory + strFileOutput)
                     intMin = j
+                    self.WriteLAMMPSDataFile(strDirectory + 'best.dat')
             objLammps.close()
-        return lstAtoms[intMin], lstPE[intMin]
+        return lstAtoms, lstAdjusted,intMin/intRange
     def GetRealConstraints(self):
         arrConstraints = np.zeros([3,4])
         for j in range(len(self.__BasisVectors)):
-            arrConstraints[j,:3] =gf.NormaliseVector(np.cross(self.__BasisVectors[j], self.__BasisVectors[np.mod(j+1,3)]))
-            arrConstraints[j,3] = np.dot(arrConstraints[j,:3],self.__BasisVectors[np.mod(j+2,3)])
+            arrConstraints[j,:3] =gf.NormaliseVector(np.cross(self.__BasisVectors[np.mod(j+1,3)], self.__BasisVectors[np.mod(j+2,3)]))
+            arrConstraints[j,3] = np.dot(arrConstraints[j,:3],self.__BasisVectors[np.mod(j,3)])
         return arrConstraints
     def RemoveAtomsOnOpenBoundaries(self):
         for j in self.GrainList:
