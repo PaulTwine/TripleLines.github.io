@@ -204,7 +204,7 @@ class GeneralLattice(PureLattice,RealCell):
          #default RemovedBoundaryPoints = []
         self.__blnFoundBoundaryPoints = False
         self.__Periodicity = ['p','p','p']
-    def SetPeriodicty(self, inList):
+    def SetPeriodicity(self, inList):
         self.__Periodicity = inList
     def GetPeriodicity(self, intIndex = None):
         if intIndex is None:
@@ -589,7 +589,7 @@ class SimulationCell(object):
             for fltPoint in arrPoints:
                 arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
                 arrAllAtoms[i] = fltPoint
-                i = i + 1
+                i += 1
         self.__AtomPositions = arrAllAtoms
         self.__AtomTypes = arrAllAtomTypes
     def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
@@ -618,10 +618,10 @@ class SimulationCell(object):
             lstVacanciesOne = []
             lstIndicesOne = self.GetGrain(strFirstGrain).GetBoundaryAtomIndices()
             arrPointsOne = self.WrapVectorIntoSimulationBox(self.GetGrain(strFirstGrain).GetBoundaryAtoms())
-            arrWrappedOne = gf.PeriodicEquivalents(arrPointsOne,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['p','p','p']) 
-            objTreeOne = KDTree(arrWrappedOne)
             intSecond = intFirst + 1
             if len(arrPointsOne) > 0:
+                arrWrappedOne = gf.PeriodicEquivalents(arrPointsOne,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['p','p','p']) 
+                objTreeOne = KDTree(arrWrappedOne)
                 while intSecond < len(lstGrains):
                     lstVacanciesTwo = []
                     strSecondGrain = lstGrains[intSecond]
@@ -629,16 +629,22 @@ class SimulationCell(object):
                     arrPointsTwo =  self.WrapVectorIntoSimulationBox(self.GetGrain(strSecondGrain).GetBoundaryAtoms())
                     if len(arrPointsTwo) > 0:
                         arrDistancesOne, arrIndicesOne = objTreeOne.query(arrPointsTwo, k=1)
+                        arrDistancesOne = np.array(list(map(lambda x: x[0], arrDistancesOne)))
+                        arrIndicesOne = np.array(list(map(lambda x: x[0], arrIndicesOne)))
                         arrClose = np.where(arrDistancesOne < fltDistance)[0]
                         arrIndicesOne = arrIndicesOne[arrClose]
-                        arrIndicesOne = np.unique(np.mod(arrIndicesOne[:,0], len(arrPointsOne)))
+                        arrIndicesOne,arrPositionsOne = np.unique(np.mod(arrIndicesOne, len(arrPointsOne)),return_index=True)
+                        arrIndicesOne = arrIndicesOne[np.argsort(arrPositionsOne)]
                         if len(arrIndicesOne) > 0:
                             arrWrappedTwo = gf.PeriodicEquivalents(arrPointsTwo,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['p','p','p']) 
                             objTreeTwo = KDTree(arrWrappedTwo)
                             arrDistancesTwo, arrIndicesTwo = objTreeTwo.query(arrPointsOne[arrIndicesOne], k=1)
+                            arrDistancesTwo = np.array(list(map(lambda x: x[0], arrDistancesTwo)))
+                            arrIndicesTwo = np.array(list(map(lambda x: x[0], arrIndicesTwo)))
                             arrClose = np.where(arrDistancesTwo < fltDistance)[0]
                             arrIndicesTwo = arrIndicesTwo[arrClose]
-                            arrIndicesTwo = np.unique(np.mod(arrIndicesTwo[:,0], len(arrPointsTwo))) 
+                            arrIndicesTwo,arrPositionsTwo = np.unique(np.mod(arrIndicesTwo, len(arrPointsTwo)),return_index=True)
+                            arrIndicesTwo = arrIndicesTwo[np.argsort(arrPositionsTwo)]  
                             if len(arrIndicesOne) == len(arrIndicesTwo):
                                 for i in arrIndicesOne.tolist()[::2]:
                                     lstVacanciesOne.append(lstIndicesOne[i]) 
@@ -646,6 +652,8 @@ class SimulationCell(object):
                                 for j in arrIndicesTwo.tolist()[1::2]:
                                     lstVacanciesTwo.append(lstIndicesTwo[j])
                                 self.GetGrain(strSecondGrain).AddVacancies(lstVacanciesTwo)
+                            else:
+                                warnings.warn('Error matching pairs across grain boundary for grains ' + strFirstGrain + ' and ' + strSecondGrain)
                     intSecond += 1
             intFirst += 1
     def PlotSimulationCellAtoms(self):
@@ -676,9 +684,8 @@ class SimulationCell(object):
         lstAtoms = []
         lstPE = []
         lstAdjusted = []
-        intMin = 0
         self.WrapAllAtomsIntoSimulationCell()
-        for j in range(0, intRange+1):
+        for j in range(0, intRange):
             lstj.append(fltNearestNeighbour*j/(intRange))
             self.RemoveTooCloseAtoms(lstj[-1])
             lstAtoms.append(self.GetUpdatedAtomNumbers())
@@ -687,15 +694,21 @@ class SimulationCell(object):
             self.WriteLAMMPSDataFile(strDirectory + 'read.dat')
             objLammps = lammps.PyLammps()
             objLammps.file(strDirectory + strTemplate) #must potential energy
-            lstPE.append(objLammps.eval('pe'))
-            lstAdjusted.append(lstPE[-1] - lstPE[0] + fltDatum*(lstAtoms[0]-lstAtoms[-1]))
-            arrMins =  np.where(np.array(lstAdjusted) == min(lstAdjusted))[0]
-            if lstAdjusted[j] == lstAdjusted[arrMins[0]] and len(arrMins) == 1:
+            if len(lstj) ==1: 
+                lstAdjusted.append(0)
+                lstPE.append(objLammps.eval('pe'))
+            elif lstAtoms[-2] == lstAtoms[-1]:
+                lstPE.append(lstPE[-1])
+                lstAdjusted.append(lstAdjusted[-1])
+            else:
+                lstPE.append(objLammps.eval('pe'))
+                lstAdjusted.append(lstPE[-1] - lstPE[0] + fltDatum*(lstAtoms[0]-lstAtoms[-1]))    
+            #arrMins =  np.where(np.array(lstAdjusted) == min(lstAdjusted))[0]
+            if lstAdjusted[j] == min(lstAdjusted):
                     objLammps.command('write_data ' + strDirectory + strFileOutput)
-                    intMin = j
                     self.WriteLAMMPSDataFile(strDirectory + 'best.dat')
             objLammps.close()
-        return lstAtoms, lstAdjusted,intMin/intRange
+        return lstAtoms, lstAdjusted,np.argmin(lstAdjusted)/intRange
     def GetRealConstraints(self):
         arrConstraints = np.zeros([3,4])
         for j in range(len(self.__BasisVectors)):
