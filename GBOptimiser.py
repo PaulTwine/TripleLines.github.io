@@ -41,11 +41,9 @@ else:
     fltAngle3, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
     arrBasisVectors = gf.RotateVectors(fltAngle3, arrRotation,gf.StandardBasisVectors(3)) 
 arrLatticeParameters= np.array([a,a,a])
-fltDatum = -3.36
 arrShift = a*(0.5-np.random.ranf())*arrSigmaBasis[1]
 arrCentre = 0.5*(arrX+arrXY) + arrShift
 strConstraint = str(arrXY[0])+ '*(y -' + str(arrCentre[1]) + ') - ' + str(arrXY[1]) + '*(x -' + str(arrCentre[0]) + ')' 
-MySimulationCell = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 objFullCell1 = gl.ExtrudedParallelogram(arrX,arrXY,s3*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell2 = gl.ExtrudedParallelogram(arrX,arrXY, s3*h, gf.RotateVectors(fltAngle2,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell1.SetPeriodicity(['n','p','p'])
@@ -56,10 +54,17 @@ objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 objBaseLeft = cp.deepcopy(objLeftCell1)
 objBaseRight = cp.deepcopy(objRightCell2)
+MySimulationCell = gl.SimulationCell(np.array([arrX,arrXY, z]))     
 MySimulationCell.AddGrain(objBaseLeft)
 MySimulationCell.AddGrain(objBaseRight)
-MySimulationCell.RemoveAtomsOnOpenBoundaries()
-MySimulationCell.WrapAllAtomsIntoSimulationCell()
-MySimulationCell.WriteLAMMPSDataFile(strDirectory + 'read.dat')
-lstAtoms, lstPE, fltTolerance = MySimulationCell.LAMMPSMinimisePositions(strDirectory,'read0.dmp','TemplateMin.in',20,fltDatum)
-np.savetxt(strDirectory + 'fltCutOff.txt', np.array([fltTolerance]))
+fltj = objFullCell1.GetNearestNeighbourDistance() 
+lstj = [] 
+lstAtoms = []  
+for j in range(20):
+    lstAtoms.append(MySimulationCell.GetTotalNumberOfAtoms())
+    MySimulationCell.RemoveAtomsOnOpenBoundaries()
+    MySimulationCell.WrapAllAtomsIntoSimulationCell()
+    MySimulationCell.RemoveTooCloseAtoms(j*fltj/20)
+    lstAtoms.append(MySimulationCell.GetTotalNumberOfAtoms())
+    if lstAtoms[-1] != lstAtoms[-2]:
+        MySimulationCell.WriteLAMMPSDataFile(strDirectory + str(j) + '.dat')
