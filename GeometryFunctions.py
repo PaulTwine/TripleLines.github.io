@@ -116,14 +116,14 @@ def GetQuaternionFromBasisMatrix(inBasis: np.array)-> np.array:
        return np.array([1/(4*r)*(inBasis[2,1]-inBasis[1,2]),1/(4*r)*(inBasis[0,2]-inBasis[2,0]),1/(4*r)*(inBasis[1,0]-inBasis[0,1]),r])      
 def GetQuaternionFromVector(inVector: np.array, inAngle)->np.array:
         vctAxis = NormaliseVector(inVector)
-        lstQuarternion  = []
+        #lstQuarternion  = []
         C = np.cos(inAngle/2)
         S = np.sin(inAngle/2)
-        lstQuarternion.append(vctAxis[0]*S)
-        lstQuarternion.append(vctAxis[1]*S)
-        lstQuarternion.append(vctAxis[2]*S)
-        lstQuarternion.append(C)
-        return np.array(lstQuarternion)
+        #lstQuarternion.append(vctAxis[0]*S)
+        #lstQuarternion.append(vctAxis[1]*S)
+        #lstQuarternion.append(vctAxis[2]*S)
+        #lstQuarternion.append(C)
+        return np.array([C,vctAxis[0]*S,vctAxis[1]*S,vctAxis[2]*S])
 def QuaternionProduct(inVectorOne: np.array, inVectorTwo:np.array )->np.array:
         if len(inVectorOne) != 4 or len(inVectorTwo) != 4:
                 raise "Error quarternions must be 4 dimensional arrays"
@@ -225,7 +225,7 @@ def WrapVectorIntoSimulationCell(inBasis: np.array, invMatrix: np.array, inVecto
         #         arrRows = np.where(np.abs(arrCoefficients[:,j]) < 0.1)
         #         if len(arrRows) > 0:
         #                 arrCoefficients[arrRows,j] = np.zeros(len(arrRows))
-        # arrCoefficients = np.mod(arrCoefficients, arrMod) #move so that they lie inside cell 
+        arrCoefficients = np.mod(arrCoefficients, arrMod) #move so that they lie inside cell 
         #arrCoefficients = np.unique(arrCoefficients, axis= 0)
         if blnReturnCellCoordinates:
                 return np.matmul(arrCoefficients, arrUnitBasis),arrCoefficients #return the wrapped vector in the standard basis

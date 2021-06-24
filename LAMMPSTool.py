@@ -69,7 +69,7 @@ class LAMMPSData(object):
                     else:
                         lstColumnTypes.append('%i')
                 objTimeStep.SetColumnTypes(lstColumnTypes) 
-                objTimeStep.CategoriseAtoms()
+               # objTimeStep.CategoriseAtoms()
                 self.__dctTimeSteps[str(timestep)] = objTimeStep            
             Dfile.close()
             self.__lstTimeSteps = lstTimeSteps
@@ -246,8 +246,8 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
             self._intStructureType = int(self.GetColumnNames().index('c_pt[1]'))
         else:
             warnings.warn('Error missing atom structure types in dump file.')
-        if 'c_v1' in self.GetColumnNames():
-            self._intVolume = int(self.GetColumnNames().index('c_v1'))
+        if 'c_v[1]' in self.GetColumnNames():
+            self._intVolume = int(self.GetColumnNames().index('c_v[1]'))
         else:
             warnings.warn('Per atom volume data is missing.')
         if 'c_pe1' in self.GetColumnNames():
@@ -443,7 +443,14 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         else:
             lstIndices.extend(gf.ArcSegment(arrPoints[:,1:4], arrCentre, arrVector1, arrVector2, fltRadius,fltHeight))
         return list(arrPoints[lstIndices,0])
-               
+    def GetAtomIDsByOrientation(self,inQuaternion: np.array, intLatticeType: int,fltTolerance = 0.005):
+        intFirst = self.GetColumnIndex('c_pt[1]')
+        intSecond = self.GetColumnIndex('c_pt[7]')
+        arrQuaternions = self.GetAtomData()[:,intFirst:intSecond+1]
+        arrRows = np.where((np.abs(np.matmul(arrQuaternions[:,1:5],inQuaternion)) > 1-fltTolerance) & (arrQuaternions[:,0] == intLatticeType))[0]
+        arrIDs = self.GetColumnByIndex(0)[arrRows]
+        return arrIDs        
+
 class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)

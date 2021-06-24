@@ -104,6 +104,8 @@ class RealCell(PureCell):
         return self.__NearestNeighbourDistance
     def GetCellVolume(self):
         return np.abs(np.dot(self.__RealCellVectors[0], np.cross(self.__RealCellVectors[1],self.__RealCellVectors[2])))    
+    def GetQuaternion(self):
+        return gf.GetQuaternionFromBasisMatrix(self.__CellVectors)
 
 
 class PureLattice(PureCell):
@@ -494,7 +496,7 @@ class SimulationCell(object):
         return intNumberOfAtoms
     def GetTotalNumberOfAtoms(self):
         if self.blnPointsAreWrapped:
-            intNumberOfAtoms = len(self.__UniqueRealPoints) 
+            intNumberOfAtoms = len(self.__AtomPositions) 
         else: 
             intNumberOfAtoms = self.GetUpdatedAtomNumbers()
         return intNumberOfAtoms
