@@ -69,7 +69,7 @@ class LAMMPSData(object):
                     else:
                         lstColumnTypes.append('%i')
                 objTimeStep.SetColumnTypes(lstColumnTypes) 
-               # objTimeStep.CategoriseAtoms()
+                objTimeStep.CategoriseAtoms()
                 self.__dctTimeSteps[str(timestep)] = objTimeStep            
             Dfile.close()
             self.__lstTimeSteps = lstTimeSteps
@@ -443,14 +443,7 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         else:
             lstIndices.extend(gf.ArcSegment(arrPoints[:,1:4], arrCentre, arrVector1, arrVector2, fltRadius,fltHeight))
         return list(arrPoints[lstIndices,0])
-    def GetAtomIDsByOrientation(self,inQuaternion: np.array, intLatticeType: int,fltTolerance = 0.005):
-        intFirst = self.GetColumnIndex('c_pt[1]')
-        intSecond = self.GetColumnIndex('c_pt[7]')
-        arrQuaternions = self.GetAtomData()[:,intFirst:intSecond+1]
-        arrRows = np.where((np.abs(np.matmul(arrQuaternions[:,1:5],inQuaternion)) > 1-fltTolerance) & (arrQuaternions[:,0] == intLatticeType))[0]
-        arrIDs = self.GetColumnByIndex(0)[arrRows]
-        return arrIDs        
-
+    
 class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
         LAMMPSPostProcess.__init__(self, fltTimeStep,intNumberOfAtoms, intNumberOfColumns, lstColumnNames, lstBoundaryType, lstBounds,intLatticeType)
@@ -844,6 +837,22 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         setAllAtomIDs = set(self.GetGrainAtomIDs(intGrainID))
         lstExteriorIDs = self.GetInteriorGrainAtomIDs(intGrainID)
         return list(setAllAtomIDs.difference(lstExteriorIDs))
+    def GetAtomIDsByOrientation(self,inQuaternion: np.array, intLatticeType: int,fltTolerance = 0.001):
+        intFirst = self.GetColumnIndex('c_pt[1]')
+        intSecond = self.GetColumnIndex('c_pt[7]')
+        arrQuaternions = self.GetAtomData()[:,intFirst:intSecond+1]
+        arrRows = np.where((np.abs(np.matmul(arrQuaternions[:,1:5],inQuaternion)) > 1-fltTolerance) & (arrQuaternions[:,0] == intLatticeType))[0]
+        arrIDs = self.GetColumnByIndex(0)[arrRows].astype('int')
+       # arrIDs = np.array(list(set(arrIDs.tolist()).difference(self.GetDefectiveAtomIDs())))
+        clustering = DBSCAN(eps=1.05*self.__objRealCell.GetNearestNeighbourDistance(), min_samples = self.__objRealCell.GetNumberOfNeighbours()).fit(self.GetAtomsByID(arrIDs)[:,1:4])
+        arrLabels = clustering.labels_
+        arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
+        arrMax = np.argmax(arrCounts)
+        if arrUniqueLabels[arrMax] != -1:
+            return arrIDs[arrLabels==arrUniqueLabels[arrMax]]
+        else: 
+            return []        
+
          
 class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to correlate labels over different time steps
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int, fltLatticeParameter: float):
