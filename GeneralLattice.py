@@ -539,14 +539,14 @@ class SimulationCell(object):
                 for i in range(len(self.__AtomPositions)):
                     fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AtomTypes[i], *self.__AtomPositions[i]))
             else:
-                count = 1
+                i = 0
                 for j in self.GrainList:
                     for position in self.GetGrain(j).GetAtomPositions():
-                        fdata.write('{} {} {} {} {}\n'.format(count,self.GetGrain(j).GetAtomType(), *position))
-                        count = count + 1
+                        fdata.write('{} {} {} {} {}\n'.format(i,self.GetGrain(j).GetAtomType(), *position))
+                        i += 1
             if len(self.__NonGrainAtomPositions) > 0:
                 for k in range(len(self.__NonGrainAtomPositions)):
-                    fdata.write('{} {} {} {} {}\n'.format(k+1,self.__NonGrainAtomTypes[k], *self.__NonGrainAtomPositions[k]))
+                    fdata.write('{} {} {} {} {}\n'.format(k+1+i,self.__NonGrainAtomTypes[k], *self.__NonGrainAtomPositions[k]))
 
     def SetOrigin(self,inOrigin: np.array):
         self.__Origin = inOrigin
