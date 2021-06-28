@@ -13,8 +13,8 @@ import LatticeDefinitions as ld
 import re
 import sys
 
-strRoot = '/home/p17992pt/csf3_scratch/CSLGrowthCylinder/Axis100/GBSigma5/' #str(sys.argv[1])
-strType = 'C' #str(sys.argv[2])
+strRoot = str(sys.argv[1])
+strType = str(sys.argv[2])
 intDirs = 25  #number of test runs each in a separate directory
 if strType == 'C':
 	intFiles = 15
@@ -56,7 +56,7 @@ def CylindricalGrainFitting(indct: dict())->np.array:
         #lstRadii.append(4.05*intCounter)
         intAtoms = indct[i].GetNumberOfAtoms()
         fltPE = np.sum(indct[i].GetColumnByName('c_pe1'))
-        lstIDs = indct[i].GetAtomIDsByOrientation(arrQuaternion,1,0.005)
+        lstIDs = indct[i].GetAtomIDsByOrientation(arrQuaternion,1,0.001)
         fltVolume = np.sum(indct[i].GetAtomsByID(lstIDs)[:,intVolume])
         lstRadii.append(np.sqrt(fltVolume/(fltHeight*np.pi)))
         lstExcessPE.append(fltPE-fltBasePE+fltDatumPE*(intBaseAtoms-intAtoms))
@@ -88,14 +88,14 @@ def SphericalGrainFitting(indct: dict())->np.array:
 
 arrValues = np.zeros([intDirs,2,intFiles]) #read0.dmpPM is removed for cylindrical fitting
 
-for j in range(intDirs):
-    objdct = ReadToDictionary(strRoot+str(j)+'/','.lst')
+for i in range(intDirs):
+    objdct = ReadToDictionary(strRoot+str(i)+'/','.lst')
     if strType == 'C':   
       arrPE = CylindricalGrainFitting(objdct)
     elif strType =='S':
       arrPE = SphericalGrainFitting(objdct)
-    print(j, arrPE)
-    arrValues[j] = arrPE
+    print(i, arrPE)
+    arrValues[i] = arrPE
 
 arrValues = arrValues.reshape((2*intDirs,intFiles))
 

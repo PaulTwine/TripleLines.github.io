@@ -9,15 +9,17 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy as cp
 from scipy import spatial
 
-strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
-intSigma = 13 # int(sys.argv[2])
-lstAxis = [1,0,0]  #eval(str(sys.argv[3]))
+#strDirectory = '/home/p17992pt/csf3_scratch/CSLGrowthCylinder/Axis100/GBSigma13/' # str(sys.argv[1])
+strDirectory = str(sys.argv[1])
+intSigma = int(sys.argv[2])
+lstAxis = eval(str(sys.argv[3]))
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
 fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
 arrSigmaBasis = objSigma.GetBasisVectors()
-intMax = 40
+intSteps = 20 #number of divisions of the neareset neighbour distance
+intMax = 60
 intHeight = 5
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
@@ -59,11 +61,11 @@ MySimulationCell.AddGrain(objBaseRight)
 fltj = objFullCell1.GetNearestNeighbourDistance() 
 lstj = [] 
 lstAtoms = []  
-for j in range(20):
+for j in range(intSteps):
     lstAtoms.append(MySimulationCell.GetUpdatedAtomNumbers())
     MySimulationCell.RemoveAtomsOnOpenBoundaries()
+    MySimulationCell.RemoveTooCloseAtoms(j*fltj/intSteps)
     MySimulationCell.WrapAllAtomsIntoSimulationCell()
-    MySimulationCell.RemoveTooCloseAtoms(j*fltj/20)
     lstAtoms.append(MySimulationCell.GetUpdatedAtomNumbers())
     if lstAtoms[-1] != lstAtoms[-2]:
         MySimulationCell.WriteLAMMPSDataFile(strDirectory + str(j) + '.dat')
