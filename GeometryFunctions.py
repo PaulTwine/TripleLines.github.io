@@ -284,7 +284,7 @@ def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCel
             for k in range(len(inVectors2)):
                 arrPeriodicDistance[j,k] = PeriodicMinimumDistance(inVectors1[j],inVectors2[k], inCellVectors, inBasisConversion, inBoundaryList)
         return arrPeriodicDistance
-def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: float, blnRemoveOriginalPoints = False):
+def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: float, blnRemoveOriginalPoints = False, lstPeriodic = ['p','p','p']):
         arrInverseMatrix = np.linalg.inv(inCellVectors)
         arrCoefficients = np.matmul(inPoints, arrInverseMatrix)
         arrProportions = np.zeros(3)
@@ -298,15 +298,16 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
         if not blnRemoveOriginalPoints:
                 lstNewPoints.append(arrCoefficients)
         for j in range(3):
-                arrVector = np.zeros(3)
-                arrVector[j] = 1
-                arrRows = np.where((arrCoefficients[:,j] >= 0) & (arrCoefficients[:,j] <= arrProportions[j]))[0]
-                arrNewPoints = arrCoefficients[arrRows] + arrVector
-                lstNewPoints.append(arrNewPoints)
-                arrRows = np.where((arrCoefficients[:,j] >= 1-arrProportions[j]) & (arrCoefficients[:,j] <= 1))[0]
-                arrNewPoints = arrCoefficients[arrRows] - arrVector
-                lstNewPoints.append(arrNewPoints)
-                arrCoefficients = np.concatenate(lstNewPoints)
+                if lstPeriodic[j] == 'p':
+                        arrVector = np.zeros(3)
+                        arrVector[j] = 1
+                        arrRows = np.where((arrCoefficients[:,j] >= 0) & (arrCoefficients[:,j] <= arrProportions[j]))[0]
+                        arrNewPoints = arrCoefficients[arrRows] + arrVector
+                        lstNewPoints.append(arrNewPoints)
+                        arrRows = np.where((arrCoefficients[:,j] >= 1-arrProportions[j]) & (arrCoefficients[:,j] <= 1))[0]
+                        arrNewPoints = arrCoefficients[arrRows] - arrVector
+                        lstNewPoints.append(arrNewPoints)
+                        arrCoefficients = np.concatenate(lstNewPoints)
         return np.matmul(arrCoefficients, inCellVectors)
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)

@@ -524,7 +524,7 @@ class SimulationCell(object):
         with open(inFileName, 'w') as fdata:
             fdata.write('## ' + strDateTime + ' ' + self.__FileHeader + '\n')
             if self.blnPointsAreWrapped:
-                fdata.write('{} atoms\n'.format(len(self.__AtomPositions)+len(self.__NonGrainAtomPositions)))
+                fdata.write('{} atoms\n'.format(len(self.__AtomPositions)))
             else:
                 fdata.write('{} atoms\n'.format(self.GetUpdatedAtomNumbers()))
             fdata.write('{} atom types\n'.format(self.GetNumberOfAtomTypes()))
@@ -537,16 +537,16 @@ class SimulationCell(object):
             fdata.write('Atoms\n\n')
             if self.blnPointsAreWrapped:
                 for i in range(len(self.__AtomPositions)):
-                    fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AtomTypes[i], *self.__AtomPositions[i]))
+                    fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AtomTypes[i].astype('int'), *self.__AtomPositions[i]))
             else:
                 i = 0
                 for j in self.GrainList:
                     for position in self.GetGrain(j).GetAtomPositions():
-                        fdata.write('{} {} {} {} {}\n'.format(i,self.GetGrain(j).GetAtomType(), *position))
+                        fdata.write('{} {} {} {} {}\n'.format(i,self.GetGrain(j).GetAtomType().astype('int'), *position))
                         i += 1
-            if len(self.__NonGrainAtomPositions) > 0:
-                for k in range(len(self.__NonGrainAtomPositions)):
-                    fdata.write('{} {} {} {} {}\n'.format(k+1+i,self.__NonGrainAtomTypes[k], *self.__NonGrainAtomPositions[k]))
+           # if len(self.__NonGrainAtomPositions) > 0:
+           #     for k in range(len(self.__NonGrainAtomPositions)):
+           #         fdata.write('{} {} {} {} {}\n'.format(k+1+i,self.__NonGrainAtomTypes[k], *self.__NonGrainAtomPositions[k]))
 
     def SetOrigin(self,inOrigin: np.array):
         self.__Origin = inOrigin
@@ -590,34 +590,53 @@ class SimulationCell(object):
         self.__AtomPositions = arrAllAtoms[lstRows]
         self.__AtomTypes = arrAllAtomTypes[lstRows]
     def UpdateAtomsPositions(self):
-        arrAllAtoms = np.zeros([self.GetUpdatedAtomNumbers(),self.Dimensions])
-        arrAllAtomTypes = np.ones([self.GetUpdatedAtomNumbers()],dtype=np.int8)
-        i = 0
+        #arrAllAtoms = np.zeros([self.GetUpdatedAtomNumbers(),self.Dimensions])
+        #arrAllAtomTypes = np.ones([self.GetUpdatedAtomNumbers()],dtype=np.int8)
+        #i = 0
+        lstAllAtoms = []
+        lstAllAtomTypes = []
         for j in self.GrainList:
-            arrPoints = self.GetGrain(j).GetAtomPositions()
-            for fltPoint in arrPoints:
-                arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
-                arrAllAtoms[i] = fltPoint
-                i += 1
-        self.__AtomPositions = arrAllAtoms
-        self.__AtomTypes = arrAllAtomTypes
+            lstAllAtoms.append(self.WrapVectorIntoSimulationBox(self.GetGrain(j).GetAtomPositions()))
+            lstAllAtomTypes.append(np.ones(self.GetGrain(j).GetNumberOfAtoms())*self.GetGrain(j).GetAtomType())    
+            # arrPoints = self.GetGrain(j).GetAtomPositions()
+            # intPoints = len(arrPoints)
+            # arrTypes = np.ones([intPoints])*self.GetGrain(j).GetAtomType()
+            # arrAllAtoms[i:intPoints+i] = arrPoints
+            # arrAllAtomTypes[i:intPoints+i] = arrTypes
+            # i += intPoints
+            # # for fltPoint in arrPoints:
+            #     arrAllAtomTypes[i] = self.GetGrain(j).GetAtomType()
+            #     arrAllAtoms[i] = fltPoint
+            #     i += 1
+        if self.GetNumberOfNonGrainAtoms() > 0:
+            lstAllAtoms.append(self.WrapVectorIntoSimulationBox(self.GetNonGrainAtomPositions()))
+            lstAllAtomTypes.append(self.__NonGrainAtomTypes)
+            #arrAllAtoms[-self.GetNumberOfNonGrainAtoms():] = self.GetNonGrainAtomPositions()
+            #arrAllAtomTypes[-self.GetNumberOfNonGrainAtoms():] = self.__NonGrainAtomTypes
+        self.__AtomPositions = np.vstack(lstAllAtoms)
+        self.__AtomTypes = np.concatenate(lstAllAtomTypes, axis=0).astype('int')
     def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
         lstUniqueRowIndices = []
         self.UpdateAtomsPositions()
         self.__AtomPositions = np.round(self.WrapVectorIntoSimulationBox(self.__AtomPositions), intRound)
-        lstUniqueRowIndices = np.unique(np.round(self.__AtomPositions,1),axis=0, return_index = True)[1]
+        lstUniqueRowIndices = np.unique(self.__AtomPositions,axis=0, return_index = True)[1]
         if len(lstUniqueRowIndices) < len(self.__AtomPositions):
-            warnings.warn('Duplicate atoms detected within simulation cell and have been removed.')
-        self.__AtomPositions = self.__AtomPositions[lstUniqueRowIndices]
-        self.__AtomTypes = self.__AtomTypes[lstUniqueRowIndices]
+            warnings.warn(str(self.GetUpdatedAtomNumbers() - len(lstUniqueRowIndices)) + ' duplicate atoms detected within simulation cell and have been removed.')
+       # self.__AtomPositions = self.__AtomPositions[lstUniqueRowIndices]
+       # self.__AtomTypes = self.__AtomTypes[lstUniqueRowIndices]
         self.blnPointsAreWrapped = True
-    def RemovePeriodicDuplicates(self,fltDistance):
+    def GetDuplicatePoints(self):
+        arrRows = np.unique(self.__AtomPositions, axis=0, return_inverse=True)[1]
+        arrRows = np.array(list(set(range(len(self.__AtomPositions))).difference(arrRows.tolist())))
+        if len(arrRows) > 0:
+            return self.__AtomPositions[arrRows]
+        else:
+            return []
+    def RemovePeriodicDuplicates(self):
         for i in self.GrainList:
-            arrIndices = list(np.unique(np.round(self.GetGrain(i).GetRealPoints(),1), axis=1))
-            lstRows = set(range(self.GetGrain(i).GetNumberOfPoints())).difference(arrIndices)
+            lstIndices = list(np.unique(np.round(self.WrapVectorIntoSimulationBox(self.GetGrain(i).GetRealPoints()),1), axis=0,return_index=True)[1])
+            lstRows = list(set(range(self.GetGrain(i).GetNumberOfPoints())).difference(lstIndices))
             self.GetGrain(i).AddVacancies(lstRows)
-            lstDeletes =  gf.GetPeriodicDuplicatePoints(self.GetGrain(i).GetAtomPositions(),self.GetGrain(i).GetNumberOfNeighbours(),1.05*self.GetGrain(i).GetNearestNeighbourDistance(),self.GetRealBasisVectors()) 
-            self.GetGrain(i).DeletePoints(lstDeletes)
     def RemoveTooCloseAtoms(self, fltDistance: float,lstGrains = []): #assumes grains are correctly positioned so they don't interpenetrate
         if len(lstGrains) ==0:
             lstGrains = list(np.copy(self.GrainList))
@@ -627,6 +646,9 @@ class SimulationCell(object):
             lstVacanciesOne = []
             lstIndicesOne = self.GetGrain(strFirstGrain).GetBoundaryAtomIndices()
             arrPointsOne = self.WrapVectorIntoSimulationBox(self.GetGrain(strFirstGrain).GetBoundaryAtoms())
+            arrPositions = np.unique(arrPointsOne,axis=0,return_index=True)[1]
+            arrPointsOne = arrPointsOne[np.argsort(arrPositions)]
+            lstIndicesOne = np.array(lstIndicesOne)[np.argsort(arrPositions)].tolist()
             intSecond = intFirst + 1
             if len(arrPointsOne) > 0:
                 objTreeOne = KDTree(arrPointsOne)
@@ -635,30 +657,37 @@ class SimulationCell(object):
                     strSecondGrain = lstGrains[intSecond]
                     lstIndicesTwo = self.GetGrain(strSecondGrain).GetBoundaryAtomIndices()
                     arrPointsTwo =  self.WrapVectorIntoSimulationBox(self.GetGrain(strSecondGrain).GetBoundaryAtoms())
+                    #arrPositions = np.unique(arrPointsTwo,axis=0,return_index=True)[1]
+                    #arrPointsTwo = arrPointsTwo[np.argsort(arrPositions)]
+                    #lstIndicesTwo = np.array(lstIndicesOne)[np.argsort(arrPositions)].tolist()
                     #arrPeriodicTwo = gf.PeriodicEquivalents(arrPointsTwo,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['pp','pp','pp'])         
-                    arrPeriodicTwo = gf.AddPeriodicWrapper(arrPointsTwo,self.__BasisVectors, 20)
+                    arrPeriodicTwo = gf.AddPeriodicWrapper(arrPointsTwo,self.__BasisVectors, 20,False)
                     lstNonGrainAtoms = []
                     lstNonGrainAtomTypes = []
                     if len(arrPointsTwo) > 0:
-                        arrDistancesOne, arrIndicesOne = objTreeOne.query(arrPeriodicTwo, k=1)
-                        arrDistancesOne = np.array(list(map(lambda x: x[0], arrDistancesOne)))
-                        arrIndicesOne = np.array(list(map(lambda x: x[0], arrIndicesOne)))
-                        arrClose = np.where(arrDistancesOne < fltDistance)[0]
-                        arrIndicesOne = arrIndicesOne[arrClose]
-                       # arrIndicesOne,arrPositionsOne = np.unique(np.mod(arrIndicesOne, len(arrPointsOne)),return_index=True)
-                       # arrIndicesOne = arrIndicesOne[np.argsort(arrPositionsOne)]
+                        arrODistancesOne, arrOIndicesOne = objTreeOne.query(arrPeriodicTwo, k=1)
+                        #arrDistancesOne = np.array(list(map(lambda x: x[0], arrDistancesOne)))
+                        #arrIndicesOne = np.array(list(map(lambda x: x[0], arrIndicesOne)))
+                        arrCloseOne = np.where(arrODistancesOne < fltDistance)[0]
+                        arrIndicesOne = arrOIndicesOne[arrCloseOne]
+                        #arrIndicesOne = np.mod(arrIndicesOne, len(arrPointsTwo))
+                        #arrIndicesOne = arrIndicesOne[:,0]
+                        arrIndicesOne,arrPositionsOne = np.unique(arrIndicesOne,return_index=True)
+                        arrIndicesOne = arrIndicesOne[np.argsort(arrPositionsOne)]
                         intLengthOne = len(arrIndicesOne)
                         if intLengthOne > 0:
                             objTreeTwo = KDTree(arrPointsTwo)
-                            #arrPeriodicOne = gf.PeriodicEquivalents(arrPointsOne,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['pp','pp','pp']) 
-                            arrPeriodicOne = gf.AddPeriodicWrapper(arrPointsOne[arrIndicesOne],self.__BasisVectors, 20)
-                            arrDistancesTwo, arrIndicesTwo = objTreeTwo.query(arrPeriodicOne, k=1)
-                            arrDistancesTwo = np.array(list(map(lambda x: x[0], arrDistancesTwo)))
-                            arrIndicesTwo = np.array(list(map(lambda x: x[0], arrIndicesTwo)))
-                            arrClose = np.where(arrDistancesTwo < fltDistance)[0]
-                            arrIndicesTwo = arrIndicesTwo[arrClose]
-                          #  arrIndicesTwo,arrPositionsTwo = np.unique(np.mod(arrIndicesTwo, len(arrPointsTwo)),return_index=True)
-                          #  arrIndicesTwo = arrIndicesTwo[np.argsort(arrPositionsTwo)]  
+                         #   arrPeriodicOne = gf.PeriodicEquivalents(arrPointsOne[arrIndicesOne],self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['pp','pp','pp']) 
+                            arrPeriodicOne = gf.AddPeriodicWrapper(arrPointsOne[arrIndicesOne],self.__BasisVectors, 20,False)
+                            arrODistancesTwo, arrOIndicesTwo = objTreeTwo.query(arrPeriodicOne, k=1)
+                           # arrDistancesTwo = np.array(list(map(lambda x: x[0], arrDistancesTwo)))
+                           # arrIndicesTwo = np.array(list(map(lambda x: x[0], arrIndicesTwo)))
+                            arrCloseTwo = np.where(arrODistancesTwo < fltDistance)[0]
+                            arrIndicesTwo = arrOIndicesTwo[arrCloseTwo]
+                          #  arrIndicesTwo = np.mod(arrIndicesTwo,len(arrPointsOne))
+                            arrIndicesTwo = arrIndicesTwo[:,0]
+                         #   arrIndicesTwo,arrPositionsTwo = np.unique(arrIndicesTwo,return_index=True)
+                         #   arrIndicesTwo = arrIndicesTwo[np.argsort(arrPositionsTwo)]  
                             if intLengthOne == len(arrIndicesTwo):
                                 for i in range(intLengthOne):
                                      lstVacanciesOne.append(lstIndicesOne[arrIndicesOne[i]]) 
@@ -672,7 +701,10 @@ class SimulationCell(object):
                                 self.GetGrain(strSecondGrain).AddVacancies(lstVacanciesTwo)
                                 self.AddNonGrainAtomPositions(np.vstack(lstNonGrainAtoms),np.array(lstNonGrainAtomTypes))
                             else:
-                                warnings.warn('Error matching pairs across grain boundary for grains ' + strFirstGrain + ' and ' + strSecondGrain)
+                                warnings.warn('Error matching pairs across grain boundary for grains ' + strFirstGrain + ' with ' + str(intLengthOne) + ' atoms and grain '
+                                 + strSecondGrain + ' with ' + str(len(arrIndicesTwo)) + ' atoms.')
+
+                                #print(arrOIndicesOne,arrOIndicesTwo)
                     intSecond += 1
             intFirst += 1
     def PlotSimulationCellAtoms(self):
@@ -751,9 +783,12 @@ class SimulationCell(object):
         arrAtoms,arrPositions = np.unique(np.vstack(lstAdd),axis= 0,return_index=True)
         self.__NonGrainAtomPositions = arrAtoms[np.argsort(arrPositions)]
         self.__NonGrainAtomTypes = self.__NonGrainAtomTypes[np.argsort(arrPositions)] 
+    def GetNumberOfNonGrainAtoms(self):
+        return len(self.__NonGrainAtomPositions)
     def GetNonGrainAtomPositions(self):
         return self.__NonGrainAtomPositions
-
+    def RemoveNonGrainAtomPositons(self):
+        self.__NonGrainAtomPositions = []
 class Grain(object):
     def __init__(self, intGrainNumber: int):
         self.__GrainID = intGrainNumber
@@ -1109,3 +1144,6 @@ class SigmaCell(object):
         return self.__BasisVectors
     def GetLatticeRotations(self):
         return self.__LatticeRotations
+    
+
+
