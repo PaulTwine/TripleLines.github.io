@@ -9,7 +9,6 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy as cp
 from scipy import spatial
 
-#strDirectory = '/home/p17992pt/csf3_scratch/CSLGrowthCylinder/Axis100/GBSigma13/' # str(sys.argv[1])
 strDirectory = str(sys.argv[1])
 intSigma = int(sys.argv[2])
 lstAxis = eval(str(sys.argv[3]))
@@ -64,11 +63,12 @@ lstAtoms = []
 for j in range(intSteps):
     lstAtoms.append(MySimulationCell.GetUpdatedAtomNumbers())
     MySimulationCell.RemoveAtomsOnOpenBoundaries()
+    MySimulationCell.RemovePeriodicDuplicates()
     MySimulationCell.RemoveTooCloseAtoms(j*fltj/intSteps)
     MySimulationCell.WrapAllAtomsIntoSimulationCell()
     lstAtoms.append(MySimulationCell.GetUpdatedAtomNumbers())
     if lstAtoms[-1] != lstAtoms[-2]:
-        MySimulationCell.WriteLAMMPSDataFile(strDirectory + str(j) + '.dat')
+        MySimulationCell.WriteLAMMPSDataFile(strDirectory + 'read' + str(j) + '.dat')
         fIn = open(strDirectory +  'TemplateMin.in', 'rt')
         fData = fIn.read()
         fData = fData.replace('read.dat', 'read' + str(j) + '.dat')

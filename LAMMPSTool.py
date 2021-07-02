@@ -841,17 +841,26 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         intFirst = self.GetColumnIndex('c_pt[1]')
         intSecond = self.GetColumnIndex('c_pt[7]')
         arrQuaternions = self.GetAtomData()[:,intFirst:intSecond+1]
-        arrRows = np.where((np.abs(np.matmul(arrQuaternions[:,1:5],inQuaternion)) > 1-fltTolerance) & (arrQuaternions[:,0] == intLatticeType))[0]
-        arrIDs = self.GetColumnByIndex(0)[arrRows].astype('int')
+        #arrQuaternions = np.array(list(map(lambda x: gf.FCCQuaternionEquivalence(x),arrQuaternions[:,1:5])))
+        y = gf.QuaternionConjugate(inQuaternion)
+        arrQuaternionRows = np.vstack(list(map(lambda x: gf.QuaternionProduct(x, y),arrQuaternions[:,1:5])))
+        arrNormedRows = np.linalg.norm(arrQuaternionRows[:,1:],axis=1)
+        arrRows = np.array(list(map(lambda x: 2*np.arcsin(x),arrNormedRows)))
+        arrRows = np.where(((np.abs(arrRows) < fltTolerance) | (np.abs(arrRows) > 1- fltTolerance)) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0]
+        #arrQuaternionRows = np.array(list(map(lambda x: gf.FCCQuaternionEquivalence(x),arrQuaternions[:,1:5])))
+        #arrRows = np.where((np.abs(np.matmul(arrQuaternions[:,1:5],inQuaternion)) > 1-fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0]
+        #arrRows = np.where((np.abs(arrQuaternions[:,4]) > fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0]
+        rtnValue = []
+        if len(arrRows) > 0:
+            arrIDs = self.GetColumnByIndex(0)[arrRows].astype('int')
        # arrIDs = np.array(list(set(arrIDs.tolist()).difference(self.GetDefectiveAtomIDs())))
-        clustering = DBSCAN(eps=1.05*self.__objRealCell.GetNearestNeighbourDistance(), min_samples = self.__objRealCell.GetNumberOfNeighbours()).fit(self.GetAtomsByID(arrIDs)[:,1:4])
-        arrLabels = clustering.labels_
-        arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
-        arrMax = np.argmax(arrCounts)
-        if arrUniqueLabels[arrMax] != -1:
-            return arrIDs[arrLabels==arrUniqueLabels[arrMax]]
-        else: 
-            return []        
+            clustering = DBSCAN(eps=1.05*self.__objRealCell.GetNearestNeighbourDistance()).fit(self.GetAtomsByID(arrIDs)[:,1:4])
+            arrLabels = clustering.labels_
+            arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
+            arrMax = np.argmax(arrCounts)
+            if arrUniqueLabels[arrMax] != -1:
+                rtnValue =  arrIDs[arrLabels==arrUniqueLabels[arrMax]]
+        return rtnValue       
 
          
 class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to correlate labels over different time steps

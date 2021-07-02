@@ -1103,14 +1103,22 @@ class SigmaCell(object):
             objSecondLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(fltSigma,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
             arrPoints1 = objFirstLattice.GetRealPoints()
             arrPoints2 = objSecondLattice.GetRealPoints()
-            arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
-            lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
-            arrCSLPoints = arrPoints1[lstPoints]
+            objTree1 = KDTree(arrPoints1)
+            arrDistancesOne, arrIndicesOne = objTree1.query(arrPoints2, k=1)
+            arrCloseOne = np.where(arrDistancesOne < 1e-5)[0]
+            arrIndicesOne = arrIndicesOne.ravel()
+            arrIndicesOne = arrIndicesOne[arrCloseOne]
+            #arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
+            #lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
+            arrCSLPoints = arrPoints1[arrIndicesOne]
             arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
             lstBase = arrBase.tolist()
             lstBase.remove(np.zeros(3).tolist())
             arrBase = np.array(lstBase)
             arrDistances = np.linalg.norm(arrBase,axis=1)
+            #arrPositions = arrDistances > 0
+            #arrBase = arrBase[np.argsort(arrPositions)]
+            #arrDistances = arrDistances[np.argsort(arrPositions)]
             arrClosestPoint = gf.NormaliseVector(arrBase[np.argmin(arrDistances)])
             fltdotX =  np.arccos(np.dot(arrClosestPoint, arrHorizontalVector))
             fltAngle2 = -fltdotX
@@ -1119,14 +1127,22 @@ class SigmaCell(object):
             objSecondLattice = ExtrudedRectangle(l,l,h,gf.RotateVectors(fltSigma+fltAngle2,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
             arrPoints1 = objFirstLattice.GetRealPoints()
             arrPoints2 = objSecondLattice.GetRealPoints()
-            arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
-            lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
-            arrCSLPoints = arrPoints1[lstPoints]
+            objTree1 = KDTree(arrPoints1)
+            arrDistancesOne, arrIndicesOne = objTree1.query(arrPoints2, k=1)
+            arrCloseOne = np.where(arrDistancesOne < 1e-5)[0]
+            arrIndicesOne = arrIndicesOne.ravel()
+            arrIndicesOne = arrIndicesOne[arrCloseOne]
+            # arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
+            # lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
+            arrCSLPoints = arrPoints1[arrIndicesOne]
             arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
             lstBase = arrBase.tolist()
             lstBase.remove(np.zeros(3).tolist())
             arrBase = np.array(lstBase)
-            arrDistances = np.linalg.norm(arrBase, axis=1)
+            arrDistances = np.linalg.norm(arrBase,axis=1)
+            #arrPositions = arrDistances > 0
+            #arrBase = arrBase[np.argsort(arrPositions)]
+            #arrDistances = arrDistances[np.argsort(arrPositions)]
             lstPositions = gf.FindNthSmallestPosition(arrDistances, 0)
             arrVector1 = arrBase[lstPositions[0]]
             if len(lstPositions) > 1:
@@ -1147,3 +1163,9 @@ class SigmaCell(object):
     
 
 
+class PeriodicKDTree(object):
+    def __init__(self, inPoints, inPeriodicVectors):
+        self.__PeriodicVectors = inPeriodicVectors
+        arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
+        self__UnitVectors = np.matmul(arrScaling, inPeriodicVectors)
+        self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)

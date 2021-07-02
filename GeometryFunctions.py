@@ -114,7 +114,7 @@ def GetQuaternionFromBasisMatrix(inBasis: np.array)-> np.array:
 #         return NormaliseVector(arrQuaternion) 
        r = 1/2*np.sqrt(1+np.trace(inBasis))
        return np.array([1/(4*r)*(inBasis[2,1]-inBasis[1,2]),1/(4*r)*(inBasis[0,2]-inBasis[2,0]),1/(4*r)*(inBasis[1,0]-inBasis[0,1]),r])      
-def GetQuaternionFromVector(inVector: np.array, inAngle)->np.array:
+def GetQuaternionFromVector(inVector: np.array, inAngle)->np.array: #angle first then axis
         vctAxis = NormaliseVector(inVector)
         #lstQuarternion  = []
         C = np.cos(inAngle/2)
@@ -124,19 +124,21 @@ def GetQuaternionFromVector(inVector: np.array, inAngle)->np.array:
         #lstQuarternion.append(vctAxis[2]*S)
         #lstQuarternion.append(C)
         return np.array([C,vctAxis[0]*S,vctAxis[1]*S,vctAxis[2]*S])
-def QuaternionProduct(inVectorOne: np.array, inVectorTwo:np.array )->np.array:
+def QuaternionProduct(inVectorOne: np.array, inVectorTwo:np.array )->np.array: #angle first then axis
         if len(inVectorOne) != 4 or len(inVectorTwo) != 4:
                 raise "Error quarternions must be 4 dimensional arrays"
         else:
                 r1 = inVectorOne[0]
                 r2 = inVectorTwo[0]
-                v1 = np.delete(inVectorOne , 0)
-                v2 = np.delete(inVectorTwo, 0)
+                v1 = inVectorOne[1:]
+                v2 = inVectorTwo[1:]
                 r = r1*r2 - np.dot(v1,v2)
                 v  =  r1*v2 + r2*v1 + np.cross(v1,v2)
-                return np.array([v[0],v[1],v[2],r])
+                return np.array([r,v[0],v[1],v[2]])
 def QuaternionConjugate(inVector: np.array)->np.array: #takes a vector of quarternions
-        return np.matmul(inVector, np.array([[-1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
+        rtnVector = -inVector
+        rtnVector[0] = inVector[0]
+        return rtnVector
 def FCCQuaternionEquivalence(inVector: np.array)->np.array:
         arrVector = np.zeros([3,4])
         arrVector[0] = np.sort(np.abs(inVector))
@@ -539,6 +541,5 @@ def DecimalArray(inArray: np.array):
         elif len(np.shape(inArray)) ==1:
                 lstDecimals = [Decimal(str(x)) for x in inArray]
         return np.array(lstDecimals)
-
 
         
