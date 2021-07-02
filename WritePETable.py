@@ -17,7 +17,7 @@ strRoot = str(sys.argv[1])
 strType = str(sys.argv[2])
 intDirs = 25  #number of test runs each in a separate directory
 if strType == 'C':
-	intFiles = 15
+	intFiles = 16
 elif strType == 'S':
 	intFiles = 11
 def Linear(x,a,b):
@@ -41,29 +41,33 @@ def CylindricalGrainFitting(indct: dict())->np.array:
     intPE = objdct[lstKeys[0]].GetColumnNames().index('c_pe1')
     intVolume = objdct[lstKeys[0]].GetColumnNames().index('c_v[1]')
     fltHeight = np.linalg.norm(objdct[lstKeys[0]].GetCellVectors()[:,2])
-    fltBasePE = np.sum(indct[lstKeys[0]].GetColumnByName('c_pe1'))
+    #fltBasePE = np.sum(indct[lstKeys[0]].GetColumnByName('c_pe1'))
     intBaseAtoms = indct[lstKeys[0]].GetNumberOfAtoms()
-    fltBaseMeanPE = fltBasePE/intBaseAtoms
-    fltDatumPE = np.mean(indct[lstKeys[0]].GetLatticeAtoms()[:,intPE])
+    #fltBaseMeanPE = fltBasePE/intBaseAtoms
     lstRadii = []
-    lstExcessPE =[]
+    lstAdjustedPE =[]
+    lstPE = []
     lstRadii = []
     intCounter = 1
-    lstKeys.remove(lstKeys[0])
-    arrQuaternion = gf.GetQuaternionFromVector(np.array([0,0,1]),0)    
+    lstAtoms = []
+    arrQuaternion = gf.GetQuaternionFromVector(np.array([1,0,0]),0)    
     #lstKeys.remove('read1.dmpPM')
     for i in lstKeys:
         #lstRadii.append(4.05*intCounter)
-        intAtoms = indct[i].GetNumberOfAtoms()
-        fltPE = np.sum(indct[i].GetColumnByName('c_pe1'))
-        lstIDs = indct[i].GetAtomIDsByOrientation(arrQuaternion,1,0.001)
+        fltDatumPE = np.mean(indct[i].GetLatticeAtoms()[:,intPE])
+        lstAtoms.append(indct[i].GetNumberOfAtoms())
+        lstPE.append(np.sum(indct[i].GetColumnByName('c_pe1')))
+        lstIDs = indct[i].GetAtomIDsByOrientation(arrQuaternion,1,0.03)
         fltVolume = np.sum(indct[i].GetAtomsByID(lstIDs)[:,intVolume])
         lstRadii.append(np.sqrt(fltVolume/(fltHeight*np.pi)))
-        lstExcessPE.append(fltPE-fltBasePE+fltDatumPE*(intBaseAtoms-intAtoms))
+        if len(lstPE) ==1:
+            lstAdjustedPE.append(lstPE[0]-fltDatumPE*lstAtoms[0])
+        else:
+            lstAdjustedPE.append(lstPE[-1]+fltDatumPE*(intBaseAtoms-lstAtoms[-1])-fltDatumPE*intBaseAtoms)
         intCounter +=1
     arrRadii = np.array(lstRadii)
-    arrExcessPE = np.array(lstExcessPE)  
-    return np.array([np.sort(arrRadii),arrExcessPE[np.argsort(arrRadii)]])
+    arrAdjustedPE = np.array(lstAdjustedPE)  
+    return np.array([np.sort(arrRadii),arrAdjustedPE[np.argsort(arrRadii)]])
 
 def SphericalGrainFitting(indct: dict())->np.array:
     lstKeys = list(indct.keys())
