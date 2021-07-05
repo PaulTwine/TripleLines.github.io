@@ -57,7 +57,7 @@ objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 fltDistance = objFullCell1.GetNearestNeighbourDistance()
 
-arrGrainCentre0 = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])
+arrGrainCentre0 = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])+arrShift
 
 np.savetxt(strDirectory + 'GrainCentre0.txt',arrGrainCentre0)
 
@@ -93,7 +93,7 @@ fIn.close()
 
 ##Second part with triple lines
 
-arrGrainCentre1 = (9*a*arrSigmaBasis[0] +5*a*arrSigmaBasis[1])*i
+arrGrainCentre1 = (9*a*arrSigmaBasis[0] +5*a*arrSigmaBasis[1])*i +arrShift
 np.savetxt(strDirectory + 'GrainCentre0.txt',arrGrainCentre1)
 w = 18*a*i
 l = 10*a*i
@@ -107,9 +107,7 @@ else:
     fltAngle3, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
     arrBasisVectors = gf.RotateVectors(fltAngle3, arrRotation,gf.StandardBasisVectors(3))
 arrLatticeParameters= np.array([a,a,a])
-arrShift = a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2]
 arrCellCentre = 0.5*(arrX+arrXY+z)
-arrCylinderCentre = 5*a*i*(arrSigmaBasis[0] + arrSigmaBasis[1])
 strConstraint = str(arrXY[0])+ '*(y -' + str(arrCellCentre[1]) + ') - ' + str(arrXY[1]) + '*(x -' + str(arrCellCentre[0]) + ')' 
 objSimulationCell2 = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 objFullCell1 = gl.ExtrudedParallelogram(arrX,arrXY,s3*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
