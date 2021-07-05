@@ -21,6 +21,7 @@ from sklearn.neighbors import NearestNeighbors, KDTree
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter: float, objAnalysis: object):
         self.__dctTimeSteps = dict()
+        self.__FileName = strFilename
         lstNumberOfAtoms = []
         lstTimeSteps = []
         lstColumnNames = []
@@ -70,6 +71,7 @@ class LAMMPSData(object):
                         lstColumnTypes.append('%i')
                 objTimeStep.SetColumnTypes(lstColumnTypes) 
                 objTimeStep.CategoriseAtoms()
+                objTimeStep.SetFileName(strFilename)
                 self.__dctTimeSteps[str(timestep)] = objTimeStep            
             Dfile.close()
             self.__lstTimeSteps = lstTimeSteps
@@ -219,7 +221,11 @@ class LAMMPSTimeStep(object):
         self.GetCellBasis()[1,1]+self.GetCellBasis()[2,1], self.GetCellBasis()[2,2]])
     def GetTimeStep(self):
         return self.__TimeStep
-    def WriteDumpFile(self, strFilename: str):
+    def SetFileName(self, strFilename):
+        self.__strFilename = strFilename
+    def WriteDumpFile(self, strFilename =None):
+        if strFilename is None:
+            strFilename = self.__strFilename
         strHeader = 'ITEM: TIMESTEP \n'
         strHeader += str(self.GetTimeStep()) + '\n'
         strHeader += 'ITEM: NUMBER OF ATOMS \n'
@@ -838,28 +844,28 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstExteriorIDs = self.GetInteriorGrainAtomIDs(intGrainID)
         return list(setAllAtomIDs.difference(lstExteriorIDs))
     def GetAtomIDsByOrientation(self,inQuaternion: np.array, intLatticeType: int,fltTolerance = 0.001):
+        lstRows = []
         intFirst = self.GetColumnIndex('c_pt[1]')
         intSecond = self.GetColumnIndex('c_pt[7]')
         arrQuaternions = self.GetAtomData()[:,intFirst:intSecond+1]
-        #arrQuaternions = np.array(list(map(lambda x: gf.FCCQuaternionEquivalence(x),arrQuaternions[:,1:5])))
-        y = gf.QuaternionConjugate(inQuaternion)
-        arrQuaternionRows = np.vstack(list(map(lambda x: gf.QuaternionProduct(x, y),arrQuaternions[:,1:5])))
-        arrNormedRows = np.linalg.norm(arrQuaternionRows[:,1:],axis=1)
-        arrRows = np.array(list(map(lambda x: 2*np.arcsin(x),arrNormedRows)))
-        arrRows = np.where(((np.abs(arrRows) < fltTolerance) | (np.abs(arrRows) > 1- fltTolerance)) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0]
-        #arrQuaternionRows = np.array(list(map(lambda x: gf.FCCQuaternionEquivalence(x),arrQuaternions[:,1:5])))
-        #arrRows = np.where((np.abs(np.matmul(arrQuaternions[:,1:5],inQuaternion)) > 1-fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0]
-        #arrRows = np.where((np.abs(arrQuaternions[:,4]) > fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0]
+        arrRows = np.matmul(arrQuaternions[:,1:5], inQuaternion)
+        lstRows.append(np.where((np.abs(arrRows) > 1- fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0])
+        for j in gf.CubicQuaternions():
+            y = gf.QuaternionProduct(j,inQuaternion)
+            arrRows = np.matmul(arrQuaternions[:,1:5], y)
+            lstRows.append(np.where((np.abs(arrRows) > 1-fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0])
+        arrRows = np.unique(np.concatenate(lstRows))
         rtnValue = []
         if len(arrRows) > 0:
             arrIDs = self.GetColumnByIndex(0)[arrRows].astype('int')
-       # arrIDs = np.array(list(set(arrIDs.tolist()).difference(self.GetDefectiveAtomIDs())))
             clustering = DBSCAN(eps=1.05*self.__objRealCell.GetNearestNeighbourDistance()).fit(self.GetAtomsByID(arrIDs)[:,1:4])
             arrLabels = clustering.labels_
             arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
             arrMax = np.argmax(arrCounts)
             if arrUniqueLabels[arrMax] != -1:
                 rtnValue =  arrIDs[arrLabels==arrUniqueLabels[arrMax]]
+                self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'GrainNumber',strFormat='%i')
+                self.SetColumnByIDs(rtnValue,self.GetColumnIndex('GrainNumber'),np.ones(len(rtnValue)))
         return rtnValue       
 
          

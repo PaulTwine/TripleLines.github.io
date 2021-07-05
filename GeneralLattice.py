@@ -106,7 +106,45 @@ class RealCell(PureCell):
         return np.abs(np.dot(self.__RealCellVectors[0], np.cross(self.__RealCellVectors[1],self.__RealCellVectors[2])))    
     def GetQuaternion(self):
         return gf.GetQuaternionFromBasisMatrix(self.__CellVectors)
-
+    def GetQuaternionSymmetries(self):
+        arrDirections = self.__RealNodes -self.GetRealCellCentre()
+        arrQDirections = np.zeros([len(arrDirections),4])
+        arrQDirections[:,1:4] = arrDirections 
+        lstQuaternions = []
+        blnEqual = True
+        lstPlanes = []
+        for i in range(len(arrDirections)-1):
+            arrI = arrDirections[i]
+            for j in range(i+1,len(arrDirections)):
+                arrJ = arrDirections[j]    
+                if np.abs(np.dot(arrI,arrJ)/(np.linalg.norm(arrI)*np.linalg.norm(arrJ))) < 0.99:
+                    arrNormal = gf.NormaliseVector(np.cross(arrI,arrJ))
+                    arrComponents = np.matmul(arrDirections,arrNormal) - np.dot(arrNormal,arrI)
+                    arrRows = np.where(np.abs(arrComponents) <0.01 )[0]
+                    lstRows = np.sort(arrRows).tolist()
+                    if lstRows not in lstPlanes:
+                        lstPlanes.append(lstRows)
+                        arrDisplacement = np.dot(arrNormal,arrI)*arrNormal
+                        arrPoints = gf.NormaliseVector(arrDirections[arrRows] - arrDisplacement)
+                        lstDots = np.round(np.unique(np.matmul(np.transpose(arrPoints),arrPoints)),10).tolist()
+                        lstAngles = np.unique(list(map(lambda x: np.arccos(x), lstDots))).tolist()
+                        if float(0) in lstAngles:
+                            lstAngles.remove(float(0))
+                        for k in lstAngles:
+                            #arrQ = gf.GetQuaternionFromVector(arrNormal,k)
+                            #arrNewNodes = np.vstack(list(map(lambda x: gf.QuaternionProduct(gf.QuaternionProduct(arrQ,x),gf.QuaternionConjugate(arrQ)),arrQDirections)))
+                            #arrUnitDirections = np.vstack(list(map(lambda x: x[1:4]/x[0],arrNewNodes)))
+                            arrNewDirections = gf.RotateVectors(k,arrNormal,arrDirections)
+                            #arrNewDirections = np.matmul(arrUnitDirections, np.diag(self.__LatticeParameters))
+                            blnEqual = gf.EqualRows(arrNewDirections, arrDirections,5)
+                            if blnEqual:
+                                arrQ = gf.GetQuaternionFromVector(arrNormal,k)
+                                lstQuaternions.append(arrQ)
+                                lstQuaternions.append(gf.QuaternionConjugate(arrQ))
+        arrQuaternions = np.vstack(lstQuaternions)
+        arrUniqueRows = np.unique(np.round(arrQuaternions, 3),axis=0, return_index=True)[1]
+        arrQuaternions = arrQuaternions[arrUniqueRows]
+        return arrQuaternions
 
 class PureLattice(PureCell):
     def __init__(self,inCellNodes):
