@@ -147,7 +147,7 @@ def FCCQuaternionEquivalence(inVector: np.array)->np.array:
         arrVector[2] = np.array([arrVector[0,0]-arrVector[0,3]-arrVector[0,1] +arrVector[0,2],arrVector[0,1]
         -arrVector[0,3] - arrVector[0,2] + arrVector[0,0],arrVector[0,2]- arrVector[0,3] - arrVector[0,0] 
         + arrVector[0,1],arrVector[0,0]+arrVector[0,1]+arrVector[0,2]+arrVector[0,3]])*1/2
-        intMax = np.argmax(arrVector[:,-1])
+        intMax = np.argmax(arrVector[:,0])
         return arrVector[intMax]       
 def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.array)->np.array: #3 dimensions only
         arrMatrix = np.zeros([3,3])
@@ -428,7 +428,7 @@ def FindRotationVectorAndAngle(arrStartVector: np.array, arrEndVector: np.array)
                 fltAngle = np.arccos(fltDot)
                 return fltAngle, arrAxis
         else:
-                raise("Two vectors are paralell")
+                warnings.warn("Two vectors are paralell")
 def FindGeometricMediod(inPoints: np.array,bln2D = False, blnSquaring = True)-> np.array:
         if bln2D:
                 inPoints = inPoints[:,0:2]
@@ -542,4 +542,36 @@ def DecimalArray(inArray: np.array):
                 lstDecimals = [Decimal(str(x)) for x in inArray]
         return np.array(lstDecimals)
 
-        
+def EqualRows(arrOne: np.array, arrTwo: np.array, intRound = 5):
+        blnEqual = True
+        i=0
+        arrRoundOne = np.round(arrOne,intRound)
+        arrRoundTwo = np.round(arrTwo, intRound)
+        while blnEqual and i < len(arrOne):
+                if not(np.any(np.all(arrRoundOne[i]==arrRoundTwo, axis=1),axis=0)):
+                        blnEqual = False
+                        i += 1
+        return blnEqual
+def CubicQuaternions():
+        lstRows=[0,1,-1]
+        lstQuaternions = []
+        for i in range(3):
+                for j in range(3):
+                        for k in range(3):
+                                arrDirection = np.array([lstRows[k],lstRows[j],lstRows[i]])
+                                fltLength = np.round(np.linalg.norm(arrDirection),5)
+                                if  fltLength == 1:
+                                        for a in range(1,4):
+                                                lstQuaternions.append(GetQuaternionFromVector(arrDirection,np.pi/4*a))
+                                elif fltLength == np.round(np.sqrt(2),5):
+                                        lstQuaternions.append(GetQuaternionFromVector(arrDirection,np.pi))
+                                elif fltLength ==np.round(np.sqrt(3),5):
+                                        for b in range(1,3):
+                                                lstQuaternions.append(GetQuaternionFromVector(arrDirection,2*np.pi/3*a))
+        arrValues = np.vstack(lstQuaternions)
+        arrRows = np.unique(np.round(arrValues,3),axis=0, return_index=True)[1]                              
+        return arrValues[arrRows]
+
+                               
+
+       

@@ -9,7 +9,7 @@ from sympy.abc import x,y,z
 from datetime import datetime
 import copy as cp
 import warnings
-import lammps
+#import lammps
 from decimal import Decimal
 
 
@@ -694,38 +694,24 @@ class SimulationCell(object):
                     lstVacanciesTwo = []
                     strSecondGrain = lstGrains[intSecond]
                     lstIndicesTwo = self.GetGrain(strSecondGrain).GetBoundaryAtomIndices()
-                    arrPointsTwo =  self.WrapVectorIntoSimulationBox(self.GetGrain(strSecondGrain).GetBoundaryAtoms())
-                    #arrPositions = np.unique(arrPointsTwo,axis=0,return_index=True)[1]
-                    #arrPointsTwo = arrPointsTwo[np.argsort(arrPositions)]
-                    #lstIndicesTwo = np.array(lstIndicesOne)[np.argsort(arrPositions)].tolist()
-                    #arrPeriodicTwo = gf.PeriodicEquivalents(arrPointsTwo,self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['pp','pp','pp'])         
+                    arrPointsTwo =  self.WrapVectorIntoSimulationBox(self.GetGrain(strSecondGrain).GetBoundaryAtoms())        
                     arrPeriodicTwo = gf.AddPeriodicWrapper(arrPointsTwo,self.__BasisVectors, 20,False)
                     lstNonGrainAtoms = []
                     lstNonGrainAtomTypes = []
                     if len(arrPointsTwo) > 0:
                         arrODistancesOne, arrOIndicesOne = objTreeOne.query(arrPeriodicTwo, k=1)
-                        #arrDistancesOne = np.array(list(map(lambda x: x[0], arrDistancesOne)))
-                        #arrIndicesOne = np.array(list(map(lambda x: x[0], arrIndicesOne)))
                         arrCloseOne = np.where(arrODistancesOne < fltDistance)[0]
                         arrIndicesOne = arrOIndicesOne[arrCloseOne]
-                        #arrIndicesOne = np.mod(arrIndicesOne, len(arrPointsTwo))
-                        #arrIndicesOne = arrIndicesOne[:,0]
                         arrIndicesOne,arrPositionsOne = np.unique(arrIndicesOne,return_index=True)
                         arrIndicesOne = arrIndicesOne[np.argsort(arrPositionsOne)]
                         intLengthOne = len(arrIndicesOne)
                         if intLengthOne > 0:
                             objTreeTwo = KDTree(arrPointsTwo)
-                         #   arrPeriodicOne = gf.PeriodicEquivalents(arrPointsOne[arrIndicesOne],self.__BasisVectors,np.linalg.inv(self.__BasisVectors), ['pp','pp','pp']) 
                             arrPeriodicOne = gf.AddPeriodicWrapper(arrPointsOne[arrIndicesOne],self.__BasisVectors, 20,False)
                             arrODistancesTwo, arrOIndicesTwo = objTreeTwo.query(arrPeriodicOne, k=1)
-                           # arrDistancesTwo = np.array(list(map(lambda x: x[0], arrDistancesTwo)))
-                           # arrIndicesTwo = np.array(list(map(lambda x: x[0], arrIndicesTwo)))
                             arrCloseTwo = np.where(arrODistancesTwo < fltDistance)[0]
                             arrIndicesTwo = arrOIndicesTwo[arrCloseTwo]
-                          #  arrIndicesTwo = np.mod(arrIndicesTwo,len(arrPointsOne))
                             arrIndicesTwo = arrIndicesTwo[:,0]
-                         #   arrIndicesTwo,arrPositionsTwo = np.unique(arrIndicesTwo,return_index=True)
-                         #   arrIndicesTwo = arrIndicesTwo[np.argsort(arrPositionsTwo)]  
                             if intLengthOne == len(arrIndicesTwo):
                                 for i in range(intLengthOne):
                                      lstVacanciesOne.append(lstIndicesOne[arrIndicesOne[i]]) 
@@ -737,12 +723,10 @@ class SimulationCell(object):
                                      lstNonGrainAtomTypes.append(self.GetGrain(strFirstGrain).GetAtomType())
                                 self.GetGrain(strFirstGrain).AddVacancies(lstVacanciesOne)
                                 self.GetGrain(strSecondGrain).AddVacancies(lstVacanciesTwo)
-                                self.AddNonGrainAtomPositions(np.vstack(lstNonGrainAtoms),np.array(lstNonGrainAtomTypes))
+                                self.AddNonGrainAtomPositions(np.vstack(lstNonGrainAtoms),np.array(lstNonGrainAtomTypes),fltDistance)
                             else:
                                 warnings.warn('Error matching pairs across grain boundary for grains ' + strFirstGrain + ' with ' + str(intLengthOne) + ' atoms and grain '
                                  + strSecondGrain + ' with ' + str(len(arrIndicesTwo)) + ' atoms.')
-
-                                #print(arrOIndicesOne,arrOIndicesTwo)
                     intSecond += 1
             intFirst += 1
     def PlotSimulationCellAtoms(self):
@@ -807,10 +791,16 @@ class SimulationCell(object):
     def RemoveAtomsOnOpenBoundaries(self):
         for j in self.GrainList:
             self.GetGrain(j).SetOpenBoundaryPoints(self.GetRealConstraints())
-    def AddNonGrainAtomPositions(self, inArrayAtomPositions: np.array, inArrayAtomTypes: np.array):
+    def AddNonGrainAtomPositions(self, inArrayAtomPositions: np.array, inArrayAtomTypes: np.array,fltTolerance):
         lstAdd = []
         lstAddType = []
         if len(self.__NonGrainAtomPositions) > 0:
+            arrPoints = gf.AddPeriodicWrapper(self.__NonGrainAtomPositions,self.__BasisVectors, 2*fltTolerance)
+            objNonGrainAtoms = KDTree(self.__NonGrainAtomPositions)
+            arrDistances, arrIndices = objNonGrainAtoms.query(inArrayAtomPositions)
+            arrClose = np.where(arrDistances > fltTolerance)[0] #only add new atoms if they are sufficiently far away from the existing atoms
+            inArrayAtomTypes = inArrayAtomTypes[arrClose]
+            inArrayAtomPositions = inArrayAtomPositions[arrClose]
             lstAdd.append(self.__NonGrainAtomPositions)
             lstAddType.extend(self.__NonGrainAtomTypes.tolist())
             lstAddType.extend(inArrayAtomTypes.tolist())
@@ -819,7 +809,7 @@ class SimulationCell(object):
             self.__NonGrainAtomTypes = inArrayAtomTypes
         lstAdd.append(inArrayAtomPositions)
         arrAtoms,arrPositions = np.unique(np.vstack(lstAdd),axis= 0,return_index=True)
-        self.__NonGrainAtomPositions = arrAtoms[np.argsort(arrPositions)]
+        self.__NonGrainAtomPositions = self.WrapVectorIntoSimulationBox(arrAtoms[np.argsort(arrPositions)])
         self.__NonGrainAtomTypes = self.__NonGrainAtomTypes[np.argsort(arrPositions)] 
     def GetNumberOfNonGrainAtoms(self):
         return len(self.__NonGrainAtomPositions)
@@ -827,6 +817,16 @@ class SimulationCell(object):
         return self.__NonGrainAtomPositions
     def RemoveNonGrainAtomPositons(self):
         self.__NonGrainAtomPositions = []
+    def FinalAtomPositionCheck(self, fltTolerance):
+        arrPoints = gf.AddPeriodicWrapper(self.__NonGrainAtomPositions, self.__BasisVectors, fltTolerance)
+        if len(self.__NonGrainAtomPositions) > 0:
+            for j in self.GrainList:
+                arrGrainPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(j).GetBoundaryAtoms())
+                objKDTree = KDTree(arrGrainPoints)
+                arrDistances, arrIndices = objKDTree.query(arrPoints)
+                arrClose = np.where(arrDistances < fltTolerance)[0] #final checks to make sure no atoms are too close together
+                lstIndices = arrIndices[arrClose].tolist()
+                self.GetGrain(j).AddVacancies(lstIndices)
 class Grain(object):
     def __init__(self, intGrainNumber: int):
         self.__GrainID = intGrainNumber

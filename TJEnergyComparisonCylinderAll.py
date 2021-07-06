@@ -20,15 +20,15 @@ fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
 arrSigmaBasis = objSigma.GetBasisVectors()
 intMax = 60
 intHeight = 5
-i = 4 #scaling parameter
+i = 3 #scaling parameter
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s3 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
 a = 4.05 ##lattice parameter
-r = 3*a*s2*i/2
+r = 2*a*s2*i
 ###First part runs with displaced cylinder
 w = 20*a*i
-l = 9*a*i
+l = 8*a*i
 h = a*np.round(intHeight/s3,0)
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
@@ -74,7 +74,8 @@ objSimulationCell1.AddGrain(objCylinder3)
 objSimulationCell1.RemoveAtomsOnOpenBoundaries()
 objSimulationCell1.RemovePeriodicDuplicates()
 objSimulationCell1.RemoveTooCloseAtoms(fltDistance*fltFactor, ['1','2'])
-objSimulationCell1.RemoveTooCloseAtoms(fltDistance*fltFactor,['1','3'])
+objSimulationCell1.RemoveTooCloseAtoms(fltDistance*0.2,['1','3'])
+objSimulationCell1.FinalAtomPositionCheck(0.2*fltDistance)
 objSimulationCell1.WrapAllAtomsIntoSimulationCell()
 objSimulationCell1.SetFileHeader('Grain centre is ' +str(arrGrainCentre0))
 objSimulationCell1.WriteLAMMPSDataFile(strDirectory + 'read0.dat')
@@ -93,9 +94,9 @@ fIn.close()
 
 ##Second part with triple lines
 
-arrGrainCentre1 = (9*a*arrSigmaBasis[0] +5*a*arrSigmaBasis[1])*i +arrShift
-np.savetxt(strDirectory + 'GrainCentre0.txt',arrGrainCentre1)
-w = 18*a*i
+arrGrainCentre1 = 3*a*i*arrSigmaBasis[0] + arrGrainCentre0
+np.savetxt(strDirectory + 'GrainCentre1.txt',arrGrainCentre1)
+w = 16*a*i
 l = 10*a*i
 h = a*np.round(intHeight/s3,0)
 arrX = w*arrSigmaBasis[0]
@@ -137,7 +138,8 @@ objSimulationCell2.AddGrain(objCylinder3)
 objSimulationCell2.RemoveAtomsOnOpenBoundaries()
 objSimulationCell2.RemovePeriodicDuplicates()
 objSimulationCell2.RemoveTooCloseAtoms(fltDistance*fltFactor, ['1','2'])
-objSimulationCell2.RemoveTooCloseAtoms(fltDistance*fltFactor,['1','3'])
+objSimulationCell2.RemoveTooCloseAtoms(fltDistance*0.2,['1','3'])
+objSimulationCell2.FinalAtomPositionCheck(0.2*fltDistance)
 objSimulationCell2.WrapAllAtomsIntoSimulationCell()
 objSimulationCell2.SetFileHeader('Grain centre is ' +str(arrGrainCentre1))
 objSimulationCell2.WriteLAMMPSDataFile(strDirectory + 'read1.dat')
