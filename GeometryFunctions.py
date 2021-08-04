@@ -197,8 +197,9 @@ def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array, bl
         invMatrix = np.linalg.inv(arrUnitBasis) 
         arrMod = np.linalg.norm(inBasis, axis=1)           
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
-        lstRows = np.where(np.any(arrCoefficients >= arrMod, axis=0) | np.any(arrCoefficients <0 , axis=0))[0]
-        return lstRows
+        arrRows = np.where(np.any(arrCoefficients >= arrMod, axis=0) | np.any(arrCoefficients <0 , axis=0))[0]
+        arrRows = np.unique(list(set(range(len(inVector))).difference(arrRows.tolist())))
+        return arrRows
         # arrCoefficients = arrCoefficients[lstRows]
         # # for j in range(3):
         # #         arrRows = np.where(np.abs(arrCoefficients[:,j]) < 0.1)
@@ -211,24 +212,15 @@ def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array, bl
         # else:        
         #         return np.matmul(arrCoefficients, arrUnitBasis)
 
-def WrapVectorIntoSimulationCell(inBasis: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
-        # if len(np.shape(inVector)) > 1:
-        #         if np.shape(inVector)[1] == 2:
-        #                 inMatrix = inMatrix[:2,:2]
-        #                 invMatrix = invMatrix[:2,:2]
-        # elif np.shape(inVector)[0]==2:
-        #         inMatrix = inMatrix[:2,:2]
-        #         invMatrix = invMatrix[:2,:2]  
+def WrapVectorIntoSimulationCell(inBasis: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array: 
         arrUnitBasis = inBasis/np.linalg.norm(inBasis, ord=2, axis=1, keepdims=True)
         invMatrix = np.linalg.inv(arrUnitBasis) 
         arrMod = np.linalg.norm(inBasis, axis=1)           
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
-        # for j in range(3):
-        #         arrRows = np.where(np.abs(arrCoefficients[:,j]) < 0.1)
-        #         if len(arrRows) > 0:
-        #                 arrCoefficients[arrRows,j] = np.zeros(len(arrRows))
         arrCoefficients = np.mod(arrCoefficients, arrMod) #move so that they lie inside cell 
-        #arrCoefficients = np.unique(arrCoefficients, axis= 0)
+        arrRowsAndCols = np.where(arrCoefficients > (arrMod - 0.0001*np.ones(3)))
+        if len(arrRowsAndCols) > 0:
+                arrCoefficients[arrRowsAndCols] = 0
         if blnReturnCellCoordinates:
                 return np.matmul(arrCoefficients, arrUnitBasis),arrCoefficients #return the wrapped vector in the standard basis
         else:        
@@ -311,6 +303,55 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
                         lstNewPoints.append(arrNewPoints)
                         arrCoefficients = np.concatenate(lstNewPoints)
         return np.matmul(arrCoefficients, inCellVectors)
+def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints: np.array, fltDistance: float, lstPeriodic = ['p','p','p']):
+        #arrInverseMatrix = np.linalg.inv(inCellVectors)
+        #arrCoefficients = np.matmul(inPoints, arrInverseMatrix)
+        #arrProportions = 0.1*np.ones(3)
+        lstIndices = []
+        lstNewPoints = []
+        arrAllPoints = inPoints
+        lstNewPoints.append(inPoints)
+        arrIndices = np.array(list(range(len(inPoints))))
+        lstIndices.append(arrIndices)
+        for i in range(3):
+                if lstPeriodic[i] == 'p':
+                        j = inConstraints[i]
+                        k = inCellVectors[i]
+                        arrPositions1 =  np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), fltDistance)
+                        arrRows1 = np.where(arrPositions1 <= 0)[0]
+                        lstIndices.append(arrIndices[arrRows1])
+                        arrNewPoints = arrAllPoints[arrRows1] + k
+                        lstNewPoints.append(arrNewPoints)
+                        arrPositions2 =  np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), j[-1]-fltDistance)
+                        arrRows2 = np.where(arrPositions2 >= 0)[0]
+                        lstIndices.append(arrIndices[arrRows2])
+                        arrNewPoints = arrAllPoints[arrRows2] - k
+                        lstNewPoints.append(arrNewPoints)
+                        arrAllPoints = np.concatenate(lstNewPoints)
+                        arrIndices = np.concatenate(lstIndices)
+        # for i in range(len(inCellVectors)):
+        #         arrUnitVector = np.zeros(3)
+        #         arrUnitVector[i] = 1
+        #         fltComponent = np.dot(NormaliseVector(inCellVectors[i]),arrUnitVector)
+        #         if fltComponent != 0:
+        #                 arrProportions[i] = fltDistance/(np.linalg.norm(inCellVectors[i])*fltComponent)
+        # lstNewPoints = []
+        
+        # for j in range(3):
+        #         if lstPeriodic[j] == 'p':
+        #                 arrVector = np.zeros(3)
+        #                 arrVector[j] = 1
+        #                 arrRows = np.where((arrCoefficients[:,j] >= 0) & (arrCoefficients[:,j] <= arrProportions[j]))[0]
+        #                 arrNewPoints = arrCoefficients[arrRows] + arrVector
+        #                 lstNewPoints.append(arrNewPoints)
+        #                 lstIndices.extend(arrRows.tolist())
+        #                 arrRows = np.where((arrCoefficients[:,j] >= 1-arrProportions[j]) & (arrCoefficients[:,j] <= 1))[0]
+        #                 arrNewPoints = arrCoefficients[arrRows] - arrVector
+        #                 lstNewPoints.append(arrNewPoints)
+        #                 lstIndices.extend(arrRows.tolist())
+        #                 arrCoefficients = np.concatenate(lstNewPoints)
+        return arrAllPoints, arrIndices
+#        return np.matmul(arrCoefficients, inCellVectors), np.array(lstIndices)
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
         return np.linalg.norm(inVector2-inVector1, axis=0)
