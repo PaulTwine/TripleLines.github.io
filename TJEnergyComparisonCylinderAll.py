@@ -7,12 +7,14 @@ import LAMMPSTool as LT
 import sys
 from mpl_toolkits.mplot3d import Axes3D 
 import copy as cp
+from scipy import spatial
+fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
+ax = fig.gca(projection='3d')
 
-
-strDirectory = str(sys.argv[1])
-intSigma = int(sys.argv[2])
-fltFactor = float(sys.argv[4])
-lstAxis = eval(str(sys.argv[3]))
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+intSigma = 19 #int(sys.argv[2])
+fltFactor = 0.3 #float(sys.argv[4])
+lstAxis = [1,1,1] #eval(str(sys.argv[3]))
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
@@ -20,7 +22,7 @@ fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
 arrSigmaBasis = objSigma.GetBasisVectors()
 intMax = 60
 intHeight = 5
-i = 3 #scaling parameter
+i = 1 #scaling parameter
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s3 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
@@ -55,7 +57,7 @@ objLeftCell1.ApplyGeneralConstraint(gf.InvertRegion(strConstraint))
 objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 
-fltDistance = objFullCell1.GetNearestNeighbourDistance()
+fltDistance = 0.9*objFullCell1.GetNearestNeighbourDistance()
 
 arrGrainCentre0 = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])+arrShift
 
@@ -71,16 +73,19 @@ objRightChopped2.ApplyGeneralConstraint(gf.InvertRegion(strCylinder))
 objSimulationCell1.AddGrain(objLeftChopped1)
 objSimulationCell1.AddGrain(objRightChopped2)
 objSimulationCell1.AddGrain(objCylinder3)
-objSimulationCell1.RemoveAtomsOnOpenBoundaries()
-objSimulationCell1.RemovePeriodicDuplicates()
-objSimulationCell1.RemoveTooCloseAtoms(fltDistance*fltFactor, ['1','2'])
-objSimulationCell1.RemoveTooCloseAtoms(fltDistance*0.2,['1','3'])
-objSimulationCell1.FinalAtomPositionCheck(0.2*fltDistance)
+objSimulationCell1.RemoveGrainPeriodicDuplicates()
+objSimulationCell1.MergeTooCloseAtoms(fltDistance,1)
 objSimulationCell1.WrapAllAtomsIntoSimulationCell()
 objSimulationCell1.SetFileHeader('Grain centre is ' +str(arrGrainCentre0))
 objSimulationCell1.WriteLAMMPSDataFile(strDirectory + 'read0.dat')
-objSimulationCell1.RemoveAllGrains()
-objSimulationCell1.RemoveNonGrainAtomPositons()
+#pts = objSimulationCell1.GetNonGrainAtomPositions()
+pts = objSimulationCell1.GetAtomPoints()
+#arrMatrix = spatial.distance_matrix(pts,pts)
+ax.scatter(*tuple(zip(*pts)),s=0.3)
+gf.EqualAxis3D(ax)
+plt.show()
+#objSimulationCell1.RemoveAllGrains()
+#objSimulationCell1.RemoveNonGrainAtomPositons()
 fIn = open(strDirectory +  'TemplateMin.in', 'rt')
 fData = fIn.read()
 fData = fData.replace('read.dat', 'read0.dat')
@@ -93,6 +98,7 @@ fIn.write(fData)
 fIn.close()
 
 ##Second part with triple lines
+
 
 arrGrainCentre1 = 3*a*i*arrSigmaBasis[0] + arrGrainCentre0
 np.savetxt(strDirectory + 'GrainCentre1.txt',arrGrainCentre1)
@@ -122,7 +128,7 @@ objLeftCell1.ApplyGeneralConstraint(gf.InvertRegion(strConstraint))
 objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 
-fltDistance = objFullCell1.GetNearestNeighbourDistance()
+
 
 
 strCylinder = gf.ParseConic([arrGrainCentre1[0],arrGrainCentre1[1]],[r,r],[2,2])
@@ -135,16 +141,14 @@ objRightChopped2.ApplyGeneralConstraint(gf.InvertRegion(strCylinder))
 objSimulationCell2.AddGrain(objLeftChopped1)
 objSimulationCell2.AddGrain(objRightChopped2)
 objSimulationCell2.AddGrain(objCylinder3)
-objSimulationCell2.RemoveAtomsOnOpenBoundaries()
-objSimulationCell2.RemovePeriodicDuplicates()
-objSimulationCell2.RemoveTooCloseAtoms(fltDistance*fltFactor, ['1','2'])
-objSimulationCell2.RemoveTooCloseAtoms(fltDistance*0.2,['1','3'])
-objSimulationCell2.FinalAtomPositionCheck(0.2*fltDistance)
+objSimulationCell2.RemoveGrainPeriodicDuplicates()
+objSimulationCell2.MergeTooCloseAtoms(fltDistance,1)
 objSimulationCell2.WrapAllAtomsIntoSimulationCell()
+pts = objSimulationCell2.GetDuplicatePoints()
 objSimulationCell2.SetFileHeader('Grain centre is ' +str(arrGrainCentre1))
 objSimulationCell2.WriteLAMMPSDataFile(strDirectory + 'read1.dat')
-objSimulationCell2.RemoveAllGrains()
-objSimulationCell2.RemoveNonGrainAtomPositons()
+#objSimulationCell2.RemoveAllGrains()
+#objSimulationCell2.RemoveNonGrainAtomPositons()
 fIn = open(strDirectory +  'TemplateMin.in', 'rt')
 fData = fIn.read()
 fData = fData.replace('read.dat', 'read1.dat')

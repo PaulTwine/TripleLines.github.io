@@ -314,15 +314,16 @@ class GeneralLattice(PureLattice,RealCell):
         else: 
             self.__OpenConstraints = []
             return []
-    def FindPeriodicDuplicates(self, inRealConstraints: np.array):
-        lstLatticeConstraints = []
-        for j in inRealConstraints:
-            fltLength = np.dot(j[0:3]*j[3]-self.__Origin,j[0:3]*j[3])/(j[3]**2) ##this adjusts the length of the constraint vector but not the direction
-            j[3] = j[3]*fltLength
-            lstLatticeConstraints.append(self.ConvertRealToLatticeConstraint(j))
-        arrLatticeConstraints = np.vstack(lstLatticeConstraints)
-        lstIndices = self.FindLatticeDuplicates(arrLatticeConstraints)
-        return lstIndices
+    def FindPeriodicDuplicates(self, inCellVectors: np.array):
+        # lstLatticeConstraints = []
+        # for j in inRealConstraints:
+        #     fltLength = np.dot(j[0:3]*j[3]-self.__Origin,j[0:3]*j[3])/(j[3]**2) ##this adjusts the length of the constraint vector but not the direction
+        #     j[3] = j[3]*fltLength
+        #     lstLatticeConstraints.append(self.ConvertRealToLatticeConstraint(j))
+        # arrLatticeConstraints = np.vstack(lstLatticeConstraints)
+        # lstIndices = self.FindLatticeDuplicates(arrLatticeConstraints)
+        # return lstIndices
+        return gf.FindDuplicates(self.GetRealPoints(),inCellVectors, 1e-5, self.GetPeriodicity())
     def GenerateLatticeConstraints(self, inConstraints: np.array):
         rtnArray = np.zeros([len(inConstraints),len(inConstraints[0])])
         for i in range(len(inConstraints)):
@@ -563,7 +564,7 @@ class SimulationCell(object):
     def SetFileHeader(self, inString: str):
         self.__FileHeader = inString
     def WrapVectorIntoSimulationBox(self, inVector: np.array)->np.array:
-        return gf.WrapVectorIntoSimulationCell(self.__BasisVectors, self.__InverseBasis, inVector)
+        return gf.WrapVectorIntoSimulationCell(self.__BasisVectors, inVector)
     def WriteLAMMPSDataFile(self,inFileName: str):        
         now = datetime.now()
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
@@ -664,8 +665,9 @@ class SimulationCell(object):
             return []
     def RemoveGrainPeriodicDuplicates(self):
         for i in self.GrainList:
-            lstIndices = self.GetGrain(i).FindPeriodicDuplicates(self.GetRealConstraints())
-            self.GetGrain(i).AddVacancies(lstIndices)
+            arrIndices = self.GetGrain(i).FindPeriodicDuplicates(self.__BasisVectors)
+            if len(arrIndices) > 0:
+                self.GetGrain(i).AddVacancies(arrIndices.tolist())
     def MergeTooCloseAtoms(self,fltDistance:float, intAtomType: int):
         if fltDistance == 0:
             fltDistance = 1e-5
@@ -674,80 +676,55 @@ class SimulationCell(object):
         i=0
         for k in self.GrainList:
             if self.GetGrain(k).GetAtomType() == intAtomType:
-                lstGBAtoms.append(self.WrapVectorIntoSimulationBox(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors)))
+                lstGBAtoms.append(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors))
                 i +=1
         blnStop = False
         arrGBAtoms = self.RemoveRealDuplicates(np.vstack(lstGBAtoms))
         intCounter = 0
         intLimit = 25
         while not(blnStop) and intCounter < intLimit:
-            #lstUsedIndices = []
             lstMergedAtoms = []
-            objGBTree = PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),2*fltDistance)
+            objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),2*fltDistance)
             arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
-            #arrDistances,arrIndices = objGBTree.Pquery(arrGBAtoms,i+1,fltDistance)
-            lstIndices = objGBTree.Pquery_radius(arrGBAtoms,fltDistance)[0]
+            lstIndices = objGBTree.Pquery_radius(arrExtendedGBAtoms,fltDistance)[0]
+           # lstIndices = objGBTree.Pquery_radius(arrGBAtoms,fltDistance)[0]
             arrLengths = np.array(list(map(lambda x: len(x),lstIndices)))
             if len(arrLengths) > 0:
-                arrRows = np.where(arrLengths > 1)[0]
-                arrUnusedRows = np.where(arrLengths <=1)[0]
-            else:
-                arrRows = []
-            if len(arrRows) >0:
-                for i in arrRows:
-                    j = lstIndices[i]
-                    #arrPoints = gf.PeriodicShiftAllCloser(arrGBAtoms[j[0]],arrGBAtoms[j], self.__BasisVectors, np.linalg.inv(self.__BasisVectors),['pp','pp','pp'])    
-                    #arrPoints = self.RemoveRealDuplicates(arrPoints)
-                    lstMergedAtoms.append(np.mean(arrExtendedGBAtoms[j],axis=0))
-                    #j = np.sort(j)
-                    # if len(j) > 1:
-                    #     arrPoints = gf.PeriodicShiftAllCloser(arrGBAtoms[j[0]],arrGBAtoms[j], self.__BasisVectors, np.linalg.inv(self.__BasisVectors),['pp','pp','pp'])
-                    #     arrPoints = self.RemoveRealDuplicates(arrPoints)
-                    #     #lstMergedAtoms.append(np.round(np.mean(arrPoints,axis=0),5))
-                    #     lstMergedAtoms.append(np.round(self.WrapVectorIntoSimulationBox(np.mean(arrPoints,axis=0)),5))
-                    #   #  lstUsedIndices.extend(j.tolist()) 
-               # lstUsedIndices = np.unique(lstUsedIndices).tolist()
-               # arrUnusedIndices = np.array(list(set(range(len(arrGBAtoms))).difference(lstUsedIndices)))
-               # arrUnusedIndices = np.unique(arrUnusedIndices)
-                if len(arrUnusedRows) > 0:
-                    lstMergedAtoms.append(arrExtendedGBAtoms[arrUnusedRows])
-                arrGBAtoms = np.vstack(lstMergedAtoms)
-                arrGBAtoms = self.RemoveRealDuplicates(arrGBAtoms)
-                arrRows = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors, arrGBAtoms)
-                arrGBAtoms = arrGBAtoms[arrRows]
-                #arrUnusedAtoms = arrGBAtoms[arrUnusedIndices]
-               # arrGBAtoms = np.append(arrMergedAtoms, arrUnusedAtoms, axis=0)
-               # arrGBAtoms = self.WrapVectorIntoSimulationBox(arrGBAtoms) 
+                 arrRows = np.where(arrLengths > 1)[0]
+            if len(arrRows) > 0:
+                lstMergedAtoms = list(map(lambda x: np.mean(arrExtendedGBAtoms[x],axis=0),lstIndices))
+                arrExtendedGBAtoms = np.vstack(lstMergedAtoms)
+                arrGBAtoms = self.RemoveRealDuplicates(arrExtendedGBAtoms)
+                arrInside = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors, arrGBAtoms)
+                arrGBAtoms = arrGBAtoms[arrInside] 
             else: 
                 blnStop = True
             intCounter +=1
         if intCounter == intLimit:
             warnings.warn('Merge too close atoms terminated after ' + str(intCounter) + ' iterations')
-           # if len(arrIndices) == 0:
-           # arrNonGrainAtomPositions = arrGBAtoms
-        # else:
-        #     lstUnusedIndices = list(set(range(len(arrGBAtoms))).difference(lstUsedIndices))
-        #     arrUnusedIndices = np.unique(lstUnusedIndices)
-        #     arrMergedAtoms = self.WrapVectorIntoSimulationBox(np.unique(np.vstack(lstMergedAtoms),axis=0))
-        #     arrMergedAtoms = self.RemoveRealDuplicates(arrMergedAtoms)
-        #     if len(arrUnusedIndices)>0: 
-        #         arrRemainingGBs = self.WrapVectorIntoSimulationBox(arrGBAtoms[arrUnusedIndices])
-        #         arrNonGrainAtomPositions = np.append(arrMergedAtoms, arrRemainingGBs, axis=0) 
-        #     else:
-        #         arrNonGrainAtomPositions = arrMergedAtoms
-        # self.__NonGrainAtomPositions = self.WrapVectorIntoSimulationBox(arrNonGrainAtomPositions)
-        # if len(np.unique(np.round(self.__NonGrainAtomPositions,5),axis=0)) != len(self.__NonGrainAtomPositions):
-        #     warnings.warn("Duplicate GB Atoms")
-        # self.__NonGrainAtomPositions = np.unique(np.round(self.__NonGrainAtomPositions,5),axis=0)
         self.__NonGrainAtomPositions = arrGBAtoms
         self.__NonGrainAtomTypes = np.ones(len(arrGBAtoms))*intAtomType
-    def RemoveRealDuplicates(self, inPoints, fltDistance = 1e-5):
+    def RemoveRealDuplicates(self, inPoints, fltDistance = 1e-3):
         arrPoints = self.WrapVectorIntoSimulationBox(inPoints)
-        objPeriodicTree = PeriodicWrapperKDTree(arrPoints, self.__BasisVectors,self.GetRealConstraints(), 20)
-        lstIndices = objPeriodicTree.Pquery_radius(arrPoints,fltDistance)[1]
-        lstUniqueIndices = list(map(lambda x: np.sort(x)[0],lstIndices))
+        arrRows = gf.FindDuplicates(arrPoints, self.__BasisVectors,fltDistance)
+        lstUniqueIndices = list(set(range(len(inPoints))).difference(arrRows.tolist()))
         arrUniqueIndices = np.unique(lstUniqueIndices)
-        return inPoints[arrUniqueIndices]
+        return arrPoints[arrUniqueIndices]
+        # objPeriodicTree = gf.PeriodicWrapperKDTree(arrPoints, self.__BasisVectors,self.GetRealConstraints(), 20)
+        # lstIndices = objPeriodicTree.Pquery_radius(arrPoints,fltDistance)[1]
+        # arrLengths = np.array(list(map(lambda x: len(x),lstIndices)))
+        # arrRows = np.where(arrLengths >1)[0]
+        # if len(arrRows) > 0:
+        #     arrRepeatedIndices = np.unique(np.vstack(list(map(lambda x: lstIndices[x][1:],arrRows))))
+        #     lstUniqueIndices = list(set(range(len(inPoints))).difference(arrRepeatedIndices.tolist()))
+        #     if len(lstUniqueIndices) > 0:
+        #         arrUniqueIndices = np.unique(np.vstack(lstUniqueIndices))
+        #         rtnPoints = inPoints[arrUniqueIndices]
+        #     else:
+        #         rtnPoints = inPoints
+        # else:
+        #     rtnPoints = inPoints
+        # return rtnPoints
     def PlotSimulationCellAtoms(self):
         if self.blnPointsAreWrapped:
             return tuple(zip(*self.__UniqueRealPoints))
@@ -755,10 +732,13 @@ class SimulationCell(object):
         arrPointsOnPlane = gf.CheckLinearEquality(np.round(self.__UniqueRealPoints,10), inPlane,fltTolerance)
         self.__UniqueRealPoints = np.delete(self.__UniqueRealPoints,arrPointsOnPlane, axis=0)   
     def GetAtomPoints(self)->np.array:
-        if self.blnPointsAreWrapped:
+        if len(self.__AtomPositions) > 0:
             return self.__AtomPositions
         else:
-            raise("Error: Points need to be wrapped into simulation cell")
+            lstAtoms = []
+            for j in self.GrainList:
+                lstAtoms.append(j.GetInteriorAtoms(self.__BasisVectors))
+            return np.vstack(lstAtoms)
     def GetSimulationCellVolume(self):
         return np.abs(np.dot(self.__BasisVectors[0], np.cross(self.__BasisVectors[1], self.__BasisVectors[2])))
     def GetNumberOfVacancies(self):
@@ -802,11 +782,13 @@ class SimulationCell(object):
             objLammps.close()
         return lstAtoms, lstAdjusted,np.argmin(lstAdjusted)/intRange
     def GetRealConstraints(self):
-        arrConstraints = np.zeros([3,4])
-        for j in range(len(self.__BasisVectors)):
-            arrConstraints[j,:3] =gf.NormaliseVector(np.cross(self.__BasisVectors[np.mod(j+1,3)], self.__BasisVectors[np.mod(j+2,3)]))
-            arrConstraints[j,3] = np.dot(arrConstraints[j,:3],self.__BasisVectors[np.mod(j,3)])
+        arrConstraints = gf.FindConstraintsFromBasisVectors(self.__BasisVectors)
         return arrConstraints
+        # arrConstraints = np.zeros([3,4])
+        # for j in range(len(self.__BasisVectors)):
+        #     arrConstraints[j,:3] =gf.NormaliseVector(np.cross(self.__BasisVectors[np.mod(j+1,3)], self.__BasisVectors[np.mod(j+2,3)]))
+        #     arrConstraints[j,3] = np.dot(arrConstraints[j,:3],self.__BasisVectors[np.mod(j,3)])
+        # return arrConstraints
     def RemoveAtomsOnOpenBoundaries(self):
         for j in self.GrainList:
             self.GetGrain(j).SetOpenBoundaryPoints(self.GetRealConstraints())
@@ -819,17 +801,7 @@ class SimulationCell(object):
     def RemoveNonGrainAtomPositons(self):
         self.__NonGrainAtomPositions = []
         self.__NonGrainAtomTypes = []
-    def FinalAtomPositionCheck(self, fltTolerance):
-        if len(self.__NonGrainAtomPositions) > 0:
-            arrPoints = gf.AddPeriodicWrapper(self.__NonGrainAtomPositions, self.__BasisVectors, fltTolerance)
-            for j in self.GrainList:
-                arrGrainPoints = self.WrapVectorIntoSimulationBox(self.GetGrain(j).GetBoundaryAtoms())
-                objKDTree = KDTree(arrGrainPoints)
-                arrDistances, arrIndices = objKDTree.query(arrPoints)
-                arrClose = np.where(arrDistances < fltTolerance)[0] #final checks to make sure no atoms are too close together
-                arrIndices = arrIndices[:,0]
-                lstIndices = arrIndices[arrClose].tolist()
-                self.GetGrain(j).AddVacancies(lstIndices)
+ 
 class Grain(object):
     def __init__(self, intGrainNumber: int):
         self.__GrainID = intGrainNumber
@@ -1149,20 +1121,14 @@ class SigmaCell(object):
             arrCloseOne = np.where(arrDistancesOne < 1e-5)[0]
             arrIndicesOne = arrIndicesOne.ravel()
             arrIndicesOne = arrIndicesOne[arrCloseOne]
-            #arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
-            #lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
             arrCSLPoints = arrPoints1[arrIndicesOne]
             arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
             lstBase = arrBase.tolist()
             lstBase.remove(np.zeros(3).tolist())
             arrBase = np.array(lstBase)
             arrDistances = np.linalg.norm(arrBase,axis=1)
-            #arrPositions = arrDistances > 0
-            #arrBase = arrBase[np.argsort(arrPositions)]
-            #arrDistances = arrDistances[np.argsort(arrPositions)]
             arrClosestPoint = gf.NormaliseVector(arrBase[np.argmin(arrDistances)])
             fltdotX = np.arctan2(np.linalg.norm(np.cross(arrClosestPoint,arrHorizontalVector)), np.dot(arrClosestPoint, arrHorizontalVector))
-            #fltdotX =  np.arccos(np.dot(arrClosestPoint, arrHorizontalVector))
             fltAngle2 = -fltdotX
             self.__LatticeRotations = np.array([fltAngle2, fltSigma+ fltAngle2])
             objFirstLattice = ExtrudedRectangle(l,l,h,gf.RotateVectors(fltAngle2,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
@@ -1174,17 +1140,12 @@ class SigmaCell(object):
             arrCloseOne = np.where(arrDistancesOne < 1e-5)[0]
             arrIndicesOne = arrIndicesOne.ravel()
             arrIndicesOne = arrIndicesOne[arrCloseOne]
-            # arrDistanceMatrix = sc.spatial.distance_matrix(arrPoints1, arrPoints2)
-            # lstPoints = np.where(arrDistanceMatrix < 1e-5)[0]
             arrCSLPoints = arrPoints1[arrIndicesOne]
             arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
             lstBase = arrBase.tolist()
             lstBase.remove(np.zeros(3).tolist())
             arrBase = np.array(lstBase)
             arrDistances = np.linalg.norm(arrBase,axis=1)
-            #arrPositions = arrDistances > 0
-            #arrBase = arrBase[np.argsort(arrPositions)]
-            #arrDistances = arrDistances[np.argsort(arrPositions)]
             lstPositions = gf.FindNthSmallestPosition(arrDistances, 0)
             arrVector1 = arrBase[lstPositions[0]]
             if len(lstPositions) > 1:
@@ -1205,53 +1166,4 @@ class SigmaCell(object):
     
 
 
-class PeriodicKDTree(object):
-    def __init__(self, inPoints, inPeriodicVectors, lstBoundaryType = ['pp','pp','pp']):
-        self.__PeriodicVectors = inPeriodicVectors
-        arrInverse = np.linalg.inv(inPeriodicVectors)
-        self.__InverseBasis = arrInverse
-        self.__ModValue = len(inPoints)
-        arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
-        self__UnitVectors = np.matmul(arrScaling, inPeriodicVectors)
-        self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)
-        self.__ExtendedPoints = gf.PeriodicEquivalents(inPoints, inPeriodicVectors,arrInverse,lstBoundaryType)
-        self.__PeriodicTree = KDTree(self.__ExtendedPoints)
-    def Pquery_radius(self, inPoints: np.array, fltRadius: float):
-        arrIndices = self.__PeriodicTree.query_radius(inPoints, fltRadius)
-        lstIndices = list(map(lambda x: np.unique(np.mod(x,self.__ModValue)),arrIndices))
-        x = 1
-      #  for j in arrIndices:
-      #      lstIndices.append(np.unique(np.mod(j, self.__ModValue)))
-        return lstIndices
-    def Pquery(self,inPoints: np.array, k :int, fltDistance: float):
-        arrDistances, arrIndices = self.__PeriodicTree.query(inPoints, k)
-        arrDistances = np.round(arrDistances, 5)
-        arrClose =  np.where(arrDistances <= fltDistance)
-        arrDistances = arrDistances[arrClose]
-        arrIndices = arrIndices[arrClose]
-        arrIndices = np.mod(arrIndices, self.__ModValue)
-        arrPositions = np.unique(arrIndices,axis=0, return_index=True)[1]
-        arrDistances = arrDistances[np.argsort(arrPositions)]
-        arrIndices = arrIndices[np.argsort(arrPositions)] 
-        return arrDistances,arrIndices
-
-class PeriodicWrapperKDTree(object):
-    def __init__(self, inPoints,inPeriodicVectors,inConstraints, fltWrapperLength, lstBoundaryType = ['p','p','p']):
-        self.__PeriodicVectors = inPeriodicVectors
-        arrInverse = np.linalg.inv(inPeriodicVectors)
-        self.__InverseBasis = arrInverse
-        self.__ModValue = len(inPoints)
-        arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
-        self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)
-        self.__ExtendedPoints, self.__UniqueIndices = gf.AddPeriodicWrapperAndIndices(inPoints, inPeriodicVectors,inConstraints,fltWrapperLength,lstBoundaryType)
-        self.__PeriodicTree = KDTree(self.__ExtendedPoints)
-    def Pquery_radius(self, inPoints: np.array, fltRadius: float):
-        arrIndices = self.__PeriodicTree.query_radius(inPoints, fltRadius)
-        lstPeriodicIndices = list(map(lambda x: self.__UniqueIndices[x],arrIndices))
-        x = 1
-      #  for j in arrIndices:
-      #      lstIndices.append(np.unique(np.mod(j, self.__ModValue)))
-        return arrIndices, lstPeriodicIndices
-    def GetExtendedPoints(self):
-        return self.__ExtendedPoints
     

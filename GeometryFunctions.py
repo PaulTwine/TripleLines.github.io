@@ -184,47 +184,32 @@ def IsVectorOutsideSimulationCell(inMatrix: np.array, invMatrix: np.array, inVec
                 return True
         else:
                 return False
-
-def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array:
-        # if len(np.shape(inVector)) > 1:
-        #         if np.shape(inVector)[1] == 2:
-        #                 inMatrix = inMatrix[:2,:2]
-        #                 invMatrix = invMatrix[:2,:2]
-        # elif np.shape(inVector)[0]==2:
-        #         inMatrix = inMatrix[:2,:2]
-        #         invMatrix = invMatrix[:2,:2]  
+def FindConstraintsFromBasisVectors(inBasisVectors: np.array): #must be in order of a right handed set
+        i = len(inBasisVectors)
+        arrConstraints = np.zeros([i,i+1])
+        for j in range(i):
+            arrConstraints[j,:i] = NormaliseVector(np.cross(inBasisVectors[np.mod(j+1,i)], inBasisVectors[np.mod(j+2,i)]))
+            arrConstraints[j,i] = np.dot(arrConstraints[j,:i],inBasisVectors[np.mod(j,i)])
+        return arrConstraints
+def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array)->np.array:      
         arrUnitBasis = inBasis/np.linalg.norm(inBasis, ord=2, axis=1, keepdims=True)
         invMatrix = np.linalg.inv(arrUnitBasis) 
         arrMod = np.linalg.norm(inBasis, axis=1)           
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
-        arrRows = np.where(np.any(arrCoefficients >= arrMod, axis=0) | np.any(arrCoefficients <0 , axis=0))[0]
-        arrRows = np.unique(list(set(range(len(inVector))).difference(arrRows.tolist())))
+        arrRows = np.where(np.all(arrCoefficients < arrMod, axis=1) & np.all(arrCoefficients >= 0 , axis=1))[0]
         return arrRows
-        # arrCoefficients = arrCoefficients[lstRows]
-        # # for j in range(3):
-        # #         arrRows = np.where(np.abs(arrCoefficients[:,j]) < 0.1)
-        # #         if len(arrRows) > 0:
-        # #                 arrCoefficients[arrRows,j] = np.zeros(len(arrRows))
-        # # arrCoefficients = np.mod(arrCoefficients, arrMod) #move so that they lie inside cell 
-        # # #arrCoefficients = np.unique(arrCoefficients, axis= 0)
-        # if blnReturnCellCoordinates:
-        #         return np.matmul(arrCoefficients, arrUnitBasis),arrCoefficients #return the wrapped vector in the standard basis
-        # else:        
-        #         return np.matmul(arrCoefficients, arrUnitBasis)
+       
 
-def WrapVectorIntoSimulationCell(inBasis: np.array, invMatrix: np.array, inVector: np.array, blnReturnCellCoordinates = False)->np.array: 
-        arrUnitBasis = inBasis/np.linalg.norm(inBasis, ord=2, axis=1, keepdims=True)
+def WrapVectorIntoSimulationCell(inCellVectors: np.array, inVector: np.array, fltTolerance = 1e-5)->np.array: 
+        arrUnitBasis = inCellVectors/np.linalg.norm(inCellVectors, ord=2, axis=1, keepdims=True)
         invMatrix = np.linalg.inv(arrUnitBasis) 
-        arrMod = np.linalg.norm(inBasis, axis=1)           
+        arrMod = np.linalg.norm(inCellVectors, axis=1)           
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
         arrCoefficients = np.mod(arrCoefficients, arrMod) #move so that they lie inside cell 
-        arrRowsAndCols = np.where(arrCoefficients > (arrMod - 0.0001*np.ones(3)))
+        arrRowsAndCols = np.where((arrCoefficients > (arrMod -fltTolerance*np.ones(3))) & (arrCoefficients < (arrMod + fltTolerance*np.ones(3))))
         if len(arrRowsAndCols) > 0:
-                arrCoefficients[arrRowsAndCols] = 0
-        if blnReturnCellCoordinates:
-                return np.matmul(arrCoefficients, arrUnitBasis),arrCoefficients #return the wrapped vector in the standard basis
-        else:        
-                return np.matmul(arrCoefficients, arrUnitBasis)
+                arrCoefficients[arrRowsAndCols] = 0      
+        return np.matmul(arrCoefficients, arrUnitBasis)
 def CheckVectorIsInSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array)->np.array:
         arrCellCoordinates = np.matmul(inVector, invMatrix)
         arrModCoordinates = np.mod(arrCellCoordinates,np.ones(np.shape(arrCellCoordinates)))
@@ -304,54 +289,41 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
                         arrCoefficients = np.concatenate(lstNewPoints)
         return np.matmul(arrCoefficients, inCellVectors)
 def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints: np.array, fltDistance: float, lstPeriodic = ['p','p','p']):
-        #arrInverseMatrix = np.linalg.inv(inCellVectors)
-        #arrCoefficients = np.matmul(inPoints, arrInverseMatrix)
-        #arrProportions = 0.1*np.ones(3)
-        lstIndices = []
+        lstNewIndices = []
         lstNewPoints = []
-        arrAllPoints = inPoints
+        intLength = len(inPoints)
         lstNewPoints.append(inPoints)
-        arrIndices = np.array(list(range(len(inPoints))))
-        lstIndices.append(arrIndices)
+        arrAllIndices = np.array(list(range(len(inPoints))))
+        arrAllPoints = np.copy(inPoints)
+        lstNewIndices.append(arrAllIndices)
         for i in range(3):
                 if lstPeriodic[i] == 'p':
                         j = inConstraints[i]
                         k = inCellVectors[i]
-                        arrPositions1 =  np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), fltDistance)
-                        arrRows1 = np.where(arrPositions1 <= 0)[0]
-                        lstIndices.append(arrIndices[arrRows1])
-                        arrNewPoints = arrAllPoints[arrRows1] + k
-                        lstNewPoints.append(arrNewPoints)
-                        arrPositions2 =  np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), j[-1]-fltDistance)
-                        arrRows2 = np.where(arrPositions2 >= 0)[0]
-                        lstIndices.append(arrIndices[arrRows2])
-                        arrNewPoints = arrAllPoints[arrRows2] - k
-                        lstNewPoints.append(arrNewPoints)
+                        arrPositions1 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), fltDistance),5)
+                        arrRows1 = np.where(arrPositions1 < 0)[0]
+                        lstNewIndices.append(arrAllIndices[arrRows1])
+                        lstNewPoints.append(arrAllPoints[arrRows1] + k)
+                        arrPositions2 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), j[-1]-fltDistance),5)
+                        arrRows2 = np.where(arrPositions2 > 0)[0]
+                        lstNewIndices.append(arrAllIndices[arrRows2])
+                        lstNewPoints.append(arrAllPoints[arrRows2] - k)
                         arrAllPoints = np.concatenate(lstNewPoints)
-                        arrIndices = np.concatenate(lstIndices)
-        # for i in range(len(inCellVectors)):
-        #         arrUnitVector = np.zeros(3)
-        #         arrUnitVector[i] = 1
-        #         fltComponent = np.dot(NormaliseVector(inCellVectors[i]),arrUnitVector)
-        #         if fltComponent != 0:
-        #                 arrProportions[i] = fltDistance/(np.linalg.norm(inCellVectors[i])*fltComponent)
-        # lstNewPoints = []
-        
-        # for j in range(3):
-        #         if lstPeriodic[j] == 'p':
-        #                 arrVector = np.zeros(3)
-        #                 arrVector[j] = 1
-        #                 arrRows = np.where((arrCoefficients[:,j] >= 0) & (arrCoefficients[:,j] <= arrProportions[j]))[0]
-        #                 arrNewPoints = arrCoefficients[arrRows] + arrVector
-        #                 lstNewPoints.append(arrNewPoints)
-        #                 lstIndices.extend(arrRows.tolist())
-        #                 arrRows = np.where((arrCoefficients[:,j] >= 1-arrProportions[j]) & (arrCoefficients[:,j] <= 1))[0]
-        #                 arrNewPoints = arrCoefficients[arrRows] - arrVector
-        #                 lstNewPoints.append(arrNewPoints)
-        #                 lstIndices.extend(arrRows.tolist())
-        #                 arrCoefficients = np.concatenate(lstNewPoints)
-        return arrAllPoints, arrIndices
-#        return np.matmul(arrCoefficients, inCellVectors), np.array(lstIndices)
+                        arrAllIndices = np.concatenate(lstNewIndices)                
+        if len(arrAllPoints) > intLength:
+                objSpatial = KDTree(arrAllPoints[intLength:])
+                arrDuplicates = objSpatial.query_radius(inPoints,1e-3,count_only=False, return_distance = False)
+                lstDuplicates = list(map(lambda x: x, arrDuplicates))
+                lstDuplicates = [item for sublist in lstDuplicates for item in sublist]
+                arrRows = np.unique(lstDuplicates)
+                if len(arrRows) > 0:
+                        arrDelete = arrRows + np.ones(len(arrRows))*intLength
+                        arrDelete = arrDelete.astype('int')
+                        arrAllPoints = np.delete(arrAllPoints, arrDelete, axis=0)
+                        arrAllIndices = np.delete(arrAllIndices, arrDelete, axis=0)
+        #arrRows = np.where(np.any(np.all(arrAllPoints[intLength] == inPoints,axis=1),axis=0))
+        #arrUniqueRows = np.argsort(np.unique(np.round(arrAllPoints,5), axis=0, return_index=True)[1])
+        return arrAllPoints, arrAllIndices
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
         return np.linalg.norm(inVector2-inVector1, axis=0)
@@ -545,16 +517,20 @@ def CubicCSLGenerator(inAxis: np.array, intIterations=5)->list: #usually five it
                 arrReturn[k,1] = dctSigma[lstKeys[k]]
                 arrReturn[k,2] = 180*arrReturn[k,1]/np.pi
         return arrReturn
-def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inCellVectors = None):
+def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float, inCellVectors = None):
         intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
+        inConstraints = FindConstraintsFromBasisVectors(inCellVectors)
         if intLength > 0:
                 if inCellVectors is not(None):
-                        inPoints = AddPeriodicWrapper(inPoints, inCellVectors, 4*fltRadius)
-                objSpatial = KDTree(inPoints)
+                        arrWrappedPoints,arrIndices = AddPeriodicWrapperAndIndices(inPoints, inCellVectors,inConstraints, 2*fltRadius)
+                else:
+                        arrWrappedPoints = inPoints
+                        arrIndices = np.array(list(range(len(inPoints))))
+                objSpatial = KDTree(arrWrappedPoints)
+                #arrIndices = objSpatial.query_radius(inPoints,1e-5,count_only=False, return_distance = False)
                 arrCounts = objSpatial.query_radius(inPoints, fltRadius, count_only=True)
-                arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours +1)[0]
-                arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
-                return arrBoundaryIndices
+                arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours+1)[0]
+                return np.unique(arrIndices[arrBoundaryIndices])
         else:
                 return [] 
 def GetPeriodicDuplicatePoints(inPoints, intNumberOfNeighbours: int, fltRadius: float,inCellVectors):
@@ -563,7 +539,7 @@ def GetPeriodicDuplicatePoints(inPoints, intNumberOfNeighbours: int, fltRadius: 
                 arrWrappedPoints = AddPeriodicWrapper(inPoints, inCellVectors, 4*fltRadius)
                 objSpatial = KDTree(arrWrappedPoints)
                 arrCounts = objSpatial.query_radius(inPoints, fltRadius, count_only=True)
-                arrBoundaryIndices = np.where(arrCounts > intNumberOfNeighbours+1)[0]
+                arrBoundaryIndices = np.where(arrCounts < intNumberOfNeighbours+1)[0]
                 arrBoundaryIndices = arrBoundaryIndices[arrBoundaryIndices < intLength]
                 return arrBoundaryIndices
         else:
@@ -612,6 +588,75 @@ def CubicQuaternions():
         arrValues = np.vstack(lstQuaternions)
         arrRows = np.unique(np.round(arrValues,3),axis=0, return_index=True)[1]                              
         return arrValues[arrRows]
+
+def FindDuplicates(inPoints, inCellVectors, fltDistance, lstBoundaryType = ['p','p','p']):
+        arrConstraints = FindConstraintsFromBasisVectors(inCellVectors)
+        objPeriodicTree = PeriodicWrapperKDTree(inPoints, inCellVectors,arrConstraints,2*fltDistance, lstBoundaryType)
+        lstIndices = objPeriodicTree.Pquery_radius(inPoints,fltDistance)[1]
+        arrLengths = np.array(list(map(lambda x: len(x),lstIndices)))
+        arrRows = np.where(arrLengths >1)[0]
+        arrRepeatedIndices = np.array([])
+        if len(arrRows) > 0:
+                lstDuplicates = list(map(lambda x: np.sort(lstIndices[x])[1:], arrRows))
+                lstDuplicates = [item for sublist in lstDuplicates for item in sublist]
+                arrRepeatedIndices = np.unique(lstDuplicates)
+               # arrRepeatedIndices = np.unique(np.vstack(list(map(lambda x: np.sort(lstIndices[x])[1:],arrRows))))
+        return arrRepeatedIndices
+
+class PeriodicKDTree(object):
+    def __init__(self, inPoints, inPeriodicVectors, lstBoundaryType = ['pp','pp','pp']):
+        self.__PeriodicVectors = inPeriodicVectors
+        arrInverse = np.linalg.inv(inPeriodicVectors)
+        self.__InverseBasis = arrInverse
+        self.__ModValue = len(inPoints)
+        arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
+        self__UnitVectors = np.matmul(arrScaling, inPeriodicVectors)
+        self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)
+        self.__ExtendedPoints = PeriodicEquivalents(inPoints, inPeriodicVectors,arrInverse,lstBoundaryType)
+        self.__PeriodicTree = KDTree(self.__ExtendedPoints)
+    def Pquery_radius(self, inPoints: np.array, fltRadius: float):
+        arrIndices = self.__PeriodicTree.query_radius(inPoints, fltRadius)
+        lstIndices = list(map(lambda x: np.unique(np.mod(x,self.__ModValue)),arrIndices))
+        x = 1
+      #  for j in arrIndices:
+      #      lstIndices.append(np.unique(np.mod(j, self.__ModValue)))
+        return lstIndices
+    def Pquery(self,inPoints: np.array, k :int, fltDistance: float):
+        arrDistances, arrIndices = self.__PeriodicTree.query(inPoints, k)
+        arrDistances = np.round(arrDistances, 5)
+        arrClose =  np.where(arrDistances <= fltDistance)
+        arrDistances = arrDistances[arrClose]
+        arrIndices = arrIndices[arrClose]
+        arrIndices = np.mod(arrIndices, self.__ModValue)
+        arrPositions = np.unique(arrIndices,axis=0, return_index=True)[1]
+        arrDistances = arrDistances[np.argsort(arrPositions)]
+        arrIndices = arrIndices[np.argsort(arrPositions)] 
+        return arrDistances,arrIndices
+
+class PeriodicWrapperKDTree(object):
+    def __init__(self, inPoints,inPeriodicVectors,inConstraints, fltWrapperLength, lstBoundaryType = ['p','p','p']):
+        self.__PeriodicVectors = inPeriodicVectors
+        arrInverse = np.linalg.inv(inPeriodicVectors)
+        self.__InverseBasis = arrInverse
+        self.__ModValue = len(inPoints)
+        arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
+        self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)
+        arrExtendedPoints, arrUniqueIndices = AddPeriodicWrapperAndIndices(inPoints, inPeriodicVectors,inConstraints,fltWrapperLength,lstBoundaryType)
+        #arrUniqueRows = np.sort(np.unique(np.round(arrExtendedPoints,5), axis=0, return_index=True)[1])
+        #self.__ExtendedPoints = arrExtendedPoints[arrUniqueRows]
+        #self.__UniqueIndices = arrUniqueIndices[arrUniqueRows]
+        self.__ExtendedPoints = arrExtendedPoints
+        self.__UniqueIndices = arrUniqueIndices
+        self.__PeriodicTree = KDTree(self.__ExtendedPoints)
+    def Pquery_radius(self, inPoints: np.array, fltRadius: float):
+        arrIndices = self.__PeriodicTree.query_radius(inPoints, fltRadius)
+        lstPeriodicIndices = list(map(lambda x: self.__UniqueIndices[x],arrIndices))
+        x = 1
+      #  for j in arrIndices:
+      #      lstIndices.append(np.unique(np.mod(j, self.__ModValue)))
+        return arrIndices, lstPeriodicIndices
+    def GetExtendedPoints(self):
+        return self.__ExtendedPoints
 
                                
 
