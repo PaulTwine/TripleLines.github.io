@@ -674,11 +674,9 @@ class SimulationCell(object):
             fltDistance = 1e-5
         lstGBAtoms = []
         lstMergedAtoms = []
-        i=0
         for k in self.GrainList:
             if self.GetGrain(k).GetAtomType() == intAtomType:
                 lstGBAtoms.append(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors))
-                i +=1
         blnStop = False
         arrGBAtoms = self.RemoveRealDuplicates(np.vstack(lstGBAtoms))
         intCounter = 0
@@ -686,17 +684,15 @@ class SimulationCell(object):
             lstMergedAtoms = []
             objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),2*fltDistance)
             arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
-            lstIndices = objGBTree.Pquery_radius(arrExtendedGBAtoms,fltDistance)[0]
-            arrLengths = np.array(list(map(lambda x: len(x),lstIndices)))
-            if len(arrLengths) > 0:
-                 arrRows = np.where(arrLengths > 1)[0]
-            if len(arrRows) > 0:
+            lstIndices = objGBTree.Pquery_radius(arrExtendedGBAtoms,fltDistance)[0] #this will be non empty as every atom is close to itself
+            arrLengths = np.array(list(map(lambda x: len(x),lstIndices))) #the loop will terminate if every entry is 1 or 0.
+            if np.any(arrLengths > 1):
                 lstMergedAtoms = list(map(lambda x: np.mean(arrExtendedGBAtoms[x],axis=0),lstIndices))
                 arrExtendedGBAtoms = np.vstack(lstMergedAtoms)
                 arrGBAtoms = self.RemoveRealDuplicates(arrExtendedGBAtoms)
                 arrInside = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors, arrGBAtoms)
                 arrGBAtoms = arrGBAtoms[arrInside] 
-            else: 
+            else:
                 blnStop = True
             intCounter +=1
         if intCounter == intLimit:
