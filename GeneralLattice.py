@@ -582,17 +582,16 @@ class SimulationCell(object):
             fdata.write('Atoms\n\n')
             if len(self.__AtomPositions) > 0:
                 for i in range(len(self.__AtomPositions)):
-                    fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AtomTypes[i].astype('int'), *self.__AtomPositions[i]))
-            
-            else:
-                i = 0
-                for j in self.GrainList:
-                    for position in self.GetGrain(j).GetAtomPositions():
-                        fdata.write('{} {} {} {} {}\n'.format(i,self.GetGrain(j).GetAtomType().astype('int'), *position))
-                        i += 1
+                    fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AtomTypes[i].astype('int'), *self.__AtomPositions[i]))          
+            # else:
+            #     i = 0
+            #     for j in self.GrainList:
+            #         for position in self.GetGrain(j).GetAtomPositions():
+            #             fdata.write('{} {} {} {} {}\n'.format(i,self.GetGrain(j).GetAtomType().astype('int'), *position))
+            #             i += 1
             if len(self.__NonGrainAtomPositions) > 0:
                 for k in range(len(self.__NonGrainAtomPositions)):
-                    fdata.write('{} {} {} {} {}\n'.format(k+i+1,self.__NonGrainAtomTypes[k].astype('int'), *self.__NonGrainAtomPositions[k]))
+                    fdata.write('{} {} {} {} {}\n'.format(k+i+2,self.__NonGrainAtomTypes[k].astype('int'), *self.__NonGrainAtomPositions[k]))
               
     def SetOrigin(self,inOrigin: np.array):
         self.__Origin = inOrigin
@@ -688,7 +687,6 @@ class SimulationCell(object):
             objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),2*fltDistance)
             arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
             lstIndices = objGBTree.Pquery_radius(arrExtendedGBAtoms,fltDistance)[0]
-           # lstIndices = objGBTree.Pquery_radius(arrGBAtoms,fltDistance)[0]
             arrLengths = np.array(list(map(lambda x: len(x),lstIndices)))
             if len(arrLengths) > 0:
                  arrRows = np.where(arrLengths > 1)[0]
@@ -711,21 +709,6 @@ class SimulationCell(object):
         lstUniqueIndices = list(set(range(len(inPoints))).difference(arrRows.tolist()))
         arrUniqueIndices = np.unique(lstUniqueIndices)
         return arrPoints[arrUniqueIndices]
-        # objPeriodicTree = gf.PeriodicWrapperKDTree(arrPoints, self.__BasisVectors,self.GetRealConstraints(), 20)
-        # lstIndices = objPeriodicTree.Pquery_radius(arrPoints,fltDistance)[1]
-        # arrLengths = np.array(list(map(lambda x: len(x),lstIndices)))
-        # arrRows = np.where(arrLengths >1)[0]
-        # if len(arrRows) > 0:
-        #     arrRepeatedIndices = np.unique(np.vstack(list(map(lambda x: lstIndices[x][1:],arrRows))))
-        #     lstUniqueIndices = list(set(range(len(inPoints))).difference(arrRepeatedIndices.tolist()))
-        #     if len(lstUniqueIndices) > 0:
-        #         arrUniqueIndices = np.unique(np.vstack(lstUniqueIndices))
-        #         rtnPoints = inPoints[arrUniqueIndices]
-        #     else:
-        #         rtnPoints = inPoints
-        # else:
-        #     rtnPoints = inPoints
-        # return rtnPoints
     def PlotSimulationCellAtoms(self):
         if self.blnPointsAreWrapped:
             return tuple(zip(*self.__UniqueRealPoints))
@@ -785,11 +768,6 @@ class SimulationCell(object):
     def GetRealConstraints(self):
         arrConstraints = gf.FindConstraintsFromBasisVectors(self.__BasisVectors)
         return arrConstraints
-        # arrConstraints = np.zeros([3,4])
-        # for j in range(len(self.__BasisVectors)):
-        #     arrConstraints[j,:3] =gf.NormaliseVector(np.cross(self.__BasisVectors[np.mod(j+1,3)], self.__BasisVectors[np.mod(j+2,3)]))
-        #     arrConstraints[j,3] = np.dot(arrConstraints[j,:3],self.__BasisVectors[np.mod(j,3)])
-        # return arrConstraints
     def RemoveAtomsOnOpenBoundaries(self):
         for j in self.GrainList:
             self.GetGrain(j).SetOpenBoundaryPoints(self.GetRealConstraints())
