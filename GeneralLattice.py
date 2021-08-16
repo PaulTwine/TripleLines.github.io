@@ -622,6 +622,8 @@ class SimulationCell(object):
                 self.__blnCuboid = True
             else:
                 self.__blnCuboid = False
+    def GetCentre(self):
+        return 0.5*np.sum(self.__BasisVectors,axis=0)
     def RemoveAtomsOutsideSimulationCell(self):
         arrAllAtoms = np.zeros([self.GetUpdatedAtomNumbers(),self.Dimensions])
         arrAllAtomTypes = np.ones([self.GetUpdatedAtomNumbers()],dtype=np.int8)
@@ -668,7 +670,7 @@ class SimulationCell(object):
             arrIndices = self.GetGrain(i).FindPeriodicDuplicates(self.__BasisVectors)
             if len(arrIndices) > 0:
                 self.GetGrain(i).AddVacancies(arrIndices.tolist())
-    def MergeTooCloseAtoms(self,fltDistance:float, intAtomType: int):
+    def MergeTooCloseAtoms(self,fltDistance:float, intAtomType: int, intLimit = 50):
         if fltDistance == 0:
             fltDistance = 1e-5
         lstGBAtoms = []
@@ -681,7 +683,6 @@ class SimulationCell(object):
         blnStop = False
         arrGBAtoms = self.RemoveRealDuplicates(np.vstack(lstGBAtoms))
         intCounter = 0
-        intLimit = 25
         while not(blnStop) and intCounter < intLimit:
             lstMergedAtoms = []
             objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),2*fltDistance)
