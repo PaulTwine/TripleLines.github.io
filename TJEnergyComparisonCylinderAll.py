@@ -20,7 +20,7 @@ objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
 fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
 arrSigmaBasis = objSigma.GetBasisVectors()
-intMax = 60
+intMax = 60 
 #i = 3 #scaling parameter
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
@@ -60,8 +60,6 @@ objLeftCell1.ApplyGeneralConstraint(gf.InvertRegion(strConstraint))
 objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 
-fltDistance = 0.3*objFullCell1.GetNearestNeighbourDistance()
-
 arrGrainCentreGB = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])+arrShift
 
 np.savetxt(strDirectory + 'GrainCentreGB.txt',arrGrainCentreGB)
@@ -79,8 +77,7 @@ objSimulationCellGB.AddGrain(objCylinderGB)
 objSimulationCellGB.RemoveGrainPeriodicDuplicates()
 
 
-arrGrainCentreTJ = 3*a*i*arrSigmaBasis[0] + arrGrainCentreGB
-np.savetxt(strDirectory + 'GrainCentreTJ.txt',arrGrainCentreTJ)
+
 w = 16*a*i
 l = 10*a*i
 h = a*np.round(intHeight/s3,0)
@@ -112,7 +109,7 @@ objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 
 arrGrainCentreTJ = 3*a*i*arrSigmaBasis[0] + arrGrainCentreGB
-np.savetxt(strDirectory + 'GrainCentre1.txt',arrGrainCentreTJ)
+np.savetxt(strDirectory + 'GrainCentreTJ.txt',arrGrainCentreTJ)
 w = 16*a*i
 l = 10*a*i
 h = a*np.round(intHeight/s3,0)
@@ -138,7 +135,6 @@ objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 
-
 strCylinder = gf.ParseConic([arrGrainCentreTJ[0],arrGrainCentreTJ[1]],[r,r],[2,2])
 objCylinderTJ = cp.deepcopy(objFullCell3)
 objCylinderTJ.ApplyGeneralConstraint(strCylinder)
@@ -154,7 +150,7 @@ objSimulationCellTJ.RemoveGrainPeriodicDuplicates()
 
 for j in range(intIncrements):
     fltDistance = objFullCell1.GetNearestNeighbourDistance()*j/10
-    objSimulationCellGB.MergeTooCloseAtoms(fltDistance,1)
+    objSimulationCellGB.MergeTooCloseAtoms(fltDistance,1,1000)
     objSimulationCellGB.WrapAllAtomsIntoSimulationCell()
     objSimulationCellGB.SetFileHeader('Grain centre is ' +str(arrGrainCentreGB))
     strFileNameGB = 'readGB' + str(j)
@@ -169,7 +165,7 @@ for j in range(intIncrements):
     fIn = open(strDirectory + 'TemplateGB' + str(j) + '.in', 'wt')
     fIn.write(fData)
     fIn.close()
-    objSimulationCellTJ.MergeTooCloseAtoms(fltDistance,1)
+    objSimulationCellTJ.MergeTooCloseAtoms(fltDistance,1,1000)
     objSimulationCellTJ.WrapAllAtomsIntoSimulationCell()
     objSimulationCellTJ.SetFileHeader('Grain centre is ' +str(arrGrainCentreTJ))
     strFileNameTJ = 'readTJ' + str(j)
