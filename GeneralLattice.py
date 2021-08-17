@@ -9,7 +9,7 @@ from sympy.abc import x,y,z
 from datetime import datetime
 import copy as cp
 import warnings
-#import lammps
+#import lammp
 from decimal import Decimal
 
 
@@ -679,29 +679,33 @@ class SimulationCell(object):
                 lstGBAtoms.append(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors))
         blnStop = False
         arrGBAtoms = self.RemoveRealDuplicates(np.vstack(lstGBAtoms))
-        #arrGBAtoms = self.WrapVectorIntoSimulationBox(arrGBAtoms)
-        intCounter = 0
-        while not(blnStop) and intCounter < intLimit:
+        i = 0
+        while not(blnStop) and i < intLimit:
             lstMergedAtoms = []
-            objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),2*fltDistance)
+            objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),fltDistance)
             arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
-            lstIndices = objGBTree.Pquery_radius(arrExtendedGBAtoms,fltDistance)[0] #this will be non empty as every atom is close to itself
-            arrLengths = np.array(list(map(lambda x: len(x),lstIndices))) #the loop will terminate if every entry is 1 or 0.
-            if np.any(arrLengths > 1):
+            arrIndices,arrDistances = objGBTree.Pquery_radius(arrGBAtoms,fltDistance) #by default points are returned in distance order
+            lstDistances = list(map(lambda x: np.round(x,5),arrDistances))
+            arrLengths = np.array(list(map(lambda x: len(x),arrIndices)))
+            arrRows = np.where(arrLengths > 1)[0]
+            if len(arrRows) > 0:
+                lstIndices = list(map(lambda x: arrIndices[x][lstDistances[x] <= lstDistances[x][1]],arrRows)) #every point 0 distance from itself 
+                arrUnusedIndices = arrIndices[arrLengths <=1] #point at position [1] is then the next closest point. 
+                lstDuplicates = [item for sublist in arrUnusedIndices for item in sublist]
+                arrUnusedIndices = np.unique(lstDuplicates)
                 lstMergedAtoms = list(map(lambda x: np.mean(arrExtendedGBAtoms[x],axis=0),lstIndices))
-                arrExtendedGBAtoms = np.vstack(lstMergedAtoms)
-                arrGBAtoms = self.RemoveRealDuplicates(arrExtendedGBAtoms)
-                #arrGBAtoms = self.WrapVectorIntoSimulationBox(arrGBAtoms)
-                #arrInside = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors, arrGBAtoms)
-                #arrGBAtoms = arrGBAtoms[arrInside] 
+                if len(arrUnusedIndices) > 0:
+                    lstMergedAtoms.append(arrGBAtoms[arrUnusedIndices])
+                arrGBAtoms = np.vstack(lstMergedAtoms)
+                arrGBAtoms = self.RemoveRealDuplicates(arrGBAtoms)
             else:
                 blnStop = True
-            intCounter +=1
-        if intCounter == intLimit:
-            warnings.warn('Merge too close atoms terminated after ' + str(intCounter) + ' iterations')
+            i +=1
+        if i == intLimit:
+            warnings.warn('Merge too close atoms terminated after ' + str(i) + ' iterations')
         self.__NonGrainAtomPositions = arrGBAtoms
         self.__NonGrainAtomTypes = np.ones(len(arrGBAtoms))*intAtomType
-    def RemoveRealDuplicates(self, inPoints, fltDistance = 1e-3): #returns the unique points that lie inside the simulation cell
+    def RemoveRealDuplicates(self, inPoints, fltDistance = 1e-5): #returns the unique points that lie inside the simulation cell
         arrPoints = self.WrapVectorIntoSimulationBox(inPoints)
         arrRows = gf.FindDuplicates(arrPoints, self.__BasisVectors,fltDistance)
         lstUniqueIndices = list(set(range(len(inPoints))).difference(arrRows.tolist()))
