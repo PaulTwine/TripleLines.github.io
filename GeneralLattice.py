@@ -650,7 +650,7 @@ class SimulationCell(object):
         self.UpdateAtomsPositions()
         arrRounded = np.round(self.WrapVectorIntoSimulationBox(self.__AtomPositions), intRound)
         self.__AtomPositions = self.RemoveRealDuplicates(arrRounded)
-        self.__AtomPositions = self.WrapVectorIntoSimulationBox(self.__AtomPositions) 
+        #self.__AtomPositions = self.WrapVectorIntoSimulationBox(self.__AtomPositions) 
         lstUniqueRowIndices = np.unique(self.__AtomPositions,axis=0, return_index = True)[1]
         if len(lstUniqueRowIndices) < len(self.__AtomPositions):
             warnings.warn(str(self.GetUpdatedAtomNumbers() - len(lstUniqueRowIndices)) + ' duplicate atoms detected within simulation cell and have been removed.')
@@ -679,6 +679,7 @@ class SimulationCell(object):
                 lstGBAtoms.append(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors))
         blnStop = False
         arrGBAtoms = self.RemoveRealDuplicates(np.vstack(lstGBAtoms))
+        #arrGBAtoms = self.WrapVectorIntoSimulationBox(arrGBAtoms)
         intCounter = 0
         while not(blnStop) and intCounter < intLimit:
             lstMergedAtoms = []
@@ -690,8 +691,9 @@ class SimulationCell(object):
                 lstMergedAtoms = list(map(lambda x: np.mean(arrExtendedGBAtoms[x],axis=0),lstIndices))
                 arrExtendedGBAtoms = np.vstack(lstMergedAtoms)
                 arrGBAtoms = self.RemoveRealDuplicates(arrExtendedGBAtoms)
-                arrInside = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors, arrGBAtoms)
-                arrGBAtoms = arrGBAtoms[arrInside] 
+                #arrGBAtoms = self.WrapVectorIntoSimulationBox(arrGBAtoms)
+                #arrInside = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors, arrGBAtoms)
+                #arrGBAtoms = arrGBAtoms[arrInside] 
             else:
                 blnStop = True
             intCounter +=1
@@ -699,12 +701,12 @@ class SimulationCell(object):
             warnings.warn('Merge too close atoms terminated after ' + str(intCounter) + ' iterations')
         self.__NonGrainAtomPositions = arrGBAtoms
         self.__NonGrainAtomTypes = np.ones(len(arrGBAtoms))*intAtomType
-    def RemoveRealDuplicates(self, inPoints, fltDistance = 1e-3):
+    def RemoveRealDuplicates(self, inPoints, fltDistance = 1e-3): #returns the unique points that lie inside the simulation cell
         arrPoints = self.WrapVectorIntoSimulationBox(inPoints)
         arrRows = gf.FindDuplicates(arrPoints, self.__BasisVectors,fltDistance)
         lstUniqueIndices = list(set(range(len(inPoints))).difference(arrRows.tolist()))
         arrUniqueIndices = np.unique(lstUniqueIndices)
-        return arrPoints[arrUniqueIndices]
+        return self.WrapVectorIntoSimulationBox(arrPoints[arrUniqueIndices])
     def PlotSimulationCellAtoms(self):
         if self.blnPointsAreWrapped:
             return tuple(zip(*self.__UniqueRealPoints))
