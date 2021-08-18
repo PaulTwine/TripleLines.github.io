@@ -690,9 +690,9 @@ class SimulationCell(object):
             arrRows = np.where(arrLengths > 1)[0]
             if len(arrRows) > 0:
                 lstIndices = list(map(lambda x: arrIndices[x][lstDistances[x] <= lstDistances[x][1]],arrRows)) #every point 0 distance from itself 
-                arrUnusedIndices = arrIndices[arrLengths <=1] #point at position [1] is then the next closest point. 
-                lstDuplicates = [item for sublist in arrUnusedIndices for item in sublist]
-                arrUnusedIndices = np.unique(lstDuplicates)
+               # arrUnusedIndices = arrIndices[arrLengths <=1] #point at position [1] is then the next closest point. 
+                lstUsedIndices = [item for sublist in lstIndices for item in sublist]
+                arrUnusedIndices = np.unique(list(set(range(len(arrGBAtoms))).difference(lstUsedIndices)))
                 lstMergedAtoms = list(map(lambda x: np.mean(arrExtendedGBAtoms[x],axis=0),lstIndices))
                 if len(arrUnusedIndices) > 0:
                     lstMergedAtoms.append(arrGBAtoms[arrUnusedIndices])
