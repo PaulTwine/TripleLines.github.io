@@ -11,10 +11,10 @@ from scipy import spatial
 fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
 ax = fig.gca(projection='3d')
 
-strDirectory = str(sys.argv[1])
-intSigma = int(sys.argv[2])
-lstAxis = eval(str(sys.argv[3]))
-intIncrements = int(sys.argv[4])
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+intSigma = 5 #int(sys.argv[2])
+lstAxis = [1,0,0] #eval(str(sys.argv[3]))
+intIncrements = 10 #int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
@@ -61,7 +61,7 @@ objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 arrGrainCentreGB = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])+arrShift
-
+#arrGrainCentreGB = np.array([1.280722452381000096e+02,1.305413003248408472e+02,1.035711833588609521e-03])
 np.savetxt(strDirectory + 'GrainCentreGB.txt',arrGrainCentreGB)
 
 strCylinderGB = gf.ParseConic([arrGrainCentreGB[0],arrGrainCentreGB[1]],[r,r],[2,2])
@@ -109,6 +109,7 @@ objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 
 arrGrainCentreTJ = 3*a*i*arrSigmaBasis[0] + arrGrainCentreGB
+#arrGrainCentreTJ = np.array([2.049155923809599926e+02,1.305413003248408472e+02,1.035711833588609521e-03])
 np.savetxt(strDirectory + 'GrainCentreTJ.txt',arrGrainCentreTJ)
 w = 16*a*i
 l = 10*a*i

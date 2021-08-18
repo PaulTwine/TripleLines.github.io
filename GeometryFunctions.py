@@ -301,11 +301,11 @@ def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints:
                         j = inConstraints[i]
                         k = inCellVectors[i]
                         arrPositions1 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), fltDistance),5)
-                        arrRows1 = np.where(arrPositions1 < 0)[0]
+                        arrRows1 = np.where(arrPositions1 < 1e-5)[0]
                         lstNewIndices.append(arrAllIndices[arrRows1])
                         lstNewPoints.append(arrAllPoints[arrRows1] + k)
                         arrPositions2 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), j[-1]-fltDistance),5)
-                        arrRows2 = np.where(arrPositions2 > 0)[0]
+                        arrRows2 = np.where(arrPositions2 > -1e-5)[0]
                         lstNewIndices.append(arrAllIndices[arrRows2])
                         lstNewPoints.append(arrAllPoints[arrRows2] - k)
                         arrAllPoints = np.concatenate(lstNewPoints)
@@ -592,7 +592,8 @@ def CubicQuaternions():
 def FindDuplicates(inPoints, inCellVectors, fltDistance, lstBoundaryType = ['p','p','p']):
         arrConstraints = FindConstraintsFromBasisVectors(inCellVectors)
         objPeriodicTree = PeriodicWrapperKDTree(inPoints, inCellVectors,arrConstraints,2*fltDistance, lstBoundaryType)
-        lstIndices = objPeriodicTree.Pquery_radius(inPoints,fltDistance)[1]
+        arrIndices = objPeriodicTree.Pquery_radius(inPoints,fltDistance)[0]
+        lstIndices = objPeriodicTree.GetPeriodicIndices(arrIndices)
         arrLengths = np.array(list(map(lambda x: len(x),lstIndices)))
         arrRows = np.where(arrLengths >1)[0]
         arrRepeatedIndices = np.array([])
@@ -642,21 +643,19 @@ class PeriodicWrapperKDTree(object):
         arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
         self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)
         arrExtendedPoints, arrUniqueIndices = AddPeriodicWrapperAndIndices(inPoints, inPeriodicVectors,inConstraints,fltWrapperLength,lstBoundaryType)
-        #arrUniqueRows = np.sort(np.unique(np.round(arrExtendedPoints,5), axis=0, return_index=True)[1])
-        #self.__ExtendedPoints = arrExtendedPoints[arrUniqueRows]
-        #self.__UniqueIndices = arrUniqueIndices[arrUniqueRows]
         self.__ExtendedPoints = arrExtendedPoints
         self.__UniqueIndices = arrUniqueIndices
         self.__PeriodicTree = KDTree(self.__ExtendedPoints)
-    def Pquery_radius(self, inPoints: np.array, fltRadius: float):
-        arrIndices = self.__PeriodicTree.query_radius(inPoints, fltRadius)
-        lstPeriodicIndices = list(map(lambda x: self.__UniqueIndices[x],arrIndices))
-        x = 1
-      #  for j in arrIndices:
-      #      lstIndices.append(np.unique(np.mod(j, self.__ModValue)))
-        return arrIndices, lstPeriodicIndices
+    def Pquery_radius(self, inPoints: np.array, fltRadius: float,blnReturnDistance=True, blnSortResults=True):
+        arrIndices,arrDistances = self.__PeriodicTree.query_radius(inPoints, fltRadius,return_distance=blnReturnDistance,sort_results=blnSortResults)
+        return arrIndices, arrDistances
     def GetExtendedPoints(self):
         return self.__ExtendedPoints
+    def GetPeriodicIndices(self, inRealIndices: list)->list:
+        return list(map(lambda x: self.__UniqueIndices[x],inRealIndices))
+    def Pquery(self,inPoints:np.array,k=1):
+        arrDistances, arrIndices = self.__PeriodicTree.query(inPoints,k)
+        return arrDistances, arrIndices
 
                                
 
