@@ -11,27 +11,26 @@ from scipy import spatial
 fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
 ax = fig.gca(projection='3d')
 
-strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
-intSigma = 5 #int(sys.argv[2])
-lstAxis = [1,0,0] #eval(str(sys.argv[3]))
-intIncrements = 10 #int(sys.argv[4])
+strDirectory = str(sys.argv[1])
+intSigma = int(sys.argv[2])
+lstAxis = eval(str(sys.argv[3]))
+intIncrements = int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
 fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
 arrSigmaBasis = objSigma.GetBasisVectors()
-intMax = 60 
 #i = 3 #scaling parameter
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s3 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
 #i = np.sqrt(np.abs(np.dot(np.cross(arrSigmaBasis[0],arrSigmaBasis[1]),arrSigmaBasis[2])))
 fltAreaFactor = np.sqrt(intSigma/s3)
-i = np.max([1,np.round(10/fltAreaFactor,0)]).astype('int')
+i = np.round(7/fltAreaFactor).astype('int')
 intHeight = 5
 a = 4.05 ##lattice parameter
 r = 2*a*s2*i
-###First part runs with displaced cylinder
+###First part runs with left displaced cylinder
 w = 20*a*i
 l = 8*a*i
 h = a*np.round(intHeight/s3,0)
@@ -46,8 +45,8 @@ else:
 arrLatticeParameters= np.array([a,a,a])
 arrShift = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
 arrCylinderCentreGB = 5*a*(arrSigmaBasis[0] + arrSigmaBasis[1])*i
-objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z])) 
-arrCellCentreGB = objSimulationCellGB.GetCentre()
+objSimulationCellGBLeft = gl.SimulationCell(np.array([arrX,arrXY, z])) 
+arrCellCentreGB = objSimulationCellGBLeft.GetCentre()
 objFullCell1 = gl.ExtrudedParallelogram(arrX,arrXY,s3*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell2 = gl.ExtrudedParallelogram(arrX,arrXY, s3*h, gf.RotateVectors(fltAngle2,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell3 = gl.ExtrudedParallelogram(arrX,arrXY, s3*h, gf.RotateVectors(np.mean([fltAngle1,fltAngle2]),z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,arrShift)
@@ -60,23 +59,43 @@ objLeftCell1.ApplyGeneralConstraint(gf.InvertRegion(strConstraint))
 objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 
-arrGrainCentreGB = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])+arrShift
-#arrGrainCentreGB = np.array([1.280722452381000096e+02,1.305413003248408472e+02,1.035711833588609521e-03])
-np.savetxt(strDirectory + 'GrainCentreGB.txt',arrGrainCentreGB)
+arrCylinderCentreLeft = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])+arrShift
+np.savetxt(strDirectory + 'CylinderCentreLeft.txt',arrCylinderCentreLeft)
 
-strCylinderGB = gf.ParseConic([arrGrainCentreGB[0],arrGrainCentreGB[1]],[r,r],[2,2])
-objCylinderGB = cp.deepcopy(objFullCell3)
-objCylinderGB.ApplyGeneralConstraint(strCylinderGB)
-objLeftChoppedGB = cp.deepcopy(objLeftCell1)
-objLeftChoppedGB.ApplyGeneralConstraint(gf.InvertRegion(strCylinderGB))
-objRightChoppedGB = cp.deepcopy(objRightCell2)
-objRightChoppedGB.ApplyGeneralConstraint(gf.InvertRegion(strCylinderGB))
-objSimulationCellGB.AddGrain(objLeftChoppedGB)
-objSimulationCellGB.AddGrain(objRightChoppedGB)
-objSimulationCellGB.AddGrain(objCylinderGB)
-objSimulationCellGB.RemoveGrainPeriodicDuplicates()
+strCylinderLeft = gf.ParseConic([arrCylinderCentreLeft[0],arrCylinderCentreLeft[1]],[r,r],[2,2])
+objCylinderLeft = cp.deepcopy(objFullCell3)
+objCylinderLeft.ApplyGeneralConstraint(strCylinderLeft)
+objLeft1Chopped = cp.deepcopy(objLeftCell1)
+objLeft1Chopped.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeft))
+objSimulationCellGBLeft.AddGrain(objLeft1Chopped)
+objSimulationCellGBLeft.AddGrain(objRightCell2)
+objSimulationCellGBLeft.AddGrain(objCylinderLeft)
+objSimulationCellGBLeft.RemoveGrainPeriodicDuplicates()
+
+#Second part runs with right displaced cylinder 
+
+objLeftCell1 = cp.deepcopy(objFullCell1)
+objLeftCell1.ApplyGeneralConstraint(gf.InvertRegion(strConstraint))
+objRightCell2 = cp.deepcopy(objFullCell2)
+objRightCell2.ApplyGeneralConstraint(strConstraint)
+
+objSimulationCellGBRight = gl.SimulationCell(np.array([arrX,arrXY, z])) 
+arrCylinderCentreRight = arrCylinderCentreLeft + 10*a*i*arrSigmaBasis[0] 
+np.savetxt(strDirectory + 'CylinderCentreRight.txt',arrCylinderCentreRight)
+
+strCylinderRight = gf.ParseConic([arrCylinderCentreRight[0],arrCylinderCentreRight[1]],[r,r],[2,2])
+objCylinderRight = cp.deepcopy(objFullCell3)
+objCylinderRight.ApplyGeneralConstraint(strCylinderRight)
+objRight2Chopped = cp.deepcopy(objRightCell2)
+objRight2Chopped.ApplyGeneralConstraint(gf.InvertRegion(strCylinderRight))
+objSimulationCellGBRight.AddGrain(objLeftCell1)
+objSimulationCellGBRight.AddGrain(objRight2Chopped)
+objSimulationCellGBRight.AddGrain(objCylinderRight)
+objSimulationCellGBRight.RemoveGrainPeriodicDuplicates()
 
 
+
+##Third part with triple lines
 
 w = 16*a*i
 l = 10*a*i
@@ -84,11 +103,7 @@ h = a*np.round(intHeight/s3,0)
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]
-if np.all(arrAxis == np.array([1,0,0])):
-    arrBasisVectors = gf.StandardBasisVectors(3)
-else:
-    fltAngle3, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
-    arrBasisVectors = gf.RotateVectors(fltAngle3, arrRotation,gf.StandardBasisVectors(3))
+
 objSimulationCellTJ = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCellCentreTJ = objSimulationCellTJ.GetCentre()
 objFullCell1 = gl.ExtrudedParallelogram(arrX,arrXY,s3*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
@@ -105,11 +120,7 @@ objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 
 
-##Second part with triple lines
-
-
-arrGrainCentreTJ = 3*a*i*arrSigmaBasis[0] + arrGrainCentreGB
-#arrGrainCentreTJ = np.array([2.049155923809599926e+02,1.305413003248408472e+02,1.035711833588609521e-03])
+arrGrainCentreTJ = 3*a*i*arrSigmaBasis[0] + arrCylinderCentreLeft
 np.savetxt(strDirectory + 'GrainCentreTJ.txt',arrGrainCentreTJ)
 w = 16*a*i
 l = 10*a*i
@@ -151,32 +162,49 @@ objSimulationCellTJ.RemoveGrainPeriodicDuplicates()
 
 for j in range(intIncrements):
     fltDistance = objFullCell1.GetNearestNeighbourDistance()*j/10
-    objSimulationCellGB.MergeTooCloseAtoms(fltDistance,1,1000)
-    objSimulationCellGB.WrapAllAtomsIntoSimulationCell()
-    objSimulationCellGB.SetFileHeader('Grain centre is ' +str(arrGrainCentreGB))
-    strFileNameGB = 'readGB' + str(j)
-    objSimulationCellGB.WriteLAMMPSDataFile(strDirectory + strFileNameGB + '.dat')
+    objSimulationCellGBLeft.MergeTooCloseAtoms(fltDistance,1,1000)
+    objSimulationCellGBLeft.WrapAllAtomsIntoSimulationCell()
+    objSimulationCellGBLeft.SetFileHeader('Grain centre is ' +str(arrCylinderCentreLeft))
+    strFileNameGB = 'left' + str(j)
+    objSimulationCellGBLeft.WriteLAMMPSDataFile(strDirectory + strFileNameGB + '.dat')
     fIn = open(strDirectory +  'TemplateMin.in', 'rt')
     fData = fIn.read()
     fData = fData.replace('read.dat', strFileNameGB + '.dat')
     fData = fData.replace('read.dmp', strFileNameGB + '.dmp')
     fData = fData.replace('read.lst', strFileNameGB + '.lst')
-    fData = fData.replace('logfile', 'logfileGB' + str(j))
+    fData = fData.replace('logfile', 'logLeft' + str(j))
     fIn.close()
-    fIn = open(strDirectory + 'TemplateGB' + str(j) + '.in', 'wt')
+    fIn = open(strDirectory + 'TemplateLeft' + str(j) + '.in', 'wt')
     fIn.write(fData)
     fIn.close()
+    ####
+    objSimulationCellGBRight.MergeTooCloseAtoms(fltDistance,1,1000)
+    objSimulationCellGBRight.WrapAllAtomsIntoSimulationCell()
+    objSimulationCellGBRight.SetFileHeader('Grain centre is ' +str(arrCylinderCentreRight))
+    strFileNameGB = 'right' + str(j)
+    objSimulationCellGBRight.WriteLAMMPSDataFile(strDirectory + strFileNameGB + '.dat')
+    fIn = open(strDirectory +  'TemplateMin.in', 'rt')
+    fData = fIn.read()
+    fData = fData.replace('read.dat', strFileNameGB + '.dat')
+    fData = fData.replace('read.dmp', strFileNameGB + '.dmp')
+    fData = fData.replace('read.lst', strFileNameGB + '.lst')
+    fData = fData.replace('logfile', 'logRight' + str(j))
+    fIn.close()
+    fIn = open(strDirectory + 'TemplateRight' + str(j) + '.in', 'wt')
+    fIn.write(fData)
+    fIn.close()
+
     objSimulationCellTJ.MergeTooCloseAtoms(fltDistance,1,1000)
     objSimulationCellTJ.WrapAllAtomsIntoSimulationCell()
     objSimulationCellTJ.SetFileHeader('Grain centre is ' +str(arrGrainCentreTJ))
-    strFileNameTJ = 'readTJ' + str(j)
+    strFileNameTJ = 'TJ' + str(j)
     objSimulationCellTJ.WriteLAMMPSDataFile(strDirectory + strFileNameTJ + '.dat')
     fIn = open(strDirectory +  'TemplateMin.in', 'rt')
     fData = fIn.read()
     fData = fData.replace('read.dat', strFileNameTJ + '.dat')
     fData = fData.replace('read.dmp', strFileNameTJ + '.dmp')
     fData = fData.replace('read.lst', strFileNameTJ + '.lst')
-    fData = fData.replace('logfile', 'logfileTJ' + str(j))
+    fData = fData.replace('logfile', 'logTJ' + str(j))
     fIn.close()
     fIn = open(strDirectory + 'TemplateTJ' + str(j) + '.in', 'wt')
     fIn.write(fData)
