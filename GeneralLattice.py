@@ -199,6 +199,9 @@ class GeneralLattice(PureLattice,RealCell):
          #default RemovedBoundaryPoints = []
         self.__blnFoundBoundaryPoints = False
         self.__Periodicity = ['p','p','p']
+    def TranslateGrain(self, inVector):
+        self.__RealPoints = self.__RealPoints+inVector
+        self.__Origin = self.__Origin + inVector
     def SetPeriodicity(self, inList):
         self.__Periodicity = inList
     def GetPeriodicity(self, intIndex = None):
@@ -267,12 +270,12 @@ class GeneralLattice(PureLattice,RealCell):
     def RemovePlaneOfAtoms(self, inPlane: np.array):
         lstDeletedIndices = gf.CheckLinearEquality(self.__RealPoints, inPlane, 0.01)
         self.DeletePoints(lstDeletedIndices)
-    def ApplyGeneralConstraint(self,strFunction, strVariables='[x,y,z]'): #default scalar value is less than or equal to 0 if "inside" the region
+    def ApplyGeneralConstraint(self,strFunction, strVariables='[x,y,z]',fltTolerance = 1e-5): #default scalar value is less than or equal to 0 if "inside" the region
         lstVariables = parse_expr(strVariables)
         fltFunction = lambdify(lstVariables,parse_expr(strFunction))
         arrFunction = lambda X : fltFunction(X[0],X[1],X[2])
         arrLess = np.array(list(map(arrFunction, self.__RealPoints)))
-        lstDeletedIndices = np.where(arrLess > 0)[0]
+        lstDeletedIndices = np.where(arrLess > fltTolerance)[0]
         self.DeletePoints(lstDeletedIndices)
     def GetQuaternionOrientation(self)->np.array:
         return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(np.transpose(self.GetUnitBasisVectors())))     
@@ -315,21 +318,13 @@ class GeneralLattice(PureLattice,RealCell):
             self.__OpenConstraints = []
             return []
     def FindPeriodicDuplicates(self, inCellVectors: np.array):
-        # lstLatticeConstraints = []
-        # for j in inRealConstraints:
-        #     fltLength = np.dot(j[0:3]*j[3]-self.__Origin,j[0:3]*j[3])/(j[3]**2) ##this adjusts the length of the constraint vector but not the direction
-        #     j[3] = j[3]*fltLength
-        #     lstLatticeConstraints.append(self.ConvertRealToLatticeConstraint(j))
-        # arrLatticeConstraints = np.vstack(lstLatticeConstraints)
-        # lstIndices = self.FindLatticeDuplicates(arrLatticeConstraints)
-        # return lstIndices
         return gf.FindDuplicates(self.GetRealPoints(),inCellVectors, 1e-5, self.GetPeriodicity())
     def GenerateLatticeConstraints(self, inConstraints: np.array):
         rtnArray = np.zeros([len(inConstraints),len(inConstraints[0])])
         for i in range(len(inConstraints)):
             rtnArray[i] = self.ConvertRealToLatticeConstraint(inConstraints[i])
         self.SetLatticeConstraints(rtnArray)
-    def ConvertRealToLatticeConstraint(self, inConstraint)->np.array: #assumes the real origin coincide with lattice origin
+    def ConvertRealToLatticeConstraint(self, inConstraint)->np.array: #assumes the real origin coincides with lattice origin
         rtnArray = np.zeros(len(inConstraint))
         tmpArray = np.zeros([3])
         arrVector = inConstraint[:-1]
@@ -481,6 +476,24 @@ class ExtrudedRegularPolygon(GeneralGrain):
         arrConstraints[-1,-1] = fltHeight
         GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
         self.MakeRealPoints(arrConstraints)
+
+class ExtrudedCylinder(GeneralGrain):
+    def __init__(self, fltRadius: float, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin: np.array, inCellBasis=None):
+        arrConstraints = np.zeros([6,4])
+        arrConstraints[0] = np.array([1,0,0,fltRadius])
+        arrConstraints[1] = np.array([0,1,0,fltRadius])
+        arrConstraints[2] = np.array([-1,0,0,fltRadius])
+        arrConstraints[3] = np.array([0,-1,-0,fltRadius])
+        arrConstraints[4] = np.array([0,0,1,fltHeight])
+        arrConstraints[5] = np.array([0,0,-1,0])
+        GeneralGrain.__init__(self,inBasisVectors,inCellNodes,inLatticeParameters,inOrigin,inCellBasis)
+        self.MakeRealPoints(arrConstraints)
+        strCylinder = gf.ParseConic([0,0],[fltRadius,fltRadius],[2,2])
+        self.ApplyGeneralConstraint(strCylinder)
+        
+        
+        
+    
 
 
 class BaseSuperCell(object):
