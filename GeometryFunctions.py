@@ -312,7 +312,7 @@ def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints:
                         arrAllIndices = np.concatenate(lstNewIndices)                
         if len(arrAllPoints) > intLength:
                 objSpatial = KDTree(arrAllPoints[intLength:])
-                arrDuplicates = objSpatial.query_radius(inPoints,1e-3,count_only=False, return_distance = False)
+                arrDuplicates = objSpatial.query_radius(inPoints,1e-5,count_only=False, return_distance = False)
                 lstDuplicates = list(map(lambda x: x, arrDuplicates))
                 lstDuplicates = [item for sublist in lstDuplicates for item in sublist]
                 arrRows = np.unique(lstDuplicates)

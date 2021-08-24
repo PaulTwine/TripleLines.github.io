@@ -682,7 +682,7 @@ class SimulationCell(object):
         i = 0
         while not(blnStop) and i < intLimit:
             lstMergedAtoms = []
-            objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),fltDistance)
+            objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),fltDistance/2)
             arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
             arrIndices,arrDistances = objGBTree.Pquery_radius(arrGBAtoms,fltDistance) #by default points are returned in distance order
             lstDistances = list(map(lambda x: np.round(x,5),arrDistances))
@@ -690,14 +690,15 @@ class SimulationCell(object):
             arrRows = np.where(arrLengths > 1)[0]
             if len(arrRows) > 0:
                 lstIndices = list(map(lambda x: arrIndices[x][lstDistances[x] <= lstDistances[x][1]],arrRows)) #every point 0 distance from itself 
-               # arrUnusedIndices = arrIndices[arrLengths <=1] #point at position [1] is then the next closest point. 
+                #point at position [1] is then the next closest point. 
                 lstUsedIndices = [item for sublist in lstIndices for item in sublist]
-                arrUnusedIndices = np.unique(list(set(range(len(arrGBAtoms))).difference(lstUsedIndices)))
+                lstTrueIndices = np.unique(objGBTree.GetPeriodicIndices(lstUsedIndices)).tolist()
+                arrUnusedIndices = np.unique(list(set(range(len(arrGBAtoms))).difference(lstTrueIndices)))
                 lstMergedAtoms = list(map(lambda x: np.mean(arrExtendedGBAtoms[x],axis=0),lstIndices))
                 if len(arrUnusedIndices) > 0:
                     lstMergedAtoms.append(arrGBAtoms[arrUnusedIndices])
                 arrGBAtoms = np.vstack(lstMergedAtoms)
-                arrGBAtoms = self.RemoveRealDuplicates(arrGBAtoms)
+                arrGBAtoms = self.RemoveRealDuplicates(arrGBAtoms,1e-3)
             else:
                 blnStop = True
             i +=1

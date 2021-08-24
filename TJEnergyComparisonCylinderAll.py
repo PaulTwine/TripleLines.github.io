@@ -26,7 +26,7 @@ s2 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s3 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
 #i = np.sqrt(np.abs(np.dot(np.cross(arrSigmaBasis[0],arrSigmaBasis[1]),arrSigmaBasis[2])))
 fltAreaFactor = np.sqrt(intSigma/s3)
-i = np.round(7/fltAreaFactor).astype('int')
+i = np.round(8/fltAreaFactor).astype('int')
 intHeight = 5
 a = 4.05 ##lattice parameter
 r = 2*a*s2*i
@@ -46,21 +46,22 @@ arrLatticeParameters= np.array([a,a,a])
 arrShift = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
 arrCylinderCentreGB = 5*a*(arrSigmaBasis[0] + arrSigmaBasis[1])*i
 objSimulationCellGBLeft = gl.SimulationCell(np.array([arrX,arrXY, z])) 
-arrCellCentreGB = objSimulationCellGBLeft.GetCentre()
+arrCellCentreLeft = objSimulationCellGBLeft.GetCentre()
 objFullCell1 = gl.ExtrudedParallelogram(arrX,arrXY,s3*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell2 = gl.ExtrudedParallelogram(arrX,arrXY, s3*h, gf.RotateVectors(fltAngle2,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell3 = gl.ExtrudedParallelogram(arrX,arrXY, s3*h, gf.RotateVectors(np.mean([fltAngle1,fltAngle2]),z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,arrShift)
 objFullCell1.SetPeriodicity(['n','p','p'])
 objFullCell2.SetPeriodicity(['n','p','p'])
 objFullCell3.SetPeriodicity(['n','n','n'])
-strConstraint = str(arrXY[0])+ '*(y -' + str(arrCellCentreGB[1]) + ') - ' + str(arrXY[1]) + '*(x -' + str(arrCellCentreGB[0]) + ')' 
+strConstraint = str(arrXY[0])+ '*(y -' + str(arrCellCentreLeft[1]) + ') - ' + str(arrXY[1]) + '*(x -' + str(arrCellCentreLeft[0]) + ')' 
 objLeftCell1 = cp.deepcopy(objFullCell1)
 objLeftCell1.ApplyGeneralConstraint(gf.InvertRegion(strConstraint))
 objRightCell2 = cp.deepcopy(objFullCell2)
 objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 arrCylinderCentreLeft = 5*a*i*(arrSigmaBasis[0] +arrSigmaBasis[1])+arrShift
-np.savetxt(strDirectory + 'CylinderCentreLeft.txt',arrCylinderCentreLeft)
+#arrCylinderCentreLeft = np.loadtxt(strDirectory + 'Errors/CylinderCentreLeft.txt')
+#np.savetxt(strDirectory + 'CylinderCentreLeft.txt',arrCylinderCentreLeft)
 
 strCylinderLeft = gf.ParseConic([arrCylinderCentreLeft[0],arrCylinderCentreLeft[1]],[r,r],[2,2])
 objCylinderLeft = cp.deepcopy(objFullCell3)
@@ -81,7 +82,8 @@ objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 objSimulationCellGBRight = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCylinderCentreRight = arrCylinderCentreLeft + 10*a*i*arrSigmaBasis[0] 
-np.savetxt(strDirectory + 'CylinderCentreRight.txt',arrCylinderCentreRight)
+#arrCylinderCentreRight = np.loadtxt(strDirectory + 'Errors/CylinderCentreRight.txt')
+#np.savetxt(strDirectory + 'CylinderCentreRight.txt',arrCylinderCentreRight)
 
 strCylinderRight = gf.ParseConic([arrCylinderCentreRight[0],arrCylinderCentreRight[1]],[r,r],[2,2])
 objCylinderRight = cp.deepcopy(objFullCell3)
@@ -121,7 +123,9 @@ objRightCell2.ApplyGeneralConstraint(strConstraint)
 
 
 arrGrainCentreTJ = 3*a*i*arrSigmaBasis[0] + arrCylinderCentreLeft
-np.savetxt(strDirectory + 'GrainCentreTJ.txt',arrGrainCentreTJ)
+#arrGrainCentreTJ = np.loadtxt(strDirectory + 'Errors/GrainCentreTJ.txt')
+
+#np.savetxt(strDirectory + 'GrainCentreTJ.txt',arrGrainCentreTJ)
 w = 16*a*i
 l = 10*a*i
 h = a*np.round(intHeight/s3,0)
@@ -162,7 +166,7 @@ objSimulationCellTJ.RemoveGrainPeriodicDuplicates()
 
 for j in range(intIncrements):
     fltDistance = objFullCell1.GetNearestNeighbourDistance()*j/10
-    objSimulationCellGBLeft.MergeTooCloseAtoms(fltDistance,1,1000)
+    objSimulationCellGBLeft.MergeTooCloseAtoms(fltDistance,1,100)
     objSimulationCellGBLeft.WrapAllAtomsIntoSimulationCell()
     objSimulationCellGBLeft.SetFileHeader('Grain centre is ' +str(arrCylinderCentreLeft))
     strFileNameGB = 'left' + str(j)
@@ -178,7 +182,7 @@ for j in range(intIncrements):
     fIn.write(fData)
     fIn.close()
     ####
-    objSimulationCellGBRight.MergeTooCloseAtoms(fltDistance,1,1000)
+    objSimulationCellGBRight.MergeTooCloseAtoms(fltDistance,1,100)
     objSimulationCellGBRight.WrapAllAtomsIntoSimulationCell()
     objSimulationCellGBRight.SetFileHeader('Grain centre is ' +str(arrCylinderCentreRight))
     strFileNameGB = 'right' + str(j)
@@ -194,7 +198,7 @@ for j in range(intIncrements):
     fIn.write(fData)
     fIn.close()
 
-    objSimulationCellTJ.MergeTooCloseAtoms(fltDistance,1,1000)
+    objSimulationCellTJ.MergeTooCloseAtoms(fltDistance,1,100)
     objSimulationCellTJ.WrapAllAtomsIntoSimulationCell()
     objSimulationCellTJ.SetFileHeader('Grain centre is ' +str(arrGrainCentreTJ))
     strFileNameTJ = 'TJ' + str(j)
