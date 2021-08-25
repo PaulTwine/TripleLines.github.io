@@ -25,15 +25,18 @@ s1 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s3 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
 #i = np.sqrt(np.abs(np.dot(np.cross(arrSigmaBasis[0],arrSigmaBasis[1]),arrSigmaBasis[2])))
-fltAreaFactor = np.sqrt(intSigma/s3)
-i = np.round(8/fltAreaFactor).astype('int')
 intHeight = 5
+intAtoms = 10**5
+intAtomsPerCell = 4
 a = 4.05 ##lattice parameter
+h = a*np.round(intHeight/s3,0)
+i = np.sqrt((intAtoms/intAtomsPerCell)*a/(160*h*s1*s2))
+i = np.round(i,0).astype('int')
 r = 2*a*s2*i
 ###First part runs with left displaced cylinder
 w = 20*a*i
 l = 8*a*i
-h = a*np.round(intHeight/s3,0)
+
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]

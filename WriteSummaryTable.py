@@ -18,7 +18,7 @@ intDirs = 10
 intFiles = 10
 lstStacked = []
 for j in range(100):
-    arrRow = np.zeros(9)
+    arrRow = np.zeros(11)
     i = np.mod(j,10) 
     intDir = int((j-i)/10)
     arrRow[0] = intDir
@@ -33,11 +33,11 @@ for j in range(100):
     arrRow[2] = np.sum(objLeft.GetColumnByName('c_pe1'))
     arrRow[3] = np.sum(objRight.GetColumnByName('c_pe1'))
     arrRow[4] = np.sum(objTJ.GetColumnByName('c_pe1'))
-    arrRow[4] = np.mean(objLeft.GetLatticeAtoms()[:,intPECol])
-    arrRow[5] = np.mean(objRight.GetLatticeAtoms()[:,intPECol])
-    arrRow[5] = np.mean(objTJ.GetLatticeAtoms()[:,intPECol])
-    arrRow[6] = objLeft.GetNumberOfAtoms()
-    arrRow[7] = objRight.GetNumberOfAtoms()
-    arrRow[8] = objTJ.GetNumberOfAtoms()
+    arrRow[5] = np.mean(objLeft.GetLatticeAtoms()[:,intPECol])
+    arrRow[6] = np.mean(objRight.GetLatticeAtoms()[:,intPECol])
+    arrRow[7] = np.mean(objTJ.GetLatticeAtoms()[:,intPECol])
+    arrRow[8] = objLeft.GetNumberOfAtoms()
+    arrRow[9] = objRight.GetNumberOfAtoms()
+    arrRow[10] = objTJ.GetNumberOfAtoms()
     lstStacked.append(arrRow)
 np.savetxt(strDirectory + 'Values.txt',np.vstack(lstStacked))
