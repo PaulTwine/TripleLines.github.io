@@ -11,10 +11,10 @@ from scipy import spatial
 fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
 ax = fig.gca(projection='3d')
 
-strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
-intSigma = 5 #int(sys.argv[2])
-lstAxis = [0,0,1] # eval(str(sys.argv[3]))
-intIncrements = 10 #int(sys.argv[4])
+strDirectory = str(sys.argv[1])
+intSigma = int(sys.argv[2])
+lstAxis = eval(str(sys.argv[3]))
+intIncrements = int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
@@ -38,7 +38,8 @@ else:
 
 arrLatticeParameters= np.array([a,a,a])
 arrUpBasisVectors = gf.StandardBasisVectors(3)
-arrDownBasisVectors = gf.RotateVectors(np.pi,np.array([0,0,1]),gf.StandardBasisVectors(3))
+arrDownBasisVectors = arrUpBasisVectors
+#arrDownBasisVectors = np.array([[-1,0,0],[0,1,0],[0,0,1]])
 
 
 
@@ -58,6 +59,7 @@ objCylinderDown.SetPeriodicity(['n','n','p'])
 
 
 arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
+#arrRandom = np.zeros(3)
 np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
 objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCellCentreGB = objSimulationCellGB.GetCentre()
@@ -125,9 +127,7 @@ strCylinderRightTJ = gf.ParseConic([arrCylinderRightTJ[0],arrCylinderRightTJ[1]]
 strCylinderMiddleTJ = gf.ParseConic([arrCylinderMiddleTJ[0],arrCylinderMiddleTJ[1]],[r,r],[2,2])
 objCylinderLeftTJ = cp.deepcopy(objCylinderUp)
 objCylinderLeftTJ.TranslateGrain(arrCylinderLeftTJ)
-objCylinderRightTJ = cp.deepcopy(objCylinderUp)
-objCylinderRightTJ.TranslateGrain(arrCylinderRightTJ)
-objCylinderMiddleTJ = cp.deepcopy(objCylinderDown)
+objCylinderMiddleTJ = cp.deepcopy(objCylinderUp)
 objCylinderMiddleTJ.TranslateGrain(arrCylinderMiddleTJ)
 objLeftHalfChoppedTJ.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftTJ))
 objRightHalfChoppedTJ.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftTJ))
@@ -138,7 +138,6 @@ objRightHalfChoppedTJ.ApplyGeneralConstraint(gf.InvertRegion(strCylinderMiddleTJ
 objSimulationCellTJ.AddGrain(objLeftHalfChoppedTJ)
 objSimulationCellTJ.AddGrain(objRightHalfChoppedTJ)
 objSimulationCellTJ.AddGrain(objCylinderLeftTJ)
-objSimulationCellTJ.AddGrain(objCylinderRightTJ)
 objSimulationCellTJ.AddGrain(objCylinderMiddleTJ)
 objSimulationCellTJ.RemoveGrainPeriodicDuplicates()
 
