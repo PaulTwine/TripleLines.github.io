@@ -11,10 +11,10 @@ from scipy import spatial
 fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
 ax = fig.gca(projection='3d')
 
-strDirectory = str(sys.argv[1])
-intSigma = int(sys.argv[2])
-lstAxis = eval(str(sys.argv[3]))
-intIncrements = int(sys.argv[4])
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+intSigma = 5 #int(sys.argv[2])
+lstAxis = [0,0,1] # eval(str(sys.argv[3]))
+intIncrements = 10 #int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
@@ -37,7 +37,8 @@ else:
     arrBasisVectors = gf.RotateVectors(fltAngle3, arrRotation,gf.StandardBasisVectors(3))
 
 arrLatticeParameters= np.array([a,a,a])
-
+arrUpBasisVectors = gf.StandardBasisVectors(3)
+arrDownBasisVectors = gf.RotateVectors(np.pi,np.array([0,0,1]),gf.StandardBasisVectors(3))
 
 
 
@@ -49,10 +50,15 @@ l = 10*a*i
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]
-objCylinder = gl.ExtrudedCylinder(r,h*s2,arrBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
-objCylinder.SetPeriodicity(['n','n','p'])
+objCylinderUp = gl.ExtrudedCylinder(r,h*s2,arrUpBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
+objCylinderUp.SetPeriodicity(['n','n','p'])
+objCylinderDown = gl.ExtrudedCylinder(r,h*s2,arrDownBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
+objCylinderDown.SetPeriodicity(['n','n','p'])
+
+
 
 arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
+np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
 objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCellCentreGB = objSimulationCellGB.GetCentre()
 arrCylinderCentreLeftGB = 0.5*arrXY+0.25*arrX + arrRandom
@@ -69,12 +75,12 @@ objRightCell.ApplyGeneralConstraint(strConstraintGB)
 
 
 strCylinderLeftGB = gf.ParseConic([arrCylinderCentreLeftGB[0],arrCylinderCentreLeftGB[1]],[r,r],[2,2])
-objCylinderLeftGB = cp.deepcopy(objCylinder)
+objCylinderLeftGB = cp.deepcopy(objCylinderUp)
 objCylinderLeftGB.TranslateGrain(arrCylinderCentreLeftGB)
 objLeftChoppedGB = cp.deepcopy(objLeftCell)
 objLeftChoppedGB.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftGB))
 strCylinderRightGB = gf.ParseConic([arrCylinderCentreRightGB[0],arrCylinderCentreRightGB[1]],[r,r],[2,2])
-objCylinderRightGB = cp.deepcopy(objCylinder)
+objCylinderRightGB = cp.deepcopy(objCylinderDown)
 objCylinderRightGB.TranslateGrain(arrCylinderCentreRightGB)
 objRightChoppedGB = cp.deepcopy(objRightCell)
 objRightChoppedGB.ApplyGeneralConstraint(gf.InvertRegion(strCylinderRightGB))
@@ -117,11 +123,11 @@ objRightHalfChoppedTJ.ApplyGeneralConstraint(strConstraintTJ)
 strCylinderLeftTJ = gf.ParseConic([arrCylinderLeftTJ[0],arrCylinderLeftTJ[1]],[r,r],[2,2])
 strCylinderRightTJ = gf.ParseConic([arrCylinderRightTJ[0],arrCylinderRightTJ[1]],[r,r],[2,2])
 strCylinderMiddleTJ = gf.ParseConic([arrCylinderMiddleTJ[0],arrCylinderMiddleTJ[1]],[r,r],[2,2])
-objCylinderLeftTJ = cp.deepcopy(objCylinder)
+objCylinderLeftTJ = cp.deepcopy(objCylinderUp)
 objCylinderLeftTJ.TranslateGrain(arrCylinderLeftTJ)
-objCylinderRightTJ = cp.deepcopy(objCylinder)
+objCylinderRightTJ = cp.deepcopy(objCylinderUp)
 objCylinderRightTJ.TranslateGrain(arrCylinderRightTJ)
-objCylinderMiddleTJ = cp.deepcopy(objCylinder)
+objCylinderMiddleTJ = cp.deepcopy(objCylinderDown)
 objCylinderMiddleTJ.TranslateGrain(arrCylinderMiddleTJ)
 objLeftHalfChoppedTJ.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftTJ))
 objRightHalfChoppedTJ.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftTJ))
