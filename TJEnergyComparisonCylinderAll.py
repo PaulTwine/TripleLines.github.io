@@ -24,7 +24,7 @@ s0 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
 intHeight = 5
-intAtoms = 10**5
+intAtoms = 1.2*10**5
 intAtomsPerCell = 4
 a = 4.05 ##lattice parameter
 h = a*np.round(intHeight/s2,0)
@@ -37,9 +37,7 @@ else:
     arrBasisVectors = gf.RotateVectors(fltAngle3, arrRotation,gf.StandardBasisVectors(3))
 
 arrLatticeParameters= np.array([a,a,a])
-arrUpBasisVectors = gf.StandardBasisVectors(3)
-arrDownBasisVectors = arrUpBasisVectors
-#arrDownBasisVectors = np.array([[-1,0,0],[0,1,0],[0,0,1]])
+#arrBasisVectors = gf.StandardBasisVectors(3)
 
 
 
@@ -51,15 +49,13 @@ l = 10*a*i
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]
-objCylinderUp = gl.ExtrudedCylinder(r,h*s2,arrUpBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
-objCylinderUp.SetPeriodicity(['n','n','p'])
-objCylinderDown = gl.ExtrudedCylinder(r,h*s2,arrDownBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
-objCylinderDown.SetPeriodicity(['n','n','p'])
+objCylinder = gl.ExtrudedCylinder(r,h*s2,arrBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
+objCylinder.SetPeriodicity(['n','n','p'])
 
 
 
 arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
-#arrRandom = np.zeros(3)
+
 np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
 objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCellCentreGB = objSimulationCellGB.GetCentre()
@@ -77,12 +73,12 @@ objRightCell.ApplyGeneralConstraint(strConstraintGB)
 
 
 strCylinderLeftGB = gf.ParseConic([arrCylinderCentreLeftGB[0],arrCylinderCentreLeftGB[1]],[r,r],[2,2])
-objCylinderLeftGB = cp.deepcopy(objCylinderUp)
+objCylinderLeftGB = cp.deepcopy(objCylinder)
 objCylinderLeftGB.TranslateGrain(arrCylinderCentreLeftGB)
 objLeftChoppedGB = cp.deepcopy(objLeftCell)
 objLeftChoppedGB.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftGB))
 strCylinderRightGB = gf.ParseConic([arrCylinderCentreRightGB[0],arrCylinderCentreRightGB[1]],[r,r],[2,2])
-objCylinderRightGB = cp.deepcopy(objCylinderDown)
+objCylinderRightGB = cp.deepcopy(objCylinder)
 objCylinderRightGB.TranslateGrain(arrCylinderCentreRightGB)
 objRightChoppedGB = cp.deepcopy(objRightCell)
 objRightChoppedGB.ApplyGeneralConstraint(gf.InvertRegion(strCylinderRightGB))
@@ -125,9 +121,9 @@ objRightHalfChoppedTJ.ApplyGeneralConstraint(strConstraintTJ)
 strCylinderLeftTJ = gf.ParseConic([arrCylinderLeftTJ[0],arrCylinderLeftTJ[1]],[r,r],[2,2])
 strCylinderRightTJ = gf.ParseConic([arrCylinderRightTJ[0],arrCylinderRightTJ[1]],[r,r],[2,2])
 strCylinderMiddleTJ = gf.ParseConic([arrCylinderMiddleTJ[0],arrCylinderMiddleTJ[1]],[r,r],[2,2])
-objCylinderLeftTJ = cp.deepcopy(objCylinderUp)
+objCylinderLeftTJ = cp.deepcopy(objCylinder)
 objCylinderLeftTJ.TranslateGrain(arrCylinderLeftTJ)
-objCylinderMiddleTJ = cp.deepcopy(objCylinderUp)
+objCylinderMiddleTJ = cp.deepcopy(objCylinder)
 objCylinderMiddleTJ.TranslateGrain(arrCylinderMiddleTJ)
 objLeftHalfChoppedTJ.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftTJ))
 objRightHalfChoppedTJ.ApplyGeneralConstraint(gf.InvertRegion(strCylinderLeftTJ))
