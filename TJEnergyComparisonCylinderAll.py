@@ -37,8 +37,8 @@ else:
     arrBasisVectors = gf.RotateVectors(fltAngle3, arrRotation,gf.StandardBasisVectors(3))
 
 arrLatticeParameters= np.array([a,a,a])
-#arrBasisVectors = gf.StandardBasisVectors(3)
 
+arrCylinderBasisVectors = gf.RotateVectors((fltAngle1+fltAngle2)/2,np.array([0,0,1]),arrBasisVectors)
 
 
 ###First part runs with two displaced cylinders and no triple lines
@@ -49,7 +49,7 @@ l = 10*a*i
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]
-objCylinder = gl.ExtrudedCylinder(r,h*s2,arrBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
+objCylinder = gl.ExtrudedCylinder(r,h*s2,arrCylinderBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
 objCylinder.SetPeriodicity(['n','n','p'])
 
 
