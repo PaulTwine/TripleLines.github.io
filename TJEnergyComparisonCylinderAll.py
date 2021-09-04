@@ -8,13 +8,13 @@ import sys
 from mpl_toolkits.mplot3d import Axes3D 
 import copy as cp
 from scipy import spatial
-fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
-ax = fig.gca(projection='3d')
+#fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
+#ax = fig.gca(projection='3d')
 
 strDirectory = str(sys.argv[1])
 intSigma = int(sys.argv[2])
 lstAxis = eval(str(sys.argv[3]))
-intIncrements = int(sys.argv[4])
+intIncrements =  int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
@@ -24,7 +24,7 @@ s0 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
 intHeight = 5
-intAtoms = 1.2*10**5
+intAtoms = 1.25*10**5
 intAtomsPerCell = 4
 a = 4.05 ##lattice parameter
 h = a*np.round(intHeight/s2,0)

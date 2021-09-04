@@ -302,14 +302,17 @@ def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints:
                         k = inCellVectors[i]
                         arrPositions1 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), fltDistance),5)
                         arrRows1 = np.where(arrPositions1 < 1e-5)[0]
-                        lstNewIndices.append(arrAllIndices[arrRows1])
-                        lstNewPoints.append(arrAllPoints[arrRows1] + k)
+                        if len(arrRows1) > 0:
+                                lstNewIndices.append(arrAllIndices[arrRows1])
+                                lstNewPoints.append(arrAllPoints[arrRows1] + k)
                         arrPositions2 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), j[-1]-fltDistance),5)
                         arrRows2 = np.where(arrPositions2 > -1e-5)[0]
-                        lstNewIndices.append(arrAllIndices[arrRows2])
-                        lstNewPoints.append(arrAllPoints[arrRows2] - k)
-                        arrAllPoints = np.concatenate(lstNewPoints)
-                        arrAllIndices = np.concatenate(lstNewIndices)                
+                        if len(arrRows2) > 0:
+                                lstNewIndices.append(arrAllIndices[arrRows2])
+                                lstNewPoints.append(arrAllPoints[arrRows2] - k)
+                        if len(lstNewPoints) > 0:
+                                arrAllPoints = np.concatenate(lstNewPoints)
+                                arrAllIndices = np.concatenate(lstNewIndices)                
         if len(arrAllPoints) > intLength:
                 objSpatial = KDTree(arrAllPoints[intLength:])
                 arrDuplicates = objSpatial.query_radius(inPoints,1e-5,count_only=False, return_distance = False)
@@ -636,7 +639,8 @@ class PeriodicKDTree(object):
 
 class PeriodicWrapperKDTree(object):
     def __init__(self, inPoints,inPeriodicVectors,inConstraints, fltWrapperLength, lstBoundaryType = ['p','p','p']):
-        self.__PeriodicVectors = inPeriodicVectors
+        self.__OriginalPoints = np.copy(inPoints)
+        self.__PeriodicVectors = np.copy(inPeriodicVectors)
         arrInverse = np.linalg.inv(inPeriodicVectors)
         self.__InverseBasis = arrInverse
         self.__ModValue = len(inPoints)
@@ -656,6 +660,8 @@ class PeriodicWrapperKDTree(object):
     def Pquery(self,inPoints:np.array,k=1):
         arrDistances, arrIndices = self.__PeriodicTree.query(inPoints,k)
         return arrDistances, arrIndices
+    def GetOriginalPoints(self):
+        return self.__OriginalPoints
 
                                
 
