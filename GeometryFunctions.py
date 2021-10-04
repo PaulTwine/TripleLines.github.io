@@ -6,8 +6,10 @@ Created on Fri May 31 10:38:14 2019
 """
 import numpy as np
 import itertools as it
+from numpy.linalg.linalg import det
 import scipy as sc
 from scipy import spatial
+import sympy as sy
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import KDTree
 import warnings
@@ -199,7 +201,6 @@ def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array)->n
         arrRows = np.where(np.all(arrCoefficients < arrMod, axis=1) & np.all(arrCoefficients >= 0 , axis=1))[0]
         return arrRows
        
-
 def WrapVectorIntoSimulationCell(inCellVectors: np.array, inVector: np.array, fltTolerance = 1e-5)->np.array: 
         arrUnitBasis = inCellVectors/np.linalg.norm(inCellVectors, ord=2, axis=1, keepdims=True)
         invMatrix = np.linalg.inv(arrUnitBasis) 
@@ -606,6 +607,13 @@ def FindDuplicates(inPoints, inCellVectors, fltDistance, lstBoundaryType = ['p',
                 arrRepeatedIndices = np.unique(lstDuplicates)
                # arrRepeatedIndices = np.unique(np.vstack(list(map(lambda x: np.sort(lstIndices[x])[1:],arrRows))))
         return arrRepeatedIndices
+def AffineTransformationMatrix(inMatrix: np.array, inTranslation: np.array):
+        tupShape = np.shape(inMatrix)
+        rtnMatrix = np.zeros([tupShape[0]+1,tupShape[1]+1])
+        rtnMatrix[:-1,-1] = inTranslation
+        rtnMatrix[:tupShape[0],:tupShape[1]] = inMatrix
+        rtnMatrix[-1,-1] = 1
+        return rtnMatrix 
 
 class PeriodicKDTree(object):
     def __init__(self, inPoints, inPeriodicVectors, lstBoundaryType = ['pp','pp','pp']):
@@ -663,6 +671,47 @@ class PeriodicWrapperKDTree(object):
     def GetOriginalPoints(self):
         return self.__OriginalPoints
 
-                               
-
-       
+class OLattice(object):
+        def __init__(self,arrOTransformation: np.array, arrOPoint: np.array):
+                self.__OTransformation = arrOTransformation
+                self.__BasisVectors = []
+                self.__OVectors = []
+                self.__OPoint = arrOPoint
+                x,y,z = sy.symbols('x y z')
+                arrOArray = np.identity(3) - np.linalg.inv(arrOTransformation)
+                symMatrix = sy.Matrix(arrOArray.tolist())
+                lstOVectors = []
+                lstDiscretePoints = []
+                for i in range(3):
+                        arrDir = np.zeros(3)
+                        arrDir[i] = 1
+                        system = A, b=symMatrix, arrDir.tolist()
+                        rtnValue = sy.linsolve(system,x,y,z)
+                        if rtnValue != sy.EmptySet:
+                                lstValue = list(*rtnValue)
+                                k = 0
+                                for j in lstValue:
+                                        if type(j) is  sy.core.symbol.Symbol:
+                                                lstValue[k] = 0
+                                        k += 1
+                                lstDiscretePoints.append(lstValue)
+                arrEValues, arrEVectors = np.linalg.eig(self.__OTransformation)
+                arrRows = np.where(np.round(arrEValues,10) ==1)[0]
+                for k in arrRows:
+                        arrVector = arrEVectors[:,k]
+                        if np.all(np.isreal(arrVector)): #strips off 0j part 
+                                arrVector = np.real(arrVector)
+                        lstOVectors.append(arrVector)
+                if len(lstOVectors)> 0:                        
+                        self.__OVectors = np.unique(np.vstack(lstOVectors),axis=0)
+                arrTranslation = arrOPoint -np.matmul(arrOTransformation, arrOPoint)
+                self.__Translation = arrTranslation - np.round(arrTranslation,0)
+                self.__DiscretePoints = np.array(lstDiscretePoints)
+        def GetBasisVectors(self):
+                return self.__BasisVectors
+        def GetOVectors(self):
+                return self.__OVectors
+        def GetTranslation(self): #this is the vector translation from the base lattice to the transformed lattice given the OPoint
+                return self.__Translation
+        def GetDiscretePoints(self):
+                return self.__DiscretePoints

@@ -282,7 +282,7 @@ class GeneralLattice(PureLattice,RealCell):
     def GetLinearConstraints(self):
         return self.__LinearConstraints
     def FindBoundaryPoints(self, inPeriodicVectors = None):
-        self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.__RealPoints, self.GetNumberOfNeighbours(), 1.05*self.GetNearestNeighbourDistance(),inPeriodicVectors)
+        self.__BoundaryPointIndices = gf.GetBoundaryPoints(self.GetRealPoints(), self.GetNumberOfNeighbours(), 1.05*self.GetNearestNeighbourDistance(),inPeriodicVectors)
         lstInteriorPoints = list(set(range(self.GetNumberOfPoints())).difference(list(self.__BoundaryPointIndices)))
         self.__InteriorPointIndices = lstInteriorPoints
     def GetInteriorPoints(self, inPeriodicVectors = None):
@@ -413,6 +413,31 @@ class GeneralGrain(GeneralLattice):
         return lstRows
     def GetNumberOfBoundaryAtoms(self, inPeriodicVectors=None):
         return len(self.GetBoundaryAtoms(inPeriodicVectors))
+
+
+class IrrregularExtrudedGrain(GeneralGrain):
+    def __init__(self, arrEdgeBaseVectors: np.array, fltHeight: float, inBasisVectors: np.array, inCellNodes: np.array ,inLatticeParameters: np.array, inOrigin: np.array, inCellBasis= None):
+        if np.round(np.linalg.norm(np.sum(arrEdgeBaseVectors,axis=0)),10) == 0:
+            intConstraints = len(arrEdgeBaseVectors)
+            arrConstraints = np.zeros([intConstraints+2,4])
+            arrVectorSum = np.zeros(3)
+            for j in range(intConstraints):
+                arrEdge = arrEdgeBaseVectors[j]
+                arrOut = gf.NormaliseVector(np.cross(arrEdge,np.array([0,0,1])))
+                arrConstraints[j,:3] = arrOut
+                fltDistance = np.dot(arrOut,arrVectorSum)
+                arrConstraints[j,3] = fltDistance
+                arrVectorSum += arrEdge
+            arrConstraints[-2,:3] = np.array([0,0,1])
+            arrConstraints[-2,3] = fltHeight
+            arrConstraints[-1,:3] = -np.array([0,0,1])
+            arrConstraints[-1,3] = 0
+            GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
+            self.MakeRealPoints(arrConstraints)
+        else:
+            raise('Base perimeter is not closed')
+
+
 
 
 class ExtrudedRectangle(GeneralGrain):
@@ -596,12 +621,6 @@ class SimulationCell(object):
             if len(self.__AtomPositions) > 0:
                 for i in range(len(self.__AtomPositions)):
                     fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AtomTypes[i].astype('int'), *self.__AtomPositions[i]))          
-            # else:
-            #     i = 0
-            #     for j in self.GrainList:
-            #         for position in self.GetGrain(j).GetAtomPositions():
-            #             fdata.write('{} {} {} {} {}\n'.format(i,self.GetGrain(j).GetAtomType().astype('int'), *position))
-            #             i += 1
             if len(self.__NonGrainAtomPositions) > 0:
                 for k in range(len(self.__NonGrainAtomPositions)):
                     fdata.write('{} {} {} {} {}\n'.format(k+i+2,self.__NonGrainAtomTypes[k].astype('int'), *self.__NonGrainAtomPositions[k]))
@@ -650,20 +669,28 @@ class SimulationCell(object):
         self.__AtomPositions = arrAllAtoms[lstRows]
         self.__AtomTypes = arrAllAtomTypes[lstRows]
     def UpdateAtomsPositions(self):
-        lstAllAtoms = []
-        lstAllAtomTypes = []
+        lstGrainAtoms = []
+        lstGrainAtomTypes = []
+        lstGBPoints = []
+        lstGBAtomTypes = []
         if len(self.__AtomPositions) == 0: #only update this first time
             for j in self.GrainList:
-                lstAllAtoms.append(self.WrapVectorIntoSimulationBox(self.GetGrain(j).GetInteriorAtomPositions(self.__BasisVectors)))
-                lstAllAtomTypes.append(np.ones(self.GetGrain(j).GetNumberOfInteriorAtoms(self.__BasisVectors))*self.GetGrain(j).GetAtomType())    
-            self.__AtomPositions = np.vstack(lstAllAtoms)
-            self.__AtomTypes = np.concatenate(lstAllAtomTypes,axis=0).astype('int')
+                lstGrainAtoms.append(self.WrapVectorIntoSimulationBox(self.GetGrain(j).GetInteriorAtomPositions(self.__BasisVectors)))
+                lstGrainAtomTypes.append(np.ones(self.GetGrain(j).GetNumberOfInteriorAtoms(self.__BasisVectors))*self.GetGrain(j).GetAtomType())    
+            self.__AtomPositions = np.vstack(lstGrainAtoms)
+            self.__AtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
+        if len(self.__NonGrainAtomPositions) ==0: #only update this first time
+            for k in self.GrainList:
+                lstGBPoints.append(self.WrapVectorIntoSimulationBox(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors)))
+                lstGBAtomTypes.append(np.ones(self.GetGrain(k).GetNumberOfBoundaryAtoms(self.__BasisVectors))*self.GetGrain(k).GetAtomType())
+            self.__NonGrainAtomPositions = np.vstack(lstGBPoints)
+            self.__NonGrainAtomTypes = np.concatenate(lstGBAtomTypes,axis=0).astype('int')
+
     def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
         lstUniqueRowIndices = []
         self.UpdateAtomsPositions()
         arrRounded = np.round(self.WrapVectorIntoSimulationBox(self.__AtomPositions), intRound)
         self.__AtomPositions = self.RemoveRealDuplicates(arrRounded)
-        #self.__AtomPositions = self.WrapVectorIntoSimulationBox(self.__AtomPositions) 
         lstUniqueRowIndices = np.unique(self.__AtomPositions,axis=0, return_index = True)[1]
         if len(lstUniqueRowIndices) < len(self.__AtomPositions):
             warnings.warn(str(self.GetUpdatedAtomNumbers() - len(lstUniqueRowIndices)) + ' duplicate atoms detected within simulation cell and have been removed.')
@@ -726,8 +753,8 @@ class SimulationCell(object):
         arrUniqueIndices = np.unique(lstUniqueIndices)
         return self.WrapVectorIntoSimulationBox(arrPoints[arrUniqueIndices])
     def PlotSimulationCellAtoms(self):
-        if self.blnPointsAreWrapped:
-            return tuple(zip(*self.__UniqueRealPoints))
+        self.WrapAllAtomsIntoSimulationCell()
+        return tuple(zip(*self.__AtomPositions))
     def RemovePlaneOfAtoms(self, inPlane: np.array, fltTolerance: float):
         arrPointsOnPlane = gf.CheckLinearEquality(np.round(self.__UniqueRealPoints,10), inPlane,fltTolerance)
         self.__UniqueRealPoints = np.delete(self.__UniqueRealPoints,arrPointsOnPlane, axis=0)   
