@@ -542,16 +542,29 @@ class BaseSuperCell(object):
 class SimulationCell(object):
     def __init__(self, inBoxVectors: np.array):
         self.Dimensions = len(inBoxVectors[0])
-        self.BoundaryTypes = ['pp']*self.Dimensions #assume periodic boundary conditions as a default
+        self.__BoundaryTypes = ['p']*self.Dimensions #assume periodic boundary conditions as a default
         self.SetOrigin(np.zeros(self.Dimensions))
         self.dctGrains = dict() #dictionary of RealGrain objects which form the simulation cell
         self.SetParallelpipedVectors(inBoxVectors)
         self.blnPointsAreWrapped = False
         self.__FileHeader = ''
         self.GrainList = []
-        self.__AtomPositions = []
+        self.__AllAtomPositions = []
+        self.__AllAtomTypes = []
+        self.__GrainAtomPositions = []
+        self.__GrainAtomTypes = []
+        self.__GrainAtomPositions = []
         self.__NonGrainAtomPositions = []
         self.__NonGrainAtomTypes = []
+    def SetAllAtomPositions(self):
+        self.SetGrainAtoms()
+        arrPoints = np.append(self.__GrainAtomPositions , self.__NonGrainAtomPositions,axis=0)
+        arrDelete = gf.FindDuplicates(arrPoints,self.__BasisVectors,1e-5,self.__BoundaryTypes)
+        self.__AllAtomPositions = arrPoints
+        self.__AllAtomTypes = np.append(self.__GrainAtomTypes , self.__NonGrainAtomTypes,axis=0)
+        if len(arrDelete) > 0:
+            self.__AllAtomPositions = np.delete(self.__AllAtomPositions, arrDelete, axis=0)
+            self.__AllAtomTypes = np.delete(self.__AllAtomTypes, arrDelete, axis=0)
     def AddGrain(self,inGrain, strName = None):
         if strName is None:
             strName = str(len(self.dctGrains.keys())+1)
@@ -568,11 +581,11 @@ class SimulationCell(object):
         return len(self.GrainList)
     def GetUpdatedAtomNumbers(self):
         intNumberOfAtoms = 0
-        if len(self.__AtomPositions) ==0:
+        if len(self.__GrainAtomPositions) ==0:
             for j in self.GrainList:
                 intNumberOfAtoms += self.GetGrain(j).GetNumberOfInteriorAtoms(self.__BasisVectors)
         else:
-            intNumberOfAtoms = len(self.__AtomPositions) 
+            intNumberOfAtoms = len(self.__GrainAtomPositions) 
         if len(self.__NonGrainAtomPositions) ==0:
             for k in self.GrainList:
                 lstGBPoints = []
@@ -583,22 +596,22 @@ class SimulationCell(object):
             intNumberOfAtoms += len(self.__NonGrainAtomPositions)
         return intNumberOfAtoms
     def GetTotalNumberOfAtoms(self):
-        if self.blnPointsAreWrapped:
-            intNumberOfAtoms = len(self.__AtomPositions) 
-        else: 
-            intNumberOfAtoms = self.GetUpdatedAtomNumbers()
-        return intNumberOfAtoms
+        if len(self.__AllAtomPositions) ==0:
+            self.SetAllAtomPositions()
+        return len(self.__AllAtomPositions)
     def GetRealBasisVectors(self):
         return self.__BasisVectors
     def SetBoundaryTypes(self,inList: list): #boundaries can be periodic 'p' or fixed 'f'
-        self.BoundaryTypes = inList    
-    def GetNumberOfAtomTypes(self):
+        self.BoundaryTypes = inList  
+    def GetAllAtomTypes(self):
         lstAtomTypes = []
         for j in self.GrainList:
             intCurrentAtomType = self.GetGrain(j).GetAtomType()
             if intCurrentAtomType not in lstAtomTypes: 
                 lstAtomTypes.append(intCurrentAtomType)
-        return len(lstAtomTypes)
+        return lstAtomTypes  
+    def GetNumberOfAtomTypes(self):
+        return len(self.GetAllAtomTypes())
     def SetFileHeader(self, inString: str):
         self.__FileHeader = inString
     def WrapVectorIntoSimulationBox(self, inVector: np.array)->np.array:
@@ -606,10 +619,10 @@ class SimulationCell(object):
     def WriteLAMMPSDataFile(self,inFileName: str):        
         now = datetime.now()
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
-        self.UpdateAtomsPositions()
+        self.SetAllAtomPositions()
         with open(inFileName, 'w') as fdata:
             fdata.write('## ' + strDateTime + ' ' + self.__FileHeader + '\n')
-            fdata.write('{} atoms\n'.format(self.GetUpdatedAtomNumbers()))
+            fdata.write('{} atoms\n'.format(self.GetTotalNumberOfAtoms()))
             fdata.write('{} atom types\n'.format(self.GetNumberOfAtomTypes()))
             fdata.write('{} {} xlo xhi\n'.format(self.__xlo,self.__xhi))
             fdata.write('{} {} ylo yhi\n'.format(self.__ylo,self.__yhi))
@@ -618,12 +631,8 @@ class SimulationCell(object):
                 fdata.write('{}  {} {} xy xz yz \n'.format(self.__xy,self.__xz,self.__yz))
             fdata.write('\n')
             fdata.write('Atoms\n\n')
-            if len(self.__AtomPositions) > 0:
-                for i in range(len(self.__AtomPositions)):
-                    fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AtomTypes[i].astype('int'), *self.__AtomPositions[i]))          
-            if len(self.__NonGrainAtomPositions) > 0:
-                for k in range(len(self.__NonGrainAtomPositions)):
-                    fdata.write('{} {} {} {} {}\n'.format(k+i+2,self.__NonGrainAtomTypes[k].astype('int'), *self.__NonGrainAtomPositions[k]))
+            for i in range(len(self.__AllAtomPositions)):
+                fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AllAtomTypes[i].astype('int'), *self.__AllAtomPositions[i]))          
               
     def SetOrigin(self,inOrigin: np.array):
         self.__Origin = inOrigin
@@ -666,44 +675,58 @@ class SimulationCell(object):
                 arrAllAtoms[i] = fltPoint
                 i = i + 1
         lstRows = gf.RemoveVectorsOutsideSimulationCell(self.__BasisVectors,arrAllAtoms)
-        self.__AtomPositions = arrAllAtoms[lstRows]
-        self.__AtomTypes = arrAllAtomTypes[lstRows]
+        self.__GrainAtomPositions = arrAllAtoms[lstRows]
+        self.__GrainAtomTypes = arrAllAtomTypes[lstRows]
     def UpdateAtomsPositions(self):
         lstGrainAtoms = []
         lstGrainAtomTypes = []
         lstGBPoints = []
         lstGBAtomTypes = []
-        if len(self.__AtomPositions) == 0: #only update this first time
+        if len(self.__GrainAtomPositions) == 0: #only update this first time
             for j in self.GrainList:
                 lstGrainAtoms.append(self.WrapVectorIntoSimulationBox(self.GetGrain(j).GetInteriorAtomPositions(self.__BasisVectors)))
                 lstGrainAtomTypes.append(np.ones(self.GetGrain(j).GetNumberOfInteriorAtoms(self.__BasisVectors))*self.GetGrain(j).GetAtomType())    
-            self.__AtomPositions = np.vstack(lstGrainAtoms)
-            self.__AtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
+            self.__GrainAtomPositions = np.vstack(lstGrainAtoms)
+            self.__GrainAtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
         if len(self.__NonGrainAtomPositions) ==0: #only update this first time
             for k in self.GrainList:
                 lstGBPoints.append(self.WrapVectorIntoSimulationBox(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors)))
                 lstGBAtomTypes.append(np.ones(self.GetGrain(k).GetNumberOfBoundaryAtoms(self.__BasisVectors))*self.GetGrain(k).GetAtomType())
             self.__NonGrainAtomPositions = np.vstack(lstGBPoints)
             self.__NonGrainAtomTypes = np.concatenate(lstGBAtomTypes,axis=0).astype('int')
-
+        self.__AllAtomPositions = np.append(self.__NonGrainAtomPositions, self.__GrainAtomPositions,axis=0)
     def WrapAllAtomsIntoSimulationCell(self, intRound=5)->np.array:
         lstUniqueRowIndices = []
         self.UpdateAtomsPositions()
-        arrRounded = np.round(self.WrapVectorIntoSimulationBox(self.__AtomPositions), intRound)
-        self.__AtomPositions = self.RemoveRealDuplicates(arrRounded)
-        lstUniqueRowIndices = np.unique(self.__AtomPositions,axis=0, return_index = True)[1]
-        if len(lstUniqueRowIndices) < len(self.__AtomPositions):
+        arrRounded = np.round(self.WrapVectorIntoSimulationBox(self.__AllAtomPositions), intRound)
+        self.__AllAtomPositions = self.RemoveRealDuplicates(arrRounded)
+        lstUniqueRowIndices = np.unique(self.__AllAtomPositions,axis=0, return_index = True)[1]
+        if len(lstUniqueRowIndices) < len(self.__GrainAtomPositions):
             warnings.warn(str(self.GetUpdatedAtomNumbers() - len(lstUniqueRowIndices)) + ' duplicate atoms detected within simulation cell and have been removed.')
-            self.__AtomPositions = self.__AtomPositions[lstUniqueRowIndices]
-            self.__AtomTypes = self.__AtomTypes[lstUniqueRowIndices]
+            self.__GrainAtomPositions = self.__GrainAtomPositions[lstUniqueRowIndices]
+            self.__GrainAtomTypes = self.__GrainAtomTypes[lstUniqueRowIndices]
         self.blnPointsAreWrapped = True
     def GetDuplicatePoints(self):
-        arrRows = np.unique(self.__AtomPositions, axis=0, return_inverse=True)[1]
-        arrRows = np.array(list(set(range(len(self.__AtomPositions))).difference(arrRows.tolist())))
+        arrRows = np.unique(self.__AllAtomPositions, axis=0, return_inverse=True)[1]
+        arrRows = np.array(list(set(range(len(self.__AllAtomPositions))).difference(arrRows.tolist())))
         if len(arrRows) > 0:
-            return self.__AtomPositions[arrRows]
+            return self.__GrainAllAtomPositions[arrRows]
         else:
             return []
+    def SetGrainAtoms(self):
+        lstGrainAtoms = []
+        lstGrainAtomTypes = []
+        for i in self.GrainList:
+                lstGrainAtoms.append(self.RemoveRealDuplicates(self.GetGrain(i).GetInteriorAtomPositions(self.__BasisVectors)))
+                lstGrainAtomTypes.append(np.ones(len(lstGrainAtoms[-1]))*self.GetGrain(i).GetAtomType())
+        self.__GrainAtomPositions = np.vstack(lstGrainAtoms)
+        self.__GrainAtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
+    def GetNonGrainAtoms(self, lstAtomTypes: list):
+        lstGBAtoms = []
+        for k in self.GrainList:
+            if self.GetGrain(k).GetAtomType() in lstAtomTypes:
+                lstGBAtoms.append(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors))
+        return self.RemoveRealDuplicates(np.vstack(lstGBAtoms))
     def RemoveGrainPeriodicDuplicates(self):
         for i in self.GrainList:
             arrIndices = self.GetGrain(i).FindPeriodicDuplicates(self.__BasisVectors)
@@ -714,11 +737,8 @@ class SimulationCell(object):
             fltDistance = 1e-5
         lstGBAtoms = []
         lstMergedAtoms = []
-        for k in self.GrainList:
-            if self.GetGrain(k).GetAtomType() == intAtomType:
-                lstGBAtoms.append(self.GetGrain(k).GetBoundaryAtoms(self.__BasisVectors))
         blnStop = False
-        arrGBAtoms = self.RemoveRealDuplicates(np.vstack(lstGBAtoms))
+        arrGBAtoms = self.GetNonGrainAtoms([intAtomType])
         i = 0
         while not(blnStop) and i < intLimit:
             lstMergedAtoms = []
@@ -754,13 +774,13 @@ class SimulationCell(object):
         return self.WrapVectorIntoSimulationBox(arrPoints[arrUniqueIndices])
     def PlotSimulationCellAtoms(self):
         self.WrapAllAtomsIntoSimulationCell()
-        return tuple(zip(*self.__AtomPositions))
+        return tuple(zip(*self.__GrainAtomPositions))
     def RemovePlaneOfAtoms(self, inPlane: np.array, fltTolerance: float):
         arrPointsOnPlane = gf.CheckLinearEquality(np.round(self.__UniqueRealPoints,10), inPlane,fltTolerance)
         self.__UniqueRealPoints = np.delete(self.__UniqueRealPoints,arrPointsOnPlane, axis=0)   
     def GetAtomPoints(self)->np.array:
-        if len(self.__AtomPositions) > 0:
-            return self.__AtomPositions
+        if len(self.__GrainAtomPositions) > 0:
+            return self.__GrainAtomPositions
         else:
             lstAtoms = []
             for j in self.GrainList:

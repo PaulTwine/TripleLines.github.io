@@ -10,8 +10,8 @@ import copy as cp
 from scipy import spatial
 
 
-strFilename = '/home/p17992pt/LAMMPSData/mobility.dat' #str(sys.argv[1])
-intHeight = 2 #int(sys.argv[2])
+strFilename = str(sys.argv[1])
+intHeight = int(sys.argv[2])
 a = 4.05
 t = np.pi/11
 arrR = np.array([1,0,0])
@@ -38,7 +38,6 @@ objSimulationCell = gl.SimulationCell(np.array([60*a*arrR,60*a*arrUR,h*np.array(
 objSimulationCell.AddGrain(objHex1)
 objSimulationCell.AddGrain(objHex2)
 objSimulationCell.AddGrain(objHex3)
-objSimulationCell.RemoveGrainPeriodicDuplicates()
 objSimulationCell.MergeTooCloseAtoms(0.6*objHex1.GetNearestNeighbourDistance(),1)
 objSimulationCell.WriteLAMMPSDataFile(strFilename)
 
