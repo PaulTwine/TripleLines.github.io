@@ -10,6 +10,7 @@ from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 from skimage.filters import gaussian, threshold_otsu
 from skimage import measure
 from sklearn.cluster import DBSCAN
+from datetime import datetime
 import copy
 import warnings
 from functools import reduce
@@ -240,6 +241,22 @@ class LAMMPSTimeStep(object):
                 strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(self.__BoundBoxDimensions[j,2]) + '\n'
         strHeader += 'ITEM: ATOMS ' + ' '.join(self.__ColumnNames)
         np.savetxt(strFilename, self.GetAtomData(), fmt= ' '.join(self.__ColumnTypes), header=strHeader, comments='')
+    def WriteDataFile(self, strFilename: str):
+        now = datetime.now()
+        strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
+        strHeader = '##' + strDateTime +  '\n'
+        strHeader += str(self.GetNumberOfAtoms()) + ' atoms \n'
+        strHeader += '1' + ' atom types \n'
+        lstNames = ['x','y','z']
+        for j in range(3):
+            strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]-self.__BoundBoxDimensions[j,2]) + ' '  + str(lstNames[j]) +  'lo ' + str(lstNames[j]) + 'hi \n'
+        if not(self.__blnCuboid):
+            strHeader += str(self.__BoundBoxDimensions[0,-1]) + ' ' + str(self.__BoundBoxDimensions[1,-1]) + ' ' + str(self.__BoundBoxDimensions[2,-1]) + ' xy xz yz \n'
+        strHeader += '\nAtoms \n'
+        arrValues = np.ones([self.GetNumberOfAtoms(),5]) ##currently hard coded to atom type 1
+        arrValues[:,0] = self.GetAtomData()[:,0]
+        arrValues[:,2:5] = self.GetAtomData()[:,1:4]
+        np.savetxt(strFilename, arrValues, fmt = "%d " "%d " "%.6f " "%.6f " "%.6f ", header=strHeader, comments='')
 
 class LAMMPSPostProcess(LAMMPSTimeStep):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
