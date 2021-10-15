@@ -9,12 +9,13 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy as cp
 from scipy import spatial
 
-
 strDirectory = str(sys.argv[1])
-strFilename = strDirectory + 'ReadTJ9.dat'
+strFilename = strDirectory + 'ReadTJ.dat'
+intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
 fltMerge = float(sys.argv[3])
-
-intHeight = int(sys.argv[2])
+lstAxis = eval(str(sys.argv[4]))
+intSigma = int(sys.argv[5])
+arrAxis = np.array(lstAxis)
 a = 4.05
 t = np.pi/11
 arrR = np.array([1,0,0])
@@ -26,17 +27,21 @@ arrURC = np.array([np.cos(t),np.sin(np.pi/3),0])
 arrULC = np.array([-np.cos(t),np.sin(np.pi/3),0])
 arrSR = arrR+arrUR+arrULC-arrURC +arrDR
 
-objSigma9 = gl.SigmaCell(np.array([5,1,1]),ld.FCCCell)
-objSigma9.MakeCSLCell(9)
+objSigma9 = gl.SigmaCell(arrAxis,ld.FCCCell)
+objSigma9.MakeCSLCell(intSigma)
+fltAngle1, fltAngle2 = objSigma9.GetLatticeRotations()
 arrBasis = objSigma9.GetBasisVectors()
 
-s = np.linalg.norm(arrBasis[0])
-fltAngle, arrRotation = gf.FindRotationVectorAndAngle(np.array([5,1,1]),np.array([0,0,1]))
+s0 = np.linalg.norm(arrBasis[0])
+s1 = np.linalg.norm(arrBasis[1])
+s2 = np.linalg.norm(arrBasis[2])
+
+fltAngle, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
 arrBasisVectors = gf.RotateVectors(fltAngle, arrRotation,gf.StandardBasisVectors(3))
-h = intHeight*a*np.linalg.norm(np.array([5,1,1]))
-objHex1 = gl.ExtrudedRegularPolygon(10*s*a,h,6,gf.RotateVectors(0,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),np.zeros(3))
-objHex2 = gl.ExtrudedRegularPolygon(10*s*a,h,6,gf.RotateVectors(2*np.pi/3,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s*(arrDR+arrR))
-objHex3 = gl.ExtrudedRegularPolygon(10*s*a,h,6,gf.RotateVectors(4*np.pi/3,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s*(arrUR+arrR))
+h = intHeight*a*s2
+objHex1 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(fltAngle1,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),np.zeros(3))
+objHex2 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(fltAngle2,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s0*(arrDR+arrR))
+objHex3 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(2*np.pi-(abs(fltAngle1)+abs(fltAngle1)),np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s0*(arrUR+arrR))
 
 
 # objHex1 = gl.IrrregularExtrudedGrain(20*a*np.array([arrR, arrURC, arrULC,-arrR,-arrURC,-arrULC]),h,gf.RotateVectors(0,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),np.zeros(3))
@@ -46,7 +51,7 @@ objHex1.SetPeriodicity(['n','n','p'])
 objHex2.SetPeriodicity(['n','n','p'])
 objHex3.SetPeriodicity(['n','n','p'])
 
-objSimulationCell = gl.SimulationCell(np.array([30*a*s*arrR,30*a*s*arrUR,h*np.array([0,0,1])]))
+objSimulationCell = gl.SimulationCell(np.array([30*a*s0*arrR,30*a*s0*arrUR,h*np.array([0,0,1])]))
 objSimulationCell.AddGrain(objHex1)
 objSimulationCell.AddGrain(objHex2)
 objSimulationCell.AddGrain(objHex3)
