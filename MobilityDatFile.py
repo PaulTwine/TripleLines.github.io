@@ -31,21 +31,22 @@ for j in range(10):
 ### Files are encode as TJ5.4 meaning the 5th directory using a float tolerance of 0.4
 
 for k in range(10):
-    strFilename = 'TJ' + str(lstMin[k]) +'.lst' #str(sys.argv[1])
-    objData = LT.LAMMPSData(strDirIn + 'k/' + strFilename, 1, 4.05, LT.LAMMPSAnalysis3D)
-    objTimeStep = objData.GetTimeStepByIndex(-1)
-    strTemplateName = strDirOut + 'k' + strFilename[:-3] + 'dat'
-    objTimeStep.WriteDataFile(strTemplateName)
-    fIn = open(strDirOut +  'TemplateMob.in', 'rt')
-    fData = fIn.read()
-    fData = fData.replace('read.dat', strTemplateName)
-    fData = fData.replace('read.dmp', strTemplateName[:-3] + '.dmp')
-    fData = fData.replace('read.lst', strTemplateName[:-3] + '.lst')
-    fData = fData.replace('logfile', strTemplateName[:-3] + 'log')
-    fIn.close()
-    fIn = open(strDirOut +  'TemplateMob.in', 'rt')
-    fIn.write(fData)
-    fIn.close()
+    for strName in ['TJ', 'GB']:
+        strFilename = strName + str(lstMin[k]) +'.lst' #str(sys.argv[1])
+        objData = LT.LAMMPSData(strDirIn + 'k/' + strFilename, 1, 4.05, LT.LAMMPSAnalysis3D)
+        objTimeStep = objData.GetTimeStepByIndex(-1)
+        strTemplateName = strDirOut + 'k' + strFilename[:-3] + 'dat'
+        objTimeStep.WriteDataFile(strTemplateName)
+        fIn = open(strDirOut +  'TemplateMob.in', 'rt')
+        fData = fIn.read()
+        fData = fData.replace('read.dat', strTemplateName)
+        fData = fData.replace('read.dmp', strTemplateName[:-3] + '.dmp')
+        fData = fData.replace('read.lst', strTemplateName[:-3] + '.lst')
+        fData = fData.replace('logfile', strTemplateName[:-3] + 'log')
+        fIn.close()
+        fIn = open(strDirOut +  'TemplateMob.in', 'rt')
+        fIn.write(fData)
+        fIn.close()
 
 
 
