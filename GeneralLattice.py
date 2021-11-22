@@ -44,6 +44,9 @@ class PureCell(object):
         return self.__Dimensions
     def GetMinimalNodeMotif(self): #assumes 
         return self.__MinimalNodeMotif
+    def ApplyLatticeShift(self, inVector:np.array):
+        arrNodes = np.mod(self.__MinimalNodeMotif + inVector,np.ones(3))
+        self.__MinimalNodeMotif = arrNodes
     def GetCellDirectionalMotif(self, intBasisVector: int, intSign = 1)->np.array:
         inBasisVector = self.UnitVector(intBasisVector)
         if intSign ==-1:

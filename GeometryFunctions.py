@@ -251,6 +251,20 @@ def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBa
                         arrVector = np.vstack(lstOfArrays)
                         lstOfArrays = []
         return arrVector
+def PeriodicMinDisplacement(arrDisplacement, inCellVectors: np.array, inPeriodicBoundaries: list):
+        arrPositions = np.where(np.array(inPeriodicBoundaries) == 'p')[0]
+        if len(arrPositions) > 0:
+                arrPoints = np.mod(np.matmul(arrDisplacement, np.linalg.inv(inCellVectors)),np.ones(3))
+                lstPoints = []
+                for k in arrPositions:
+                        arrVector = np.zeros(3)
+                        arrVector[k] = -1
+                        lstPoints.append(arrPoints)
+                        lstPoints.append(arrPoints + arrVector)
+                        arrPoints = np.vstack(lstPoints)
+                        lstPoints = []
+        arrMinDistance = np.argmin(np.diag(np.matmul(arrPoints,np.matmul(np.matmul(inCellVectors, np.transpose(inCellVectors)),np.transpose(arrPoints)))))
+        return np.matmul(arrPoints[arrMinDistance], inCellVectors)
 def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnNearyBy = False)->np.array:
         arrPoints = np.array(list(map(lambda x: PeriodicShiftCloser(inFixedPoint, x, inCellVectors, inBasisConversion, inBoundaryList, blnNearyBy), inAllPointsToShift)))
         return arrPoints
@@ -715,3 +729,11 @@ class OLattice(object):
                 return self.__Translation
         def GetDiscretePoints(self):
                 return self.__DiscretePoints
+
+def TripleLineTensor(arrTripleLine: np.array, lstOfBases: list, lstOfGBAngles: list):
+        arrTensor= np.zeros([3,3])
+        arrUnit = NormaliseVector(arrTripleLine)
+        for k in range(len(lstOfGBAngles)):
+                arrTensor += np.matmul(lstOfBases[np.mod(k+1,3)] - lstOfBases[np.mod(k,3)], RotatedBasisVectors(lstOfGBAngles[k],arrUnit)) 
+        return arrTensor
+
