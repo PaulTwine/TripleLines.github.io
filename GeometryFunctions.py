@@ -251,18 +251,19 @@ def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBa
                         arrVector = np.vstack(lstOfArrays)
                         lstOfArrays = []
         return arrVector
-def PeriodicMinDisplacement(arrDisplacement, inCellVectors: np.array, inPeriodicBoundaries: list):
-        arrPositions = np.where(np.array(inPeriodicBoundaries) == 'p')[0]
-        if len(arrPositions) > 0:
-                arrPoints = np.mod(np.matmul(arrDisplacement, np.linalg.inv(inCellVectors)),np.ones(3))
+def PeriodicAllMinDisplacement(arrDisplacements, inCellVectors, inPeriodicDirections):
+        arrPoints = np.array(list(map(lambda x: PeriodicMinDisplacement(x, inCellVectors,inPeriodicDirections),arrDisplacements)))
+        return arrPoints
+def PeriodicMinDisplacement(arrDisplacement, inCellVectors: np.array, inPeriodicDirections: np.array):
+        arrPoints = np.mod(np.matmul(arrDisplacement, np.linalg.inv(inCellVectors)),np.ones(3))
+        lstPoints = []
+        for k in inPeriodicDirections:
+                arrVector = np.zeros(3)
+                arrVector[k] = -1
+                lstPoints.append(arrPoints)
+                lstPoints.append(arrPoints + arrVector)
+                arrPoints = np.vstack(lstPoints)
                 lstPoints = []
-                for k in arrPositions:
-                        arrVector = np.zeros(3)
-                        arrVector[k] = -1
-                        lstPoints.append(arrPoints)
-                        lstPoints.append(arrPoints + arrVector)
-                        arrPoints = np.vstack(lstPoints)
-                        lstPoints = []
         arrMinDistance = np.argmin(np.diag(np.matmul(arrPoints,np.matmul(np.matmul(inCellVectors, np.transpose(inCellVectors)),np.transpose(arrPoints)))))
         return np.matmul(arrPoints[arrMinDistance], inCellVectors)
 def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnNearyBy = False)->np.array:

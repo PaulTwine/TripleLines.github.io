@@ -29,7 +29,8 @@ for k in lstFilenames[1:]:
     arrNew = objTimeStep.GetAtomData()[:,0:4]
     arrNew = arrNew[np.argsort(arrNew[:,0])]
     arrDifference = arrNew[:,1:4]- arrPrevious[:,1:4]
-    arrPeriodic += objTimeStep.PeriodicShiftAllCloser(np.zeros(3),arrDifference) 
+   # arrPeriodic += objTimeStep.PeriodicShiftAllCloser(np.zeros(3),arrDifference) 
+    arrPeriodic += gf.PeriodicAllMinDisplacement(arrDifference,objTimeStep.GetCellVectors(), np.array([0,1,2]))
     arrPrevious = arrNew
 np.savetxt(strHome + 'TotalDisplacements.txt', arrPeriodic)
 
