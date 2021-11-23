@@ -17,6 +17,7 @@ for j in os.listdir(strDirIn):
         fData = fIn.read()
         fData = fData.replace('read.dat', strDirIn + j[:-3]+ 'dat')
         fData = fData.replace('read.dmp', strDirIn + j[:-3] + 'dmp')
+        fData = fData.replace('read*.dmp', strDirIn + j[:-5] + '*.dmp')
         fData = fData.replace('read.lst', strDirIn + j[:-3] + 'lst')
         fData = fData.replace('read.log', strDirIn + j[:-3] + 'log')
         fIn.close()
