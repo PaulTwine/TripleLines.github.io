@@ -123,7 +123,7 @@ class LAMMPSTimeStep(object):
         self.__ColumnNames.append(strColumnName)
         self.__ColumnTypes += ' ' + strFormat
     def SetColumnToZero(self, strColumnName: str):
-        arrColumn = np.zeros(self.GetNumberOfAtoms)
+        arrColumn = np.zeros(self.GetNumberOfAtoms())
         intColumnIndex = self.GetColumnIndex(strColumnName)
         self.__AtomData[:,intColumnIndex] = arrColumn
     def GetRow(self,intRowNumber: int):

@@ -251,21 +251,24 @@ def PeriodicEquivalents(inPositionVector: np.array, inCellVectors:np.array, inBa
                         arrVector = np.vstack(lstOfArrays)
                         lstOfArrays = []
         return arrVector
+def InnerProducts(inVectors: np.array, inBasis: np.array)->np.array:
+        vFunction = np.vectorize(GeneralLength, signature='(n),(m,p)->()')
+        return vFunction(inVectors, inBasis)
+def GeneralLength(inVector, inBasis)->np.array:
+        return InnerProduct(inVector,inVector,inBasis)
 def PeriodicAllMinDisplacement(arrDisplacements, inCellVectors, inPeriodicDirections):
         arrPoints = np.array(list(map(lambda x: PeriodicMinDisplacement(x, inCellVectors,inPeriodicDirections),arrDisplacements)))
         return arrPoints
-def PeriodicMinDisplacement(arrDisplacement, inCellVectors: np.array, inPeriodicDirections: np.array):
-        arrPoints = np.mod(np.matmul(arrDisplacement, np.linalg.inv(inCellVectors)),np.ones(3))
-        lstPoints = []
-        for k in inPeriodicDirections:
-                arrVector = np.zeros(3)
-                arrVector[k] = -1
-                lstPoints.append(arrPoints)
-                lstPoints.append(arrPoints + arrVector)
-                arrPoints = np.vstack(lstPoints)
-                lstPoints = []
-        arrMinDistance = np.argmin(np.diag(np.matmul(arrPoints,np.matmul(np.matmul(inCellVectors, np.transpose(inCellVectors)),np.transpose(arrPoints)))))
-        return np.matmul(arrPoints[arrMinDistance], inCellVectors)
+def PeriodicMinDisplacement(arrDisplacements, inPeriodicVectors: np.array):
+       intLength = len(arrDisplacements)
+       arrRows = np.array(range(intLength))
+       arrPoints = PeriodicExtension(arrDisplacements, inPeriodicVectors)
+       arrDistances = np.linalg.norm(arrPoints, axis=1)
+       arrStackedDistances = np.reshape(arrDistances, (2**(len(inPeriodicVectors)),intLength))
+       arrMinColumns = np.argmin(arrStackedDistances, axis =0)
+       arrMinPoints = intLength*arrMinColumns + arrRows
+       return arrPoints[arrMinPoints], arrDistances[arrMinPoints]
+
 def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnNearyBy = False)->np.array:
         arrPoints = np.array(list(map(lambda x: PeriodicShiftCloser(inFixedPoint, x, inCellVectors, inBasisConversion, inBoundaryList, blnNearyBy), inAllPointsToShift)))
         return arrPoints
@@ -304,6 +307,16 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
                         lstNewPoints.append(arrNewPoints)
                         arrCoefficients = np.concatenate(lstNewPoints)
         return np.matmul(arrCoefficients, inCellVectors)
+def PeriodicExtension(inPoints: np.array, inCellVectors: np.array):
+        lstPoints = []
+        arrPoints = np.copy(inPoints)
+        for i in inCellVectors:
+                lstPoints.append(arrPoints)
+                lstPoints.append(arrPoints-i)
+                arrPoints = np.vstack(lstPoints)
+                lstPoints = [] 
+        return arrPoints
+
 def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints: np.array, fltDistance: float, lstPeriodic = ['p','p','p']):
         lstNewIndices = []
         lstNewPoints = []
@@ -340,8 +353,6 @@ def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints:
                         arrDelete = arrDelete.astype('int')
                         arrAllPoints = np.delete(arrAllPoints, arrDelete, axis=0)
                         arrAllIndices = np.delete(arrAllIndices, arrDelete, axis=0)
-        #arrRows = np.where(np.any(np.all(arrAllPoints[intLength] == inPoints,axis=1),axis=0))
-        #arrUniqueRows = np.argsort(np.unique(np.round(arrAllPoints,5), axis=0, return_index=True)[1])
         return arrAllPoints, arrAllIndices
 def PeriodicMinimumDistance(inVector1: np.array, inVector2: np.array,inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list)->float:
         inVector2 = PeriodicShiftCloser(inVector1, inVector2,inCellVectors,inBasisConversion,inBoundaryList)
@@ -563,14 +574,7 @@ def GetPeriodicDuplicatePoints(inPoints, intNumberOfNeighbours: int, fltRadius: 
                 return arrBoundaryIndices
         else:
                 return [] 
-# def FindSurfaceArea(inPoints: np.array):
-#         cloud = pv.PolyData(inPoints)
-#         surf = cloud.delaunay_2d()
-#         return surf.area
-# def FindSplineLength(inPoints: np.array):
-#         arrPoints = SortInDistanceOrder(inPoints)[0]
-#         objSpline = pv.Spline(arrPoints)
-#         return objSpline.length  
+
 def DecimalArray(inArray: np.array):
         if len(np.shape(inArray)) ==2:
                 lstDecimals = [[Decimal(str(x)) for x in y] for y in inArray]
@@ -685,6 +689,43 @@ class PeriodicWrapperKDTree(object):
         return arrDistances, arrIndices
     def GetOriginalPoints(self):
         return self.__OriginalPoints
+
+class PeriodicFullKDTree(object):
+    def __init__(self, inPoints: np.array,inPeriodicVectors: np.array):
+        self.__OriginalPoints = np.copy(inPoints)
+        self.__intNumberOfPoints = len(inPoints)
+        self.__PeriodicVectors = np.copy(inPeriodicVectors)
+        self.__intPeriodicDirections = len(inPeriodicVectors)
+        arrInverse = np.linalg.inv(inPeriodicVectors)
+        arrExtendedPoints, arrUniqueIndices = PeriodicExtension(inPoints, inPeriodicVectors)
+        self.__ExtendedPoints = arrExtendedPoints
+        self.__UniqueIndices = arrUniqueIndices
+        self.__PeriodicTree = KDTree(self.__ExtendedPoints)
+    def Pquery_radius(self, inPoints: np.array, fltRadius: float,blnReturnDistance=True, blnSortResults=True):
+        arrIndices,arrDistances = self.__PeriodicTree.query_radius(inPoints, fltRadius,return_distance=blnReturnDistance,sort_results=blnSortResults)
+        return arrIndices, arrDistances
+    def GetExtendedPoints(self):
+        return self.__ExtendedPoints
+    def GetPeriodicIndices(self, inRealIndices: list)->list:
+        return list(map(lambda x: self.__UniqueIndices[x],inRealIndices))
+    def Pquery(self,inPoints:np.array,k=1):
+        arrDistances, arrIndices = self.__PeriodicTree.query(inPoints,k)
+        return arrDistances, arrIndices
+    def GetOriginalPoints(self):
+        return self.__OriginalPoints
+    def MinimumDisplacement(self):
+        arrDistances, arrIndices = self.Pquery(np.array([[0,0,0]]),k=len(self.__ExtendedPoints))
+        arrDistances = arrDistances[np.argsort(arrIndices)]
+        arrStackedDistances = np.reshape(arrDistances, (self.__intNumberOfPoints,2**self.__intPeriodicDirections))
+        arrStackedIndices = np.reshape(arrIndices, (self.__intNumberOfPoints,2**self.__intPeriodicDirections))
+        arrMinimum = np.argmin(arrStackedDistances, axis=1)
+        arrMinimumIndices = arrStackedIndices[arrMinimum]
+        return self.__ExtendedPoints[arrMinimumIndices], arrDistances[arrMinimum]            
+
+
+
+
+
 
 class OLattice(object):
         def __init__(self,arrOTransformation: np.array, arrOPoint: np.array):
