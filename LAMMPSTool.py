@@ -132,6 +132,8 @@ class LAMMPSTimeStep(object):
         return self.__AtomData[lstOfRows,:]
     def GetAtomsByID(self, lstOfAtomIDs: list, intAtomColumn = 0):
         return self.__AtomData[np.isin(self.__AtomData[:,intAtomColumn],lstOfAtomIDs)]
+    def SetAtomData(self, inArray:np.array):
+        self.__AtomData= inArray
     def GetAtomData(self):
         return self.__AtomData
     def SetColumnNames(self, lstColumnNames):

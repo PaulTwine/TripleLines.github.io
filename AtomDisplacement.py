@@ -33,7 +33,7 @@ for k in lstFilenames[1:]:
     arrNew = objTimeStep.GetAtomData()[:,0:4]
     arrNew = arrNew[np.argsort(arrNew[:,0])]
     arrDifference = arrNew[:,1:4]- arrPrevious[:,1:4]
-    arrPoints, arrDistance =  gf.PeriodicMinDisplacement(arrPrevious, objTimeStep.GetCellVectors())
+    arrPoints, arrDistance =  gf.PeriodicMinDisplacement(arrDifference, objTimeStep.GetCellVectors())
     arrPeriodic[:,:3] += arrPoints
     arrPeriodic[:,-1] += arrDistance
     arrPrevious = arrNew

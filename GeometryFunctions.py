@@ -261,14 +261,14 @@ def PeriodicAllMinDisplacement(arrDisplacements, inCellVectors, inPeriodicDirect
         return arrPoints
 def PeriodicMinDisplacement(arrDisplacements, inPeriodicVectors: np.array):
        intLength = len(arrDisplacements)
+       arrWrapped = WrapVectorIntoSimulationCell(inPeriodicVectors,arrDisplacements)
        arrRows = np.array(range(intLength))
-       arrPoints = PeriodicExtension(arrDisplacements, inPeriodicVectors)
+       arrPoints = PeriodicExtension(arrWrapped, inPeriodicVectors)
        arrDistances = np.linalg.norm(arrPoints, axis=1)
        arrStackedDistances = np.reshape(arrDistances, (2**(len(inPeriodicVectors)),intLength))
        arrMinColumns = np.argmin(arrStackedDistances, axis =0)
        arrMinPoints = intLength*arrMinColumns + arrRows
        return arrPoints[arrMinPoints], arrDistances[arrMinPoints]
-
 def PeriodicShiftAllCloser(inFixedPoint: np.array, inAllPointsToShift: np.array, inCellVectors:np.array, inBasisConversion: np.array, inBoundaryList: list, blnNearyBy = False)->np.array:
         arrPoints = np.array(list(map(lambda x: PeriodicShiftCloser(inFixedPoint, x, inCellVectors, inBasisConversion, inBoundaryList, blnNearyBy), inAllPointsToShift)))
         return arrPoints
