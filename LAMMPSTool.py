@@ -32,42 +32,54 @@ class LAMMPSData(object):
         lstColumnNames = []
         lstBoundaryType = []
         self.__Dimensions = 3 # assume 3d unless file shows the problem is 2d
+        intRow = 0
         with open(strFilename) as Dfile:
             while True:
                 lstBounds = []
                 try:
                     line = next(Dfile).strip()
+                    intRow +=1
                 except StopIteration as EndOfFile:
                     break
                 if "ITEM: TIMESTEP" != line:
                     raise Exception("Unexpected "+repr(line))
                 timestep = int(next(Dfile).strip())
+                intRow +=1
                 lstTimeSteps.append(timestep)
                 line = next(Dfile).strip()
+                intRow +=1
                 if "ITEM: NUMBER OF ATOMS" != line:
                     raise Exception("Unexpected "+repr(line))
                 N = int(next(Dfile).strip())
+                intRow +=1
                 lstNumberOfAtoms.append(N)
                 line = next(Dfile).strip()
+                intRow +=1
                 if "ITEM: BOX BOUNDS" != line[0:16]:
                     raise Exception("Unexpected "+repr(line))
                 lstBoundaryType = line[17:].strip().split()
                 lstBounds.append(list(map(float, next(Dfile).strip().split())))
                 lstBounds.append(list(map(float, next(Dfile).strip().split())))
+                intRow +=2
                 if len(lstBoundaryType)%3 == 0:
                     lstBounds.append(list(map(float, next(Dfile).strip().split())))
+                    intRow +=1
                 else:
                     self.__Dimensions = 2
                 line = next(Dfile).strip()
+                intRow +=1
                 if "ITEM: ATOMS id" != line[0:14]:
                     raise Exception("Unexpected "+repr(line))
                 lstColumnNames = line[11:].strip().split()
                 intNumberOfColumns = len(lstColumnNames)
                 objTimeStep = objAnalysis(timestep, N,intNumberOfColumns,lstColumnNames, lstBoundaryType, lstBounds,intLatticeType, fltLatticeParameter)
                 objTimeStep.SetColumnNames(lstColumnNames)
+                #arrValues = np.loadtxt(strFilename, skiprows =intRow , max_rows=N)
+                #objTimeStep.SetAtomData(arrValues)
+                intRow += N
                 for i in range(N):
-                    line = next(Dfile).strip().split()
-                    objTimeStep.SetRow(i,list(map(float,line)))
+                     line = next(Dfile).strip().split()
+                     objTimeStep.SetRow(i,list(map(float,line)))
                 lstColumnTypes = []
                 for j in line:
                     if "." in j:
