@@ -11,10 +11,10 @@ from scipy import spatial
 #fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
 #ax = fig.gca(projection='3d')
 
-strDirectory = str(sys.argv[1])
-intSigma = int(sys.argv[2])
-lstAxis = eval(str(sys.argv[3]))
-intIncrements =  int(sys.argv[4])
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+intSigma = 17 #int(sys.argv[2])
+lstAxis = [1,0,1] #eval(str(sys.argv[3]))
+intIncrements =  10 #int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
@@ -23,12 +23,12 @@ arrSigmaBasis = objSigma.GetBasisVectors()
 s0 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
-intHeight = 5
-intAtoms = 1.25*10**5
+intHeight = 4
+intAtoms = 1*10**5
 intAtomsPerCell = 4
 a = 4.05 ##lattice parameter
 h = a*np.round(intHeight/s2,0)
-i = np.sqrt((intAtoms/intAtomsPerCell)*a/(280*h*s0*s1))
+i = np.sqrt((intAtoms/intAtomsPerCell)*a/(80*16*h*s0*s1))
 i = np.round(i,0).astype('int')
 if np.all(arrAxis == np.array([0,0,1])):
     arrBasisVectors = gf.StandardBasisVectors(3)
@@ -43,8 +43,8 @@ arrCylinderBasisVectors = gf.RotateVectors((fltAngle1+fltAngle2)/2,np.array([0,0
 
 ###First part runs with two displaced cylinders and no triple lines
 r = 2*a*s1*i
-w = 28*a*i
-l = 10*a*i
+w = 80*a*i
+l = 16*a*i
 
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
@@ -90,8 +90,8 @@ objSimulationCellGB.RemoveGrainPeriodicDuplicates()
 
 
 ##Second part with triple lines
-w = 20*a*i
-l = 14*a*i
+w = 64*a*i
+l = 20*a*i
 h = a*np.round(intHeight/s2,0)
 arrXTJ = w*arrSigmaBasis[0]
 arrXYTJ = l*arrSigmaBasis[1]
@@ -141,7 +141,7 @@ objSimulationCellTJ.RemoveGrainPeriodicDuplicates()
 for j in range(intIncrements):
     fltDistance = objFullLeft.GetNearestNeighbourDistance()*j/10
     objSimulationCellGB.MergeTooCloseAtoms(fltDistance,1,100)
-    objSimulationCellGB.WrapAllAtomsIntoSimulationCell()
+    #objSimulationCellGB.WrapAllAtomsIntoSimulationCell()
     objSimulationCellGB.SetFileHeader('Grain centre is ' +str(arrCylinderCentreLeftGB))
     strFileNameGB = 'GB' + str(j)
     objSimulationCellGB.WriteLAMMPSDataFile(strDirectory + strFileNameGB + '.dat')
@@ -156,7 +156,7 @@ for j in range(intIncrements):
     fIn.write(fData)
     fIn.close()
     objSimulationCellTJ.MergeTooCloseAtoms(fltDistance,1,100)
-    objSimulationCellTJ.WrapAllAtomsIntoSimulationCell()
+    #objSimulationCellTJ.WrapAllAtomsIntoSimulationCell()
     objSimulationCellTJ.SetFileHeader('Grain centre is ' +str(arrCylinderLeftTJ))
     strFileNameTJ = 'TJ' + str(j)
     objSimulationCellTJ.WriteLAMMPSDataFile(strDirectory + strFileNameTJ + '.dat')
