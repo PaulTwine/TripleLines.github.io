@@ -4,6 +4,8 @@ Created on Fri May 31 10:38:14 2019
 
 @author: twine
 """
+from ssl import ALERT_DESCRIPTION_BAD_CERTIFICATE_HASH_VALUE, ALERT_DESCRIPTION_BAD_RECORD_MAC
+from tkinter.messagebox import NO
 import numpy as np
 import itertools as it
 from numpy.linalg.linalg import det
@@ -16,7 +18,7 @@ import warnings
 from decimal import Decimal
 #import shapely as sp
 #import geopandas as gpd
-#All angles are assumed to be in radians
+#All angles are assumed to be in radians 
 def DegreesToRadians(inDegrees: float)->float:
         return inDegrees/180*np.pi
 def RealDistance(inPointOne, inPointTwo)->float:
@@ -519,34 +521,53 @@ def ParseConic(lstCentre: list, lstScaling: list, lstPower:list, lstVariables = 
         return strReturn
 def InvertRegion(strInput: str)->str: #changes an "inside closed surface to outside closed surface"
         return '-(' + strInput + ')'
+def GetMatrixFromAxisAngle(inAxis, inAngle):
+        inAxis = NormaliseVector(inAxis)
+        c = np.cos(inAngle)
+        s = np.sin(inAngle)
+        x = inAxis[0]
+        y = inAxis[1]
+        z = inAxis[2]
+        arrMatrix = np.array([[c+x**2*(1-c), x*y*(1-c) - z*s,x*z*(1-c) +y*s],
+                                [y*x*(1-c) + z*s,c+y**2*(1-c), y*z*(1-c) -x*s],
+                                [ x*z*(1-c)-y*s,y*z*(1-c)+x*s,c+z**2*(1-c)]])
+        return arrMatrix
 
-def CubicCSLGenerator(inAxis: np.array, intIterations=5)->list: #usually five iterations is find the first 5 sigma values
+def CubicCSLGenerator(inAxis: np.array, intIterations=5, blnDisorientation = False)->list: #usually five iterations is find the first 5 sigma values
         intGCD = np.gcd.reduce(inAxis)
         inAxis = inAxis*1/intGCD
         intSquared = np.sum(inAxis*inAxis).astype('int')
         dctSigma =dict()
-        for j in range(2,intIterations+1):
-                n = j
-                m = 1
-                while  (m < n):
-                        intSigma = n**2 + m**2*intSquared
+        intLimit = int(intIterations + 1)
+        for a in range(0,intLimit):
+                n = a
+                for b in range(0,intLimit):
+                        m = b
+                        i = np.max([np.gcd(n,m),1]) 
+                        intSigma = (n**2 + m**2*intSquared)/(i**2)
+                        if intSigma == 0:
+                                intSigma = 1
                         while np.mod(intSigma,2) == 0:
                                 intSigma = intSigma/2
-                        if intSigma > 2:
+                        if intSigma > 2:       
                                 fltAngle = 2*np.arctan2(m*np.sqrt(intSquared),n)
-                                if intSigma in dctSigma.keys():
-                                        if abs(fltAngle) < abs(dctSigma[intSigma]):
-                                                dctSigma[intSigma] = fltAngle
+                                if blnDisorientation:
+                                        if intSigma in dctSigma.keys():
+                                                if abs(fltAngle) < abs(dctSigma[intSigma]):
+                                                        dctSigma[(m/i,n/i)] = fltAngle
+                                        else:
+                                                dctSigma[(m/i,n/i)] = (intSigma,fltAngle)
                                 else:
-                                        dctSigma[intSigma] = fltAngle  
+                                        dctSigma[(m/i,n/i)] = (intSigma,fltAngle)  
                         m +=1                      
         arrReturn = np.ones([len(dctSigma.keys()),3])
-        lstKeys = sorted(list(dctSigma.keys()))
-        for k in range(len(lstKeys)):
-                arrReturn[k, 0] = lstKeys[k]
-                arrReturn[k,1] = dctSigma[lstKeys[k]]
-                arrReturn[k,2] = 180*arrReturn[k,1]/np.pi
-        return arrReturn
+        p = 0
+        for k in dctSigma.keys():
+                arrReturn[p,0] = dctSigma[k][0]
+                arrReturn[p,1] = dctSigma[k][1]
+                arrReturn[p,2] = 180*arrReturn[p,1]/np.pi
+                p +=1
+        return arrReturn[np.argsort(arrReturn[:,0])]
 def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float, inCellVectors = None):
         intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
         inConstraints = FindConstraintsFromBasisVectors(inCellVectors)
@@ -674,8 +695,15 @@ class PeriodicWrapperKDTree(object):
         arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
         self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)
         arrExtendedPoints, arrUniqueIndices = AddPeriodicWrapperAndIndices(inPoints, inPeriodicVectors,inConstraints,fltWrapperLength,lstBoundaryType)
-        self.__ExtendedPoints = arrExtendedPoints
-        self.__UniqueIndices = arrUniqueIndices
+        if len(arrUniqueIndices) == 0:
+                self.__UniqueIndices = np.array(list(range(len(inPoints))))
+        else:        
+                self.__UniqueIndices = arrUniqueIndices
+        
+        if len(arrExtendedPoints) == 0:
+                self.__ExtendedPoints = np.copy(inPoints)
+        else:
+                self.__ExtendedPoints = arrExtendedPoints
         self.__PeriodicTree = KDTree(self.__ExtendedPoints)
     def Pquery_radius(self, inPoints: np.array, fltRadius: float,blnReturnDistance=True, blnSortResults=True):
         arrIndices,arrDistances = self.__PeriodicTree.query_radius(inPoints, fltRadius,return_distance=blnReturnDistance,sort_results=blnSortResults)
@@ -779,3 +807,57 @@ def TripleLineTensor(arrTripleLine: np.array, lstOfBases: list, lstOfGBAngles: l
                 arrTensor += np.matmul(lstOfBases[np.mod(k+1,3)] - lstOfBases[np.mod(k,3)], RotatedBasisVectors(lstOfGBAngles[k],arrUnit)) 
         return arrTensor
 
+def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis and writes in the form [x 0 0], [y, yx , 0] [zx zy z] where x > 0, y >y, z>0
+        # if np.linalg.det(arrBasisVectors) < 0:
+        #         arrBasisVectors[0] = -arrBasisVectors[0]
+        # a = arrBasisVectors[0]
+        # b = arrBasisVectors[1]
+        # c = arrBasisVectors[2]
+        # aUnit = NormaliseVector(arrBasisVectors[0])
+        # bUnit = NormaliseVector(arrBasisVectors[1])
+        # cUnit = NormaliseVector(arrBasisVectors[2])
+        # ax = np.linalg.norm(aUnit)
+        # bx = np.dot(aUnit, b)
+        # cx = np.dot(aUnit,c)
+        # by = np.linalg.norm(np.cross(aUnit,b))
+        # cy = np.dot(c,(np.cross(NormaliseVector(np.cross(a,b)),aUnit)))
+        # cz = np.linalg.norm(np.dot(c,NormaliseVector(np.cross(a,b))))
+        # arrReturn = np.array([[ax,0,0],[bx,by,0],[cx,cy,cz]])
+        # arrTransform = np.matmul(np.linalg.inv(arrBasisVectors),arrReturn)
+        # return arrReturn, np.linalg.inv(arrTransform)
+        arrIdent = np.identity(3)
+        if np.linalg.det(arrBasisVectors) < 0:
+                arrIdent[0,0] = -1
+                arrBasisVectors = np.matmul(arrIdent,arrBasisVectors)
+        if np.abs(np.dot(NormaliseVector(arrBasisVectors[0]),np.array([1,0,0]))) !=1:
+                fltAngle1, arrAxis1 = FindRotationVectorAndAngle(arrBasisVectors[0], np.array([1,0,0])) #align first row vector with x axis
+                arrBasisVectors2 = RotateVectors(fltAngle1, arrAxis1, arrBasisVectors)
+                arrTransform1 = RotatedBasisVectors(fltAngle1, arrAxis1)
+        else:
+                arrBasisVectors2 = arrBasisVectors
+                arrTransform1 = StandardBasisVectors(3)
+        arrVector2 = NormaliseVector(arrBasisVectors2[1])
+        if arrVector2[2] !=0:
+                # arrCross = np.cross(arrVector2,np.array([1,0,0])) 
+                # arrCrossInXY = np.array([0,np.linalg.norm(arrCross),0])
+                # fltAngle2, arrAxis2 = FindRotationVectorAndAngle(arrCross, arrCrossInXY)
+                # #arrNewVector = RotateVector(arrVector2, arrAxis2, fltAngle2)
+                arrInYZ = np.zeros(3)
+                arrInYZ[1:] =arrVector2[1:]
+                arrFinal = np.array([0, np.linalg.norm(arrInYZ),0])
+                fltAngle2, arrAxis2 = FindRotationVectorAndAngle(arrInYZ,arrFinal) 
+                #fltAngle3,arrAxis3 = FindRotationVectorAndAngle(arrVector2,arrNewVector)
+                #fltAngle2 = np.arccos(np.dot(NormaliseVector(arrVector2), np.array([1,0,0])))
+                #arrInXY = np.array([np.cos(fltAngle2), np.sin(fltAngle2),0])
+                #fltAngle2, arrAxis2 = FindRotationVectorAndAngle(arrVector2, arrInXY)
+                arrTransform2 = RotateVectors(fltAngle2,arrAxis2,arrTransform1)
+                arrReturn = RotateVectors(fltAngle2,arrAxis2,arrBasisVectors2)
+        else:
+                arrReturn = arrBasisVectors2
+                arrTransform2 = arrTransform1
+        
+        return arrReturn, arrTransform2        
+
+
+
+    

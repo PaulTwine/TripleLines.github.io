@@ -1,3 +1,4 @@
+from cmath import pi
 import numpy as np
 import GeometryFunctions as gf
 import LatticeDefinitions as ld
@@ -11,6 +12,9 @@ import copy as cp
 import warnings
 #import lammp
 from decimal import Decimal
+from mpl_toolkits.mplot3d import Axes3D 
+import matplotlib.pyplot as plt
+from scipy import linalg
 
 
 class PureCell(object):
@@ -519,11 +523,15 @@ class ExtrudedCylinder(GeneralGrain):
         strCylinder = gf.ParseConic([0,0],[fltRadius,fltRadius],[2,2])
         self.ApplyGeneralConstraint(strCylinder)
         
+class ParallelopiedGrain(GeneralGrain):
+    def __init__(self, arrEdgeVectors: np.array, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin: np.array, inCellBasis=None):
+        arrConstraints = gf.FindConstraintsFromBasisVectors(arrEdgeVectors)
+        arrConstraints2 = -arrConstraints
+        arrConstraints2[:,-1] = np.zeros(3)
+        arrConstraints = np.append(arrConstraints, arrConstraints2, axis=0)
+        GeneralGrain.__init__(self,inBasisVectors, inCellNodes,inLatticeParameters,inOrigin,inCellBasis)
+        self.MakeRealPoints(arrConstraints)
         
-        
-    
-
-
 class BaseSuperCell(object):
     def __init__(self,inBasisVectors: np.array, lstBoundaryTypes: list):
         self.__BasisVectors = inBasisVectors
@@ -561,10 +569,16 @@ class SimulationCell(object):
         self.__NonGrainAtomTypes = []
     def SetAllAtomPositions(self):
         self.SetGrainAtoms()
-        arrPoints = np.append(self.__GrainAtomPositions , self.__NonGrainAtomPositions,axis=0)
+        if len(self.__NonGrainAtomPositions) > 0:
+            arrPoints = np.append(self.__GrainAtomPositions , self.__NonGrainAtomPositions,axis=0)
+        else:
+            arrPoints = self.__GrainAtomPositions
         arrDelete = gf.FindDuplicates(arrPoints,self.__BasisVectors,1e-5,self.__BoundaryTypes)
         self.__AllAtomPositions = arrPoints
-        self.__AllAtomTypes = np.append(self.__GrainAtomTypes , self.__NonGrainAtomTypes,axis=0)
+        if len(self.__NonGrainAtomTypes) > 0:
+            self.__AllAtomTypes = np.append(self.__GrainAtomTypes , self.__NonGrainAtomTypes,axis=0)
+        else:
+            self.__AllAtomTypes = self.__GrainAtomTypes
         if len(arrDelete) > 0:
             self.__AllAtomPositions = np.delete(self.__AllAtomPositions, arrDelete, axis=0)
             self.__AllAtomTypes = np.delete(self.__AllAtomTypes, arrDelete, axis=0)
@@ -722,8 +736,9 @@ class SimulationCell(object):
         for i in self.GrainList:
                 lstGrainAtoms.append(self.RemoveRealDuplicates(self.GetGrain(i).GetInteriorAtomPositions(self.__BasisVectors)))
                 lstGrainAtomTypes.append(np.ones(len(lstGrainAtoms[-1]))*self.GetGrain(i).GetAtomType())
-        self.__GrainAtomPositions = np.vstack(lstGrainAtoms)
-        self.__GrainAtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
+        if len(lstGrainAtoms) > 0:
+            self.__GrainAtomPositions = np.vstack(lstGrainAtoms)
+            self.__GrainAtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
     def GetNonGrainAtoms(self, lstAtomTypes: list):
         lstGBAtoms = []
         for k in self.GrainList:
@@ -735,6 +750,13 @@ class SimulationCell(object):
             arrIndices = self.GetGrain(i).FindPeriodicDuplicates(self.__BasisVectors)
             if len(arrIndices) > 0:
                 self.GetGrain(i).AddVacancies(arrIndices.tolist())
+    def GetCoincidentLatticePoints(self, intAtomType, fltDistance = 1e-5):
+        arrGBAtoms = self.GetNonGrainAtoms([intAtomType])
+        objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),fltDistance/2)
+        arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
+        arrIndices,arrDistances = objGBTree.Pquery_radius(arrGBAtoms,fltDistance) #by default points are returned in distance order
+        arrUniqueIndices = np.unique(objGBTree.GetPeriodicIndices(arrIndices))
+        return arrExtendedGBAtoms[arrUniqueIndices]
     def MergeTooCloseAtoms(self,fltDistance:float, intAtomType: int, intLimit = 50):
         if fltDistance == 0:
             fltDistance = 1e-5
@@ -1147,16 +1169,23 @@ class SigmaCell(object):
         self.__BasisVectors = []
     def GetRotationAxis(self):
         return self.__RotationAxis
-    def GetSigmaValues(self, intSigmaMax):
-        return  gf.CubicCSLGenerator(self.__RotationAxis, intSigmaMax)
-    def MakeCSLCell(self, intSigmaValue: int, arrHorizontalVector = np.array([1,0,0])):
-        arrSigma = self.GetSigmaValues(2*intSigmaValue)
-        arrRows = np.argwhere(arrSigma[:,0] == intSigmaValue)
-        if len(arrRows) > 0:
+    def GetSigmaValues(self, intSigmaMax, blnDisorientation = True):
+        return  gf.CubicCSLGenerator(self.__RotationAxis, intSigmaMax,blnDisorientation)
+    def MakeCSLCell(self, intSigmaValue: int, arrHorizontalVector = np.array([1,0,0]), inAngle = None):
+        blnValidSigma = True
+        arrSigma = self.GetSigmaValues(2*intSigmaValue, True)
+        if inAngle is None:
+            arrRows = np.argwhere(arrSigma[:,0].astype('int') == intSigmaValue)
+            if len(arrRows) == 0:
+                blnValidSigma = False
+        if blnValidSigma:
             intSigmaValue = int(arrSigma[arrRows[0],0])
             h = self.__CellHeight
             l = intSigmaValue
-            fltSigma = float(arrSigma[arrRows[0],1])
+            if inAngle is None:
+                fltSigma = float(arrSigma[arrRows[0],1])
+            else: 
+                fltSigma = inAngle
             objFirstLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(0,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
             objSecondLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(fltSigma,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
             arrPoints1 = objFirstLattice.GetRealPoints()
@@ -1210,5 +1239,144 @@ class SigmaCell(object):
         return self.__LatticeRotations
     
 
+class CSLTripleLine(object):
+    def __init__(self,arrRotationAxis: np.array, inCellNodes: np.array) -> None:
+        intGCD = np.gcd.reduce(arrRotationAxis)
+        self.__RotationAxis = (arrRotationAxis/intGCD).astype('int')
+        if np.all(self.__RotationAxis == np.array([0,0,1])):
+            self.__LatticeBasis = gf.StandardBasisVectors(3)
+            self.__CellHeight = 1
+        else:
+            fltAngle, arrVector = gf.FindRotationVectorAndAngle(arrRotationAxis, np.array([0,0,1]))
+            self.__LatticeBasis = gf.RotatedBasisVectors(fltAngle,arrVector)
+            self.__CellHeight = np.linalg.norm(self.__RotationAxis)
+        self.__CellType = inCellNodes
+        self.__CSLBasisVectors = []
+        self.__TripleValues = []
+    def FindTripleLineSigmaValues(self,  intSigmaMax: int, intIterations = 50):
+        arrSigma = gf.CubicCSLGenerator(self.__RotationAxis,intIterations)
+        arrSigmaValues = arrSigma[:,0].astype('int')
+        arrRows = np.where(arrSigmaValues <= intSigmaMax)
+        intLength = np.max(arrRows)
+        lstIndices = []
+        for i in range(intLength):
+            for j in range(i,intLength):
+                for k in range(j,intLength):
+                    fltAngle = arrSigma[i,1]+arrSigma[j,1]+arrSigma[k,1] -2*np.pi
+                    if abs(fltAngle) < 1e-5:
+                        if sorted([i,j,k]) not in lstIndices:
+                            lstIndices.append(sorted([i,j,k]))      
+        arrTripleValues = arrSigma[np.array(lstIndices)]
+        arrTJSigmaValues = np.zeros([len(arrTripleValues)])
+        n = 0
+        for a in arrTripleValues:
+            arrTJSigmaValues[n] = self.GetTJSigmaValue(a)
+            n += 1
+        self.__TJSigmaValues = arrTJSigmaValues
+        self.__TripleValues = arrTripleValues
+        self.__RotationAngles = np.zeros(len(arrTripleValues))
+        return arrTripleValues
+    def GetTripleLineSigmaValues(self):
+        return self.__TJSigmaValues
+    def GetTripleLineValues(self):
+        return self.__TripleValues
+    def GetTJSigmaValue(self, arrSigmaArray: np.array):
+        arrQ1 = gf.GetMatrixFromAxisAngle(self.__RotationAxis, arrSigmaArray[0,1])
+        arrQ2 = gf.GetMatrixFromAxisAngle(self.__RotationAxis, arrSigmaArray[1,1])
+        arrProduct = np.round(np.matmul(arrQ1,arrQ2)*arrSigmaArray[0,0]*arrSigmaArray[1,0],10).astype('int')
+        intGCD = np.gcd.reduce(np.gcd.reduce(arrProduct))
+        intSigma = np.sqrt(arrSigmaArray[2,0]**2*intGCD)
+        return intSigma
+    def GetTJBasisVectors(self, intTJSigmaValueIndex: int, blnUnitCell = True):
+        arrTripleValues = self.__TripleValues[intTJSigmaValueIndex]
+        arrBasisVectors = gf.StandardBasisVectors(3)
+        flth = 2*np.linalg.norm(self.__RotationAxis) 
+        l = self.__TJSigmaValues[intTJSigmaValueIndex]
+        arrBasis1 = arrBasisVectors
+        arrBasis2 = gf.RotateVectors(arrTripleValues[0,1],self.__RotationAxis,arrBasisVectors)
+        arrBasis3 = gf.RotateVectors(arrTripleValues[0,1] + arrTripleValues[1,1],self.__RotationAxis,arrBasisVectors)
+        objFirstLattice = ExtrudedRectangle(l,l,flth,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
+        objSecondLattice = ExtrudedRectangle(l,l,flth,arrBasis2, self.__CellType, np.ones(3),np.zeros(3))
+        objThirdLattice = ExtrudedRectangle(l,l,flth,arrBasis3, self.__CellType, np.ones(3),np.zeros(3))
+        arrPoints1 = objFirstLattice.GetRealPoints()
+        arrPoints2 = objSecondLattice.GetRealPoints()
+        arrPoints3 = objThirdLattice.GetRealPoints()
+        objTree1 = KDTree(arrPoints1)
+        arrDistancesOne, arrIndicesOne = objTree1.query(arrPoints2,k=1)
+        arrIndicesOne = arrIndicesOne.ravel()
+        arrCloseOne = np.where(arrDistancesOne < 1e-5)[0]
+        arrOneAndTwo = arrPoints1[arrIndicesOne[arrCloseOne]] 
+        objTree2 = KDTree(arrOneAndTwo)
+        arrDistancesTwo,arrIndicesTwo = objTree2.query(arrPoints3, k=1)
+        arrIndicesTwo = arrIndicesTwo.ravel()
+        arrCloseTwo = np.where(arrDistancesTwo< 1e-5)[0]
+        arrCloseAll = arrOneAndTwo[arrIndicesTwo[arrCloseTwo]]
+        arrMean = np.mean(arrCloseAll,axis=0)
+        arrDistances = np.linalg.norm(arrCloseAll-arrMean, axis=1)
+        arrMediod = arrCloseAll[np.argmin(arrDistances)]
+        arrCentredPoints = arrCloseAll - arrMediod 
+        arrDistances = np.linalg.norm(arrCentredPoints, axis=1)
+        arrVector1 = self.__RotationAxis
+        i = 1
+        blnFoundVector2 = False
+        while i < len(arrCentredPoints)  and not(blnFoundVector2):
+            lstPositions = gf.FindNthSmallestPosition(arrDistances, i)
+            k = 0
+            while k < len(lstPositions) and not(blnFoundVector2):
+                arrVector2 = arrCentredPoints[lstPositions[k]] 
+                if np.all(np.abs(np.cross(arrVector1,arrVector2)) <1e-5):
+                    k +=1
+                elif np.all(np.mod(arrVector2, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
+                    blnFoundVector2 = True
+                else:
+                    k +=1
+            i +=1
+        j = 1
+        blnFoundVector3 = False
+        while j < len(arrCentredPoints)  and not(blnFoundVector3):
+            lstPositions = gf.FindNthSmallestPosition(arrDistances, j)
+            k = 0
+            while k < len(lstPositions) and not(blnFoundVector3):
+                arrVector3 = arrCentredPoints[lstPositions[k]] 
+                if abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) <1e-5:
+                    k +=1
+                elif np.all(np.mod(arrVector3, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
+                    blnFoundVector3 = True
+                else:
+                    k +=1
+            j +=1
+        lstVectors= [arrVector2,arrVector3, arrVector1]
+        arrVectors = np.vstack(lstVectors)
+       # arrVectors[:2,:] = arrVectors[:2,:][np.argsort(np.abs(arrVectors[:,0]))]
+        for k in range(len(arrVectors)):
+            if arrVectors[k,k] < 0:
+                arrVectors[k] = -arrVectors[k]
 
+        
+        arrReturn = arrVectors
+        # arrBasis = np.round(np.array([arrVector2, arrVector3, arrVector1]),10)
+        # if np.linalg.det(arrBasis) < 0:
+        #     arrReturn = np.round(np.array([arrVector3, arrVector2, arrVector1]),10)
+        # elif np.linalg.det(arrBasis) > 0:
+        #     arrReturn = np.round(np.array([arrVector2, arrVector3, arrVector1]),10)
+        # else: 
+        #     warnings.warn('Cannot find three linearly independent basis vectors')
+        self.__CSLBasisVectors = arrReturn
+        arrRealBasis, arrTransformationMatrix  = gf.ConvertToLAMMPSBasis(arrReturn)
+        self.__SimulationCellBasis = arrRealBasis
+        self.__RotationMatrix = arrTransformationMatrix
+        lstLatticeBasis = []
+        lstLatticeBasis.append(np.matmul(arrBasis1,arrTransformationMatrix))
+        lstLatticeBasis.append(np.matmul(arrBasis2,arrTransformationMatrix))
+        lstLatticeBasis.append(np.matmul(arrBasis3,arrTransformationMatrix))
+        self.__LatticeBases = lstLatticeBasis
+    def GetCSLBasisVectors(self):
+        return self.__CSLBasisVectors                 
+    def GetSimulationCellBasis(self):
+        return self.__SimulationCellBasis
+    def GetRotationMatrix(self):
+        return self.__RotationMatrix
+    def GetLatticeBasis(self, intIndex: int):
+        return self.__LatticeBases[intIndex]
+  
     
