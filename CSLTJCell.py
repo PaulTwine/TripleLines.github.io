@@ -10,11 +10,9 @@ import copy as cp
 from scipy import spatial
 import MiscFunctions
 
-strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
-strFilename = strDirectory + 'readTJ.dat'
+strDirectory = str(sys.argv[1])
 intHeight = 2 #int(sys.argv[2]) #numbers of repeated CSL layers
-fltMerge = 0.3# float(sys.argv[3])
-lstAxis = [0,0,1] #eval(str(sys.argv[4]))
+lstAxis = eval(str(sys.argv[2]))
 arrAxis = np.array(lstAxis)
 a = 4.05
 lstOldTemplate = ['read.dat','read.dmp','read.lst', 'logfile']
