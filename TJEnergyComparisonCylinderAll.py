@@ -52,9 +52,10 @@ z = h*arrSigmaBasis[2]
 objCylinder = gl.ExtrudedCylinder(r,h*s2,arrCylinderBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
 objCylinder.SetPeriodicity(['n','n','p'])
 
-arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
+#arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
 
-np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
+#np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
+arrRandom = np.loadtxt(strDirectory + 'RandomDisplacement.txt')
 objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCellCentreGB = objSimulationCellGB.GetCentre()
 arrCylinderCentreLeftGB = 0.5*arrXY+0.25*arrX + arrRandom
