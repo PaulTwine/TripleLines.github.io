@@ -11,9 +11,9 @@ from scipy import spatial
 #fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
 #ax = fig.gca(projection='3d')
 
-strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
-intSigma = 17 #int(sys.argv[2])
-lstAxis = [1,0,1] #eval(str(sys.argv[3]))
+strDirectory = str(sys.argv[1])
+intSigma = int(sys.argv[2])
+lstAxis = eval(str(sys.argv[3]))
 intIncrements =  10 #int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
@@ -28,7 +28,7 @@ intAtoms = 1*10**5
 intAtomsPerCell = 4
 a = 4.05 ##lattice parameter
 h = a*np.round(intHeight/s2,0)
-i = np.sqrt((intAtoms/intAtomsPerCell)*a/(80*16*h*s0*s1))
+i = np.sqrt((intAtoms/intAtomsPerCell)*a/(28*10*h*s0*s1))
 i = np.round(i,0).astype('int')
 if np.all(arrAxis == np.array([0,0,1])):
     arrBasisVectors = gf.StandardBasisVectors(3)
@@ -43,8 +43,8 @@ arrCylinderBasisVectors = gf.RotateVectors((fltAngle1+fltAngle2)/2,np.array([0,0
 
 ###First part runs with two displaced cylinders and no triple lines
 r = 2*a*s1*i
-w = 80*a*i
-l = 16*a*i
+w = 28*a*i
+l = 10*a*i
 
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
@@ -52,11 +52,10 @@ z = h*arrSigmaBasis[2]
 objCylinder = gl.ExtrudedCylinder(r,h*s2,arrCylinderBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
 objCylinder.SetPeriodicity(['n','n','p'])
 
+#arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
 
-
-arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
-
-np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
+#np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
+arrRandom = np.loadtxt(strDirectory + 'RandomDisplacement.txt')
 objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCellCentreGB = objSimulationCellGB.GetCentre()
 arrCylinderCentreLeftGB = 0.5*arrXY+0.25*arrX + arrRandom
@@ -70,7 +69,6 @@ objLeftCell = cp.deepcopy(objFullLeft)
 objLeftCell.ApplyGeneralConstraint(gf.InvertRegion(strConstraintGB))
 objRightCell = cp.deepcopy(objFullRight)
 objRightCell.ApplyGeneralConstraint(strConstraintGB)
-
 
 strCylinderLeftGB = gf.ParseConic([arrCylinderCentreLeftGB[0],arrCylinderCentreLeftGB[1]],[r,r],[2,2])
 objCylinderLeftGB = cp.deepcopy(objCylinder)
@@ -90,8 +88,8 @@ objSimulationCellGB.RemoveGrainPeriodicDuplicates()
 
 
 ##Second part with triple lines
-w = 64*a*i
-l = 20*a*i
+w = 20*a*i
+l = 14*a*i
 h = a*np.round(intHeight/s2,0)
 arrXTJ = w*arrSigmaBasis[0]
 arrXYTJ = l*arrSigmaBasis[1]
