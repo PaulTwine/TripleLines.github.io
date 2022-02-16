@@ -261,7 +261,7 @@ def GeneralLength(inVector, inBasis)->np.array:
 def PeriodicAllMinDisplacement(arrDisplacements, inCellVectors, inPeriodicDirections):
         arrPoints = np.array(list(map(lambda x: PeriodicMinDisplacement(x, inCellVectors,inPeriodicDirections),arrDisplacements)))
         return arrPoints
-def PeriodicMinDisplacement(arrDisplacements, inPeriodicVectors: np.array):
+def PeriodicMinDisplacement(arrDisplacements, inPeriodicVectors: np.array, inPeriodicDirections):
        intLength = len(arrDisplacements)
        arrWrapped = WrapVectorIntoSimulationCell(inPeriodicVectors,arrDisplacements)
        arrRows = np.array(range(intLength))
@@ -829,7 +829,7 @@ def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis
         if np.linalg.det(arrBasisVectors) < 0:
                 arrIdent[0,0] = -1
                 arrBasisVectors = np.matmul(arrIdent,arrBasisVectors)
-        if np.abs(np.dot(NormaliseVector(arrBasisVectors[0]),np.array([1,0,0]))) !=1:
+        if np.round(np.dot(NormaliseVector(arrBasisVectors[0]),np.array([1,0,0])),10) < 1:
                 fltAngle1, arrAxis1 = FindRotationVectorAndAngle(arrBasisVectors[0], np.array([1,0,0])) #align first row vector with x axis
                 arrBasisVectors2 = RotateVectors(fltAngle1, arrAxis1, arrBasisVectors)
                 arrTransform1 = RotatedBasisVectors(fltAngle1, arrAxis1)
