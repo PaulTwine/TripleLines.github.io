@@ -18,7 +18,7 @@ intDirs = 10
 intFiles = 10
 lstStacked = []
 for j in range(100):
-    arrRow = np.zeros(8)
+    arrRow = np.zeros(9)
     i = np.mod(j,10) 
     intDir = int((j-i)/10)
     arrRow[0] = intDir
@@ -34,5 +34,6 @@ for j in range(100):
     arrRow[5] = np.mean(objTJ.GetLatticeAtoms()[:,intPECol])
     arrRow[6] = objGB.GetNumberOfAtoms()
     arrRow[7] = objTJ.GetNumberOfAtoms()
+    arrRow[8] = np.linalg.norm(objTJ.GetCellVectors()[2])
     lstStacked.append(arrRow)
 np.savetxt(strDirectory + 'Values.txt',np.vstack(lstStacked))
