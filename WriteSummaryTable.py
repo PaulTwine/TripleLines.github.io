@@ -14,11 +14,12 @@ import re
 import sys 
 
 strDirectory = str(sys.argv[1])
+
 intDirs = 10
 intFiles = 10
 lstStacked = []
 for j in range(100):
-    arrRow = np.zeros(8)
+    arrRow = np.zeros(11)
     i = np.mod(j,10) 
     intDir = int((j-i)/10)
     arrRow[0] = intDir
@@ -30,9 +31,12 @@ for j in range(100):
     intPECol = objGB.GetColumnIndex('c_pe1')
     arrRow[2] = np.sum(objGB.GetColumnByName('c_pe1'))
     arrRow[3] = np.sum(objTJ.GetColumnByName('c_pe1'))
-    arrRow[4] = np.mean(objGB.GetLatticeAtoms()[:,intPECol])
-    arrRow[5] = np.mean(objTJ.GetLatticeAtoms()[:,intPECol])
+    arrRow[4] = np.sum(objGB.GetPTMAtoms()[:,intPECol])
+    arrRow[5] = np.sum(objTJ.GetPTMAtoms()[:,intPECol])
     arrRow[6] = objGB.GetNumberOfAtoms()
     arrRow[7] = objTJ.GetNumberOfAtoms()
+    arrRow[8] = objGB.GetNumberOfPTMAtoms()
+    arrRow[9] = objTJ.GetNumberOfPTMAtoms()
+    arrRow[10] = np.linalg.norm(objTJ.GetCellVectors()[2])
     lstStacked.append(arrRow)
 np.savetxt(strDirectory + 'Values.txt',np.vstack(lstStacked))
