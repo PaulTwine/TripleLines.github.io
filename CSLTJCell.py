@@ -10,8 +10,12 @@ import copy as cp
 from scipy import spatial
 import MiscFunctions
 
+objCSL = gl.CSLTripleLine(np.array([0,0,1]), ld.FCCCell) 
+arrCell = objCSL.FindTripleLineSigmaValues(75)
+
+
 strDirectory = str(sys.argv[1])
-intHeight = 2 #int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 arrAxis = np.array(lstAxis)
 a = 4.05
@@ -72,10 +76,10 @@ lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilena
 MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
 
 
-objSimulationCell = gl.SimulationCell(arrHorizontalBox)
-arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), 0.5*arrHorizontalBox[0])
-arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), np.zeros(3))
-strFilename = 'BH21.dat'
+objSimulationCell = gl.SimulationCell(arrVerticalBox)
+arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), np.zeros(3))
+arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrVerticalBox[1])
+strFilename = 'BV12.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.MergeTooCloseAtoms(0.1,1)
@@ -84,10 +88,10 @@ lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilena
 MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
 
 
-objSimulationCell = gl.SimulationCell(arrVerticalBox)
-arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), 0.5*arrVerticalBox[1])
-arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3), np.zeros(3))
-strFilename = 'BV31.dat'
+objSimulationCell.RemoveAllGrains()
+arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), np.zeros(3))
+arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3), 0.5*arrVerticalBox[1])
+strFilename = 'BV13.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(0.1,1)
@@ -96,10 +100,10 @@ lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilena
 MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
 
 
-objSimulationCell.RemoveAllGrains()
-arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrVerticalBox[1])
+objSimulationCell = gl.SimulationCell(arrHorizontalBox)
+arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrHorizontalBox[0])
 arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3), np.zeros(3))
-strFilename = 'BV32.dat'
+strFilename = 'BH32.dat'
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(0.1,1)
