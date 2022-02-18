@@ -1287,7 +1287,7 @@ class CSLTripleLine(object):
         intGCD = np.gcd.reduce(np.gcd.reduce(arrProduct))
         intSigma = np.sqrt(arrSigmaArray[2,0]**2*intGCD)
         return intSigma
-    def GetTJBasisVectors(self, intTJSigmaValueIndex: int, blnUnitCell = True):
+    def GetTJBasisVectors(self, intTJSigmaValueIndex: int, blnUnitCell = False):
         arrTripleValues = self.__TripleValues[intTJSigmaValueIndex]
         arrBasisVectors = gf.StandardBasisVectors(3)
         flth = 2*np.linalg.norm(self.__RotationAxis) 
@@ -1316,8 +1316,9 @@ class CSLTripleLine(object):
         arrMediod = arrCloseAll[np.argmin(arrDistances)]
         arrCentredPoints = arrCloseAll - arrMediod 
         arrDistances = np.linalg.norm(arrCentredPoints, axis=1)
-        arrVector1 = self.__RotationAxis
-        i = 1
+        #arrVector1 = self.__RotationAxis
+        arrVector1 = arrCentredPoints[gf.FindNthSmallestPosition(arrDistances,1)[0]]
+        i = 2
         blnFoundVector2 = False
         while i < len(arrCentredPoints)  and not(blnFoundVector2):
             lstPositions = gf.FindNthSmallestPosition(arrDistances, i)
@@ -1331,7 +1332,7 @@ class CSLTripleLine(object):
                 else:
                     k +=1
             i +=1
-        j = 1
+        j = i
         blnFoundVector3 = False
         while j < len(arrCentredPoints)  and not(blnFoundVector3):
             lstPositions = gf.FindNthSmallestPosition(arrDistances, j)
@@ -1348,9 +1349,9 @@ class CSLTripleLine(object):
         lstVectors= [arrVector2,arrVector3, arrVector1]
         arrVectors = np.vstack(lstVectors)
        # arrVectors[:2,:] = arrVectors[:2,:][np.argsort(np.abs(arrVectors[:,0]))]
-        for k in range(len(arrVectors)):
-            if arrVectors[k,k] < 0:
-                arrVectors[k] = -arrVectors[k]
+        # for k in range(len(arrVectors)):
+        #     if arrVectors[k,k] < 0:
+        #         arrVectors[k] = -arrVectors[k]
 
         
         arrReturn = arrVectors

@@ -271,7 +271,7 @@ class LAMMPSTimeStep(object):
                 strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(lstNames[j]) +  'lo ' + str(lstNames[j]) + 'hi \n'
         else:
             for j in range(3):
-                strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]-self.__BoundBoxDimensions[j,2]) + ' '  + str(lstNames[j]) +  'lo ' + str(lstNames[j]) + 'hi \n'
+                strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(lstNames[j]) +  'lo ' + str(lstNames[j]) + 'hi \n'
             strHeader += str(self.__BoundBoxDimensions[0,-1]) + ' ' + str(self.__BoundBoxDimensions[1,-1]) + ' ' + str(self.__BoundBoxDimensions[2,-1]) + ' xy xz yz \n'
         strHeader += '\nAtoms \n'
         arrValues = np.ones([self.GetNumberOfAtoms(),5]) ##currently hard coded to atom type 1
