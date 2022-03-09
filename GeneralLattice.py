@@ -1,4 +1,5 @@
 from cmath import pi
+#from statistics import Normal
 import numpy as np
 import GeometryFunctions as gf
 import LatticeDefinitions as ld
@@ -750,12 +751,13 @@ class SimulationCell(object):
             arrIndices = self.GetGrain(i).FindPeriodicDuplicates(self.__BasisVectors)
             if len(arrIndices) > 0:
                 self.GetGrain(i).AddVacancies(arrIndices.tolist())
-    def GetCoincidentLatticePoints(self, intAtomType, fltDistance = 1e-5):
-        arrGBAtoms = self.GetNonGrainAtoms([intAtomType])
+    def GetCoincidentLatticePoints(self, lstPairOfGrainIDs: list, fltDistance = 1e-5):
+        lstGBAtoms = self.GetGrain(lstPairOfGrainIDs[0]).GetBoundaryAtoms(self.__BasisVectors)
+        arrGBAtoms = np.vstack(lstGBAtoms)
         objGBTree = gf.PeriodicWrapperKDTree(arrGBAtoms,self.__BasisVectors,self.GetRealConstraints(),fltDistance/2)
         arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
-        arrIndices,arrDistances = objGBTree.Pquery_radius(arrGBAtoms,fltDistance) #by default points are returned in distance order
-        arrUniqueIndices = np.unique(objGBTree.GetPeriodicIndices(arrIndices))
+        arrIndices,arrDistances = objGBTree.Pquery_radius(self.GetGrain(lstPairOfGrainIDs[1]).GetBoundaryAtoms(self.__BasisVectors),fltDistance) #by default points are returned in distance order
+        arrUniqueIndices = np.unique(np.hstack(objGBTree.GetPeriodicIndices(arrIndices)))
         return arrExtendedGBAtoms[arrUniqueIndices]
     def MergeTooCloseAtoms(self,fltDistance:float, intAtomType: int, intLimit = 50):
         if fltDistance == 0:
@@ -1226,11 +1228,19 @@ class SigmaCell(object):
                 arrVector2 = arrBase[lstPositions[1]]
             else:
                 arrVector2 = arrBase[gf.FindNthSmallestPosition(arrDistances,1)[0]]
-
-            if np.dot(arrVector1, arrHorizontalVector) > np.dot(arrVector2, arrHorizontalVector):   
-                self.__BasisVectors = np.array([arrVector1, arrVector2, h*np.array([0,0,1])])
+            fltRotation = np.arctan2(np.linalg.norm(np.cross(arrVector2,arrHorizontalVector)), np.dot(arrVector2, arrHorizontalVector))
+            if np.round(np.abs(fltRotation),10) > 0:
+                arrVector1New = -gf.RotateVector(arrVector1,np.array([0,0,1]),-fltRotation)
+                arrVector2New = gf.RotateVector(arrVector2,np.array([0,0,1]),-fltRotation)
+                self.__LatticeRotations = -(self.__LatticeRotations -fltRotation*np.ones(2))
+                self.__BasisVectors = np.array([arrVector2New,arrVector1New,h*np.array([0,0,1])])
             else:
                 self.__BasisVectors = np.array([arrVector2, arrVector1, h*np.array([0,0,1])])
+            self.__BasisVectors = np.round(self.__BasisVectors,15)
+            # if np.dot(arrVector1, arrHorizontalVector) > np.dot(arrVector2, arrHorizontalVector):   
+            #     self.__BasisVectors = np.array([arrVector1, arrVector2, h*np.array([0,0,1])])
+            # else:
+            #     self.__BasisVectors = np.array([arrVector2, arrVector1, h*np.array([0,0,1])])
         else:
             warnings.warn("Invalid sigma value for axis " + str(self.__RotationAxis))
     def GetBasisVectors(self):
@@ -1280,12 +1290,14 @@ class CSLTripleLine(object):
         return self.__TJSigmaValues
     def GetTripleLineValues(self):
         return self.__TripleValues
-    def GetTJSigmaValue(self, arrSigmaArray: np.array):
-        arrQ1 = gf.GetMatrixFromAxisAngle(self.__RotationAxis, arrSigmaArray[0,1])
-        arrQ2 = gf.GetMatrixFromAxisAngle(self.__RotationAxis, arrSigmaArray[1,1])
-        arrProduct = np.round(np.matmul(arrQ1,arrQ2)*arrSigmaArray[0,0]*arrSigmaArray[1,0],10).astype('int')
+    def GetGCD(self, arrSigmaArray: np.array, intIndex1: int, intIndex2: int):
+        arrQ1 = gf.GetMatrixFromAxisAngle(self.__RotationAxis, arrSigmaArray[intIndex1,1])
+        arrQ2 = gf.GetMatrixFromAxisAngle(self.__RotationAxis, arrSigmaArray[intIndex2,1])
+        arrProduct = np.round(np.matmul(arrQ1,arrQ2)*arrSigmaArray[intIndex1,0]*arrSigmaArray[intIndex2,0],10).astype('int')
         intGCD = np.gcd.reduce(np.gcd.reduce(arrProduct))
-        intSigma = np.sqrt(arrSigmaArray[2,0]**2*intGCD)
+    def GetTJSigmaValue(self, arrSigmaArray: np.array):
+        #intSigma = np.sqrt(arrSigmaArray[2,0]**2*intGCD)
+        intSigma = np.sqrt(np.product(arrSigmaArray[:,0]))
         return intSigma
     def GetTJBasisVectors(self, intTJSigmaValueIndex: int, blnUnitCell = False):
         arrTripleValues = self.__TripleValues[intTJSigmaValueIndex]
@@ -1349,19 +1361,10 @@ class CSLTripleLine(object):
         lstVectors= [arrVector2,arrVector3, arrVector1]
         arrVectors = np.vstack(lstVectors)
        # arrVectors[:2,:] = arrVectors[:2,:][np.argsort(np.abs(arrVectors[:,0]))]
-        # for k in range(len(arrVectors)):
-        #     if arrVectors[k,k] < 0:
-        #         arrVectors[k] = -arrVectors[k]
-
-        
+        for k in range(len(arrVectors)):
+            if arrVectors[k,k] < 0:
+                arrVectors[k] = -arrVectors[k]    
         arrReturn = arrVectors
-        # arrBasis = np.round(np.array([arrVector2, arrVector3, arrVector1]),10)
-        # if np.linalg.det(arrBasis) < 0:
-        #     arrReturn = np.round(np.array([arrVector3, arrVector2, arrVector1]),10)
-        # elif np.linalg.det(arrBasis) > 0:
-        #     arrReturn = np.round(np.array([arrVector2, arrVector3, arrVector1]),10)
-        # else: 
-        #     warnings.warn('Cannot find three linearly independent basis vectors')
         self.__CSLBasisVectors = arrReturn
         arrRealBasis, arrTransformationMatrix  = gf.ConvertToLAMMPSBasis(arrReturn)
         self.__SimulationCellBasis = arrRealBasis

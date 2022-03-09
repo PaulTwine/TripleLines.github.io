@@ -474,6 +474,10 @@ def FindRotationVectorAndAngle(arrStartVector: np.array, arrEndVector: np.array)
                 return fltAngle, arrAxis
         else:
                 warnings.warn("Two vectors are paralell")
+def FindReflectionMatrix(inPlaneNormal: np.array):
+        fltDot = np.dot(inPlaneNormal,inPlaneNormal)
+        arrNormal = np.array([inPlaneNormal])
+        return np.identity(len(inPlaneNormal)) - 2*np.matmul(np.transpose(arrNormal), arrNormal)/fltDot
 def FindGeometricMediod(inPoints: np.array,bln2D = False, blnSquaring = True)-> np.array:
         if bln2D:
                 inPoints = inPoints[:,0:2]
