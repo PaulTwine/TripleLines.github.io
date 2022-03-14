@@ -1184,12 +1184,13 @@ class SigmaCell(object):
             intSigmaValue = int(arrSigma[arrRows[0],0])
             h = self.__CellHeight
             l = intSigmaValue
+            arrCSLCentre = np.array([l,l,0])
             if inAngle is None:
                 fltSigma = float(arrSigma[arrRows[0],1])
             else: 
                 fltSigma = inAngle
-            objFirstLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(0,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
-            objSecondLattice = ExtrudedRectangle(l,l,np.sqrt(3),gf.RotateVectors(fltSigma,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
+            objFirstLattice = ExtrudedRectangle(l,l,2*h,gf.RotateVectors(0,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
+            objSecondLattice = ExtrudedRectangle(l,l,2*h,gf.RotateVectors(fltSigma,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
             arrPoints1 = objFirstLattice.GetRealPoints()
             arrPoints2 = objSecondLattice.GetRealPoints()
             objTree1 = KDTree(arrPoints1)
@@ -1198,49 +1199,53 @@ class SigmaCell(object):
             arrIndicesOne = arrIndicesOne.ravel()
             arrIndicesOne = arrIndicesOne[arrCloseOne]
             arrCSLPoints = arrPoints1[arrIndicesOne]
-            arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
-            lstBase = arrBase.tolist()
-            lstBase.remove(np.zeros(3).tolist())
-            arrBase = np.array(lstBase)
-            arrDistances = np.linalg.norm(arrBase,axis=1)
-            arrClosestPoint = gf.NormaliseVector(arrBase[np.argmin(arrDistances)])
-            fltdotX = np.arctan2(np.linalg.norm(np.cross(arrClosestPoint,arrHorizontalVector)), np.dot(arrClosestPoint, arrHorizontalVector))
-            fltAngle2 = -fltdotX
-            self.__LatticeRotations = np.array([fltAngle2, fltSigma+ fltAngle2])
-            objFirstLattice = ExtrudedRectangle(l,l,h,gf.RotateVectors(fltAngle2,np.array([0,0,1]),self.__LatticeBasis), self.__CellType, np.ones(3),np.zeros(3))
-            objSecondLattice = ExtrudedRectangle(l,l,h,gf.RotateVectors(fltSigma+fltAngle2,np.array([0,0,1]),self.__LatticeBasis),self.__CellType,np.ones(3),np.zeros(3))
-            arrPoints1 = objFirstLattice.GetRealPoints()
-            arrPoints2 = objSecondLattice.GetRealPoints()
-            objTree1 = KDTree(arrPoints1)
-            arrDistancesOne, arrIndicesOne = objTree1.query(arrPoints2, k=1)
-            arrCloseOne = np.where(arrDistancesOne < 1e-5)[0]
-            arrIndicesOne = arrIndicesOne.ravel()
-            arrIndicesOne = arrIndicesOne[arrCloseOne]
-            arrCSLPoints = arrPoints1[arrIndicesOne]
-            arrBase = arrCSLPoints[arrCSLPoints[:,2] == 0.0]
-            lstBase = arrBase.tolist()
-            lstBase.remove(np.zeros(3).tolist())
-            arrBase = np.array(lstBase)
-            arrDistances = np.linalg.norm(arrBase,axis=1)
-            lstPositions = gf.FindNthSmallestPosition(arrDistances, 0)
+           # arrRows = np.where(np.all(arrCSLPoints ==arrCSLCentre,axis=1))[0]
+           # if len(arrRows) > 0:
+           #     arrCSLPoints = arrCSLPoints - arrCSLCentre
+           # else:
+           #     print('Error missing central point')
+            arrBase = arrCSLPoints[np.round(arrCSLPoints[:,2],10) == 0.0]
+            arrMediod = gf.FindGeometricMediod(arrBase)
+            arrBase = arrBase - arrMediod
+            arrDistances = np.round(np.linalg.norm(arrBase,axis=1),10)
+            lstPositions = gf.FindNthSmallestPosition(arrDistances, 1)
             arrVector1 = arrBase[lstPositions[0]]
-            if len(lstPositions) > 1:
-                arrVector2 = arrBase[lstPositions[1]]
-            else:
-                arrVector2 = arrBase[gf.FindNthSmallestPosition(arrDistances,1)[0]]
-            fltRotation = np.arctan2(np.linalg.norm(np.cross(arrVector2,arrHorizontalVector)), np.dot(arrVector2, arrHorizontalVector))
-            if np.round(np.abs(fltRotation),10) > 0:
-                arrVector1New = -gf.RotateVector(arrVector1,np.array([0,0,1]),-fltRotation)
-                arrVector2New = gf.RotateVector(arrVector2,np.array([0,0,1]),-fltRotation)
-                self.__LatticeRotations = -(self.__LatticeRotations -fltRotation*np.ones(2))
-                self.__BasisVectors = np.array([arrVector2New,arrVector1New,h*np.array([0,0,1])])
-            else:
+            blnFound1 = False
+            if len(lstPositions) > 1: #there are atleast two equidistance vectors
+                i = 1
+                while i < len(lstPositions) and not(blnFound1):
+                    arrVector2 = arrBase[lstPositions[1]]
+                    if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
+                        blnFound1  = True
+                    i +=1
+            if not(blnFound1): #equidistant vectors were all parallael
+                i = 2
+                blnFound2 = False
+                while i < len(arrDistances)-2 and not(blnFound2):
+                    arrVector2 = arrBase[gf.FindNthSmallestPosition(arrDistances,i)[0]]
+                    if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
+                        blnFound2  = True
+                    i +=1
+            arrProjection = arrVector2 - np.dot(arrVector1,arrVector2)/np.dot(arrVector1,arrVector1)*arrVector1 #try to find orthogonal basis
+            arrRows = np.where(np.all(np.round(arrProjection,5) == np.round(arrBase,5),axis=1))[0]
+            if len(arrRows) > 0:
+                if np.linalg.norm(arrProjection) < np.linalg.norm(arrVector1):
+                    arrVector2 = arrVector1
+                    arrVector1 = arrProjection
+                else:
+                    arrVector2 = arrProjection
+            if np.round(np.dot(gf.NormaliseVector(arrVector2), arrHorizontalVector),10) == 1: #already have the larger vector parallel to [1,0,0]
                 self.__BasisVectors = np.array([arrVector2, arrVector1, h*np.array([0,0,1])])
-            self.__BasisVectors = np.round(self.__BasisVectors,15)
-            # if np.dot(arrVector1, arrHorizontalVector) > np.dot(arrVector2, arrHorizontalVector):   
-            #     self.__BasisVectors = np.array([arrVector1, arrVector2, h*np.array([0,0,1])])
-            # else:
-            #     self.__BasisVectors = np.array([arrVector2, arrVector1, h*np.array([0,0,1])])
+                self.__LatticeRotations = np.array([0,fltSigma])
+            else:
+                fltAngle2, arrAxis = gf.FindRotationVectorAndAngle(arrVector2, arrHorizontalVector)
+                arrVector2 = gf.RotateVector(arrVector2, arrAxis, fltAngle2)
+                arrVector1 = gf.RotateVector(arrVector1,arrAxis,fltAngle2)
+                fltRotation = fltAngle2*arrAxis[2]
+                self.__LatticeRotations = np.array([fltRotation, fltSigma+fltRotation])
+            if arrVector1[1] < 0:
+                arrVector1 = -arrVector1
+            self.__BasisVectors = np.round(np.array([arrVector2,arrVector1, h*np.array([0,0,1])]),10)    
         else:
             warnings.warn("Invalid sigma value for axis " + str(self.__RotationAxis))
     def GetBasisVectors(self):
