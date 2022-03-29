@@ -8,8 +8,8 @@ import sys
 from mpl_toolkits.mplot3d import Axes3D 
 import copy as cp
 from scipy import spatial
-#fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
-#ax = fig.gca(projection='3d')
+fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
+ax = fig.gca(projection='3d')
 
 strDirectory = str(sys.argv[1])
 intSigma = int(sys.argv[2])
@@ -18,38 +18,38 @@ intIncrements =  10 #int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
-fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
 arrSigmaBasis = objSigma.GetBasisVectors()
 s0 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
+
 intHeight = 4
-intAtoms = 1*10**5
+intAtoms = 1.5*10**5
 intAtomsPerCell = 4
 a = 4.05 ##lattice parameter
 h = a*np.round(intHeight/s2,0)
-i = np.sqrt((intAtoms/intAtomsPerCell)*a/(28*10*h*s0*s1))
+
+i = np.sqrt(intAtoms*a/(32*12*intAtomsPerCell*h*np.linalg.det(arrSigmaBasis)))
 i = np.round(i,0).astype('int')
-if np.all(arrAxis == np.array([0,0,1])):
-    arrBasisVectors = gf.StandardBasisVectors(3)
-else:
-    fltAngle3, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
-    arrBasisVectors = gf.RotateVectors(fltAngle3, arrRotation,gf.StandardBasisVectors(3))
 
 arrLatticeParameters= np.array([a,a,a])
 
-arrCylinderBasisVectors = gf.RotateVectors((fltAngle1+fltAngle2)/2,np.array([0,0,1]),arrBasisVectors)
-
+arrMedianLattice = objSigma.GetMedianLattice()
+lstLattices = objSigma.GetLatticeBases()
+arrBasis1 = lstLattices[0]
+arrBasis2 = lstLattices[1]
 
 ###First part runs with two displaced cylinders and no triple lines
 r = 2*a*s1*i
-w = 28*a*i
-l = 10*a*i
+w = 32*a*i
+l = 12*a*i
+
+
 
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]
-objCylinder = gl.ExtrudedCylinder(r,h*s2,arrCylinderBasisVectors,ld.FCCCell,arrLatticeParameters,np.zeros(3))
+objCylinder = gl.ExtrudedCylinder(r,h*s2,arrMedianLattice,ld.FCCCell,arrLatticeParameters,np.zeros(3))
 objCylinder.SetPeriodicity(['n','n','p'])
 
 #arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
@@ -60,8 +60,8 @@ objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z]))
 arrCellCentreGB = objSimulationCellGB.GetCentre()
 arrCylinderCentreLeftGB = 0.5*arrXY+0.25*arrX + arrRandom
 arrCylinderCentreRightGB =  0.5*arrXY+0.75*arrX + arrRandom
-objFullLeft = gl.ExtrudedParallelogram(arrX,arrXY,s2*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
-objFullRight = gl.ExtrudedParallelogram(arrX,arrXY, s2*h, gf.RotateVectors(fltAngle2,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
+objFullLeft = gl.ExtrudedParallelogram(arrX,arrXY,s2*h, arrBasis1, ld.FCCCell, arrLatticeParameters,np.zeros(3))
+objFullRight = gl.ExtrudedParallelogram(arrX,arrXY, s2*h, arrBasis2, ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullLeft.SetPeriodicity(['n','p','p'])
 objFullRight.SetPeriodicity(['n','p','p'])
 strConstraintGB = str(arrXY[0])+ '*(y -' + str(arrCellCentreGB[1]) + ') - ' + str(arrXY[1]) + '*(x -' + str(arrCellCentreGB[0]) + ')' 
@@ -88,8 +88,8 @@ objSimulationCellGB.RemoveGrainPeriodicDuplicates()
 
 
 ##Second part with triple lines
-w = 20*a*i
-l = 14*a*i
+w = 24*a*i
+l = 16*a*i
 h = a*np.round(intHeight/s2,0)
 arrXTJ = w*arrSigmaBasis[0]
 arrXYTJ = l*arrSigmaBasis[1]
@@ -99,8 +99,8 @@ arrCellCentreTJ = objSimulationCellTJ.GetCentre()
 arrCylinderLeftTJ = 0.5*arrXYTJ +arrRandom
 arrCylinderRightTJ = 0.5*arrXYTJ + arrXTJ + arrRandom
 arrCylinderMiddleTJ = 0.5*(arrXYTJ+arrXTJ) + arrRandom
-objFullLeft = gl.ExtrudedParallelogram(arrXTJ,arrXYTJ,s2*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
-objFullRight = gl.ExtrudedParallelogram(arrXTJ,arrXYTJ, s2*h, gf.RotateVectors(fltAngle2,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
+objFullLeft = gl.ExtrudedParallelogram(arrXTJ,arrXYTJ,s2*h, arrBasis1, ld.FCCCell, arrLatticeParameters,np.zeros(3))
+objFullRight = gl.ExtrudedParallelogram(arrXTJ,arrXYTJ, s2*h, arrBasis2, ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullLeft.SetPeriodicity(['n','p','p'])
 objFullRight.SetPeriodicity(['n','p','p'])
 strConstraintTJ = str(arrXYTJ[0])+ '*(y -' + str(arrCellCentreTJ[1]) + ') - ' + str(arrXYTJ[1]) + '*(x -' + str(arrCellCentreTJ[0]) + ')' 

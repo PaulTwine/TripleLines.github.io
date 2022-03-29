@@ -517,6 +517,17 @@ def EqualAxis3D(ax):
         ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+def GeneralCylinder(arrAxis: np.array, arrBasePoint: np.array, fltRadius: float, lstVariables = ['x','y','z']):
+        arrUnitAxis = NormaliseVector(arrAxis)
+        strReturn = '(a2*z-a3*y)**2 + (a3*x-a1*z)**2 +(a1*y-a2*x)**2 - ' + str(fltRadius**2)
+        strReturn = strReturn.replace('x', '(' + lstVariables[0] + '-' + str(arrBasePoint[0]) + ')')
+        strReturn = strReturn.replace('y', '(' + lstVariables[1] + '-' + str(arrBasePoint[1]) + ')')
+        strReturn = strReturn.replace('z', '(' + lstVariables[2] + '-' + str(arrBasePoint[2]) + ')')
+        strReturn = strReturn.replace('a2', str(arrUnitAxis[1]))
+        strReturn = strReturn.replace('a2', str(arrUnitAxis[1]))
+        strReturn = strReturn.replace('a3', str(arrUnitAxis[2]))
+        return strReturn
 def ParseConic(lstCentre: list, lstScaling: list, lstPower:list, lstVariables = ['x','y','z'])->str:
         strReturn = ''
         for i in range(len(lstCentre)):
@@ -599,7 +610,8 @@ def GetPeriodicDuplicatePoints(inPoints, intNumberOfNeighbours: int, fltRadius: 
                 return arrBoundaryIndices
         else:
                 return [] 
-
+def NormaliseMatrixAlongRows(inArray: np.array):
+        return inArray/np.linalg.norm(inArray, axis=1)[:,np.newaxis]
 def DecimalArray(inArray: np.array):
         if len(np.shape(inArray)) ==2:
                 lstDecimals = [[Decimal(str(x)) for x in y] for y in inArray]
@@ -812,23 +824,6 @@ def TripleLineTensor(arrTripleLine: np.array, lstOfBases: list, lstOfGBAngles: l
         return arrTensor
 
 def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis and writes in the form [x 0 0], [y, yx , 0] [zx zy z] where x > 0, y >y, z>0
-        # if np.linalg.det(arrBasisVectors) < 0:
-        #         arrBasisVectors[0] = -arrBasisVectors[0]
-        # a = arrBasisVectors[0]
-        # b = arrBasisVectors[1]
-        # c = arrBasisVectors[2]
-        # aUnit = NormaliseVector(arrBasisVectors[0])
-        # bUnit = NormaliseVector(arrBasisVectors[1])
-        # cUnit = NormaliseVector(arrBasisVectors[2])
-        # ax = np.linalg.norm(aUnit)
-        # bx = np.dot(aUnit, b)
-        # cx = np.dot(aUnit,c)
-        # by = np.linalg.norm(np.cross(aUnit,b))
-        # cy = np.dot(c,(np.cross(NormaliseVector(np.cross(a,b)),aUnit)))
-        # cz = np.linalg.norm(np.dot(c,NormaliseVector(np.cross(a,b))))
-        # arrReturn = np.array([[ax,0,0],[bx,by,0],[cx,cy,cz]])
-        # arrTransform = np.matmul(np.linalg.inv(arrBasisVectors),arrReturn)
-        # return arrReturn, np.linalg.inv(arrTransform)
         arrIdent = np.identity(3)
         if np.linalg.det(arrBasisVectors) < 0:
                 arrIdent[0,0] = -1
@@ -841,7 +836,7 @@ def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis
                 arrBasisVectors2 = arrBasisVectors
                 arrTransform1 = StandardBasisVectors(3)
         arrVector2 = NormaliseVector(arrBasisVectors2[1])
-        if arrVector2[2] !=0:
+        if np.abs(arrVector2[2]) > 1e-5:
                 # arrCross = np.cross(arrVector2,np.array([1,0,0])) 
                 # arrCrossInXY = np.array([0,np.linalg.norm(arrCross),0])
                 # fltAngle2, arrAxis2 = FindRotationVectorAndAngle(arrCross, arrCrossInXY)

@@ -1,13 +1,13 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import LatticeDefinitions as ld
 import GeometryFunctions as gf
 import GeneralLattice as gl
 import LAMMPSTool as LT
 import copy as cp
 import sys
-fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
-ax = fig.gca(projection='3d')
+#fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
+#ax = fig.gca(projection='3d')
 a  = 4.05
 strDirectory = str(sys.argv[1])
 intSigma = int(sys.argv[2])
