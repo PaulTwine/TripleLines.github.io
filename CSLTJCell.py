@@ -9,37 +9,43 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy as cp
 from scipy import spatial
 import MiscFunctions
+from mpl_toolkits.mplot3d import Axes3D
 
-objCSL = gl.CSLTripleLine(np.array([0,0,1]), ld.FCCCell) 
-arrCell = objCSL.FindTripleLineSigmaValues(75)
 
 
 strDirectory = str(sys.argv[1])
-intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
+lstSigmaAxis = eval(str(sys.argv[3]))
 arrAxis = np.array(lstAxis)
-a = 4.05
-lstOldTemplate = ['read.dat','read.dmp','read.lst', 'logfile']
-strTemplateName = 'TemplateMin.in'
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
-arrCSL = arrCell[0]
+intIncrements = 10
+fltTolerance = 0.1
+a = 4.05
+lstOldTemplate = ['read.dat','read.dmp','read.lst', 'logfile']
+strTemplateName = 'TemplateMob.in'
+objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
+arrCell = objCSL.FindTripleLineSigmaValues(75)
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
+arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
-objCSL.GetTJBasisVectors(0)
+objCSL.GetTJBasisVectors(intIndex,False)
 arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-s = np.round(np.sqrt(10**4/(8*intTJSigma)))
+s = np.round(np.sqrt(10**5/(4*intTJSigma)))
 
 arrGrainBasis1 = objCSL.GetLatticeBasis(0)
 arrGrainBasis2 = objCSL.GetLatticeBasis(1)
 arrGrainBasis3 = objCSL.GetLatticeBasis(2)
 
-arrFullCell = np.array([[4*s,0,0],[0,4*s,0],[0,0,2]])
-arrSmallCell = np.array([[2*s,0,0],[0,2*s,0],[0,0,2]])
-arrHorizontalCell = np.array([[4*s,0,0],[0,2*s,0],[0,0,2]])
-arrVerticalCell = np.array([[2*s,0,0],[0,4*s,0],[0,0,2]])
+arrFullCell = np.array([[2*s,0,0],[0,2*s,0],[0,0,intHeight]])
+arrSmallCell = np.array([[s,0,0],[0,s,0],[0,0,intHeight]])
+arrHorizontalCell = np.array([[2*s,0,0],[0,s,0],[0,0,intHeight]])
+arrVerticalCell = np.array([[s,0,0],[0,2*s,0],[0,0,intHeight]])
+
 
 arrFullBox = np.matmul(arrFullCell,arrBasis)
 arrSmallBox = np.matmul(arrSmallCell,arrBasis)
@@ -51,14 +57,19 @@ arrGrain1 = gl.ParallelopiedGrain(arrHorizontalBox,arrGrainBasis1,ld.FCCCell,a*n
 arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*(arrFullBox[0]+arrFullBox[1]))
 arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3), 0.5*arrFullBox[1])
 
-strFilename = 'TJ123.dat'
+fltNearestNeighbour = arrGrain1.GetNearestNeighbourDistance()
+
+strFilename = 'TJ.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
-objSimulationCell.MergeTooCloseAtoms(0.1,1)
-objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename)
-lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
-MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
+
+for j in range(intIncrements):
+    objSimulationCell.MergeTooCloseAtoms(fltNearestNeighbour*j/10,1)
+    objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename[:-4] + str(j) + '.dat')
+    lstNew = [strFilename[:-4] + str(j) + '.dat', strFilename[:-4]+ str(j) + '.dmp', strFilename[:-4]+ str(j) +'.lst', strFilename[:-4] + str(j) + '.log']
+    MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-4] + str(j) + '.in')
+
 
 objSimulationCell = gl.SimulationCell(arrSmallBox)
 arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), np.zeros(3))
@@ -82,7 +93,7 @@ arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.one
 strFilename = 'BV12.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
-objSimulationCell.MergeTooCloseAtoms(0.1,1)
+objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename)
 lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
 MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
@@ -94,7 +105,7 @@ arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.one
 strFilename = 'BV13.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain3)
-objSimulationCell.MergeTooCloseAtoms(0.1,1)
+objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strDirectory+ strFilename)
 lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
 MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
@@ -106,7 +117,7 @@ arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.one
 strFilename = 'BH32.dat'
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
-objSimulationCell.MergeTooCloseAtoms(0.1,1)
+objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strDirectory+ strFilename)
 lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
 MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
