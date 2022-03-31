@@ -35,10 +35,14 @@ arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
+arrReciprocal =  gf.GetReciprocalVectors(np.round(arrBasis,10))
+
+print(np.matmul(np.round(arrBasis,10),arrReciprocal))
+
 s = np.round(np.sqrt(10**5/(4*intTJSigma)))
 
-arrGrainBasis1 = objCSL.GetLatticeBasis(0)
-arrGrainBasis2 = objCSL.GetLatticeBasis(1)
+arrGrainBasis1 = objCSL.GetLatticeBasis(1)
+arrGrainBasis2 = objCSL.GetLatticeBasis(0)
 arrGrainBasis3 = objCSL.GetLatticeBasis(2)
 
 arrFullCell = np.array([[2*s,0,0],[0,2*s,0],[0,0,intHeight]])
@@ -59,16 +63,21 @@ arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.one
 
 fltNearestNeighbour = arrGrain1.GetNearestNeighbourDistance()
 
-strFilename = 'TJ.dat'
+strFilename = 'TJ0.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
 
-for j in range(intIncrements):
-    objSimulationCell.MergeTooCloseAtoms(fltNearestNeighbour*j/10,1)
-    objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename[:-4] + str(j) + '.dat')
-    lstNew = [strFilename[:-4] + str(j) + '.dat', strFilename[:-4]+ str(j) + '.dmp', strFilename[:-4]+ str(j) +'.lst', strFilename[:-4] + str(j) + '.log']
-    MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-4] + str(j) + '.in')
+# for j in range(intIncrements):
+#     objSimulationCell.MergeTooCloseAtoms(fltNearestNeighbour*j/10,1)
+#     objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename[:-4] + str(j) + '.dat')
+#     lstNew = [strFilename[:-4] + str(j) + '.dat', strFilename[:-4]+ str(j) + '.dmp', strFilename[:-4]+ str(j) +'.lst', strFilename[:-4] + str(j) + '.log']
+#     MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-4] + str(j) + '.in')
+
+objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
+objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename[:-4] + '.dat')
+lstNew = [strFilename[:-4] + '.dat', strFilename[:-4] + '.dmp', strFilename[:-4] +'.lst', strFilename[:-4] + '.log']
+MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-4] + '.in')
 
 
 objSimulationCell = gl.SimulationCell(arrSmallBox)
