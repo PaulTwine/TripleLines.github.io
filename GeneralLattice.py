@@ -278,12 +278,18 @@ class GeneralLattice(PureLattice,RealCell):
     def RemovePlaneOfAtoms(self, inPlane: np.array):
         lstDeletedIndices = gf.CheckLinearEquality(self.__RealPoints, inPlane, 0.01)
         self.DeletePoints(lstDeletedIndices)
-    def ApplyGeneralConstraint(self,strFunction, strVariables='[x,y,z]',fltTolerance = 1e-5): #default scalar value is less than or equal to 0 if "inside" the region
+    def ApplyGeneralConstraint(self,strFunction, strVariables='[x,y,z]',fltTolerance = 1e-5, strDomain = ''): #default scalar value is less than or equal to 0 if "inside" the region
         lstVariables = parse_expr(strVariables)
         fltFunction = lambdify(lstVariables,parse_expr(strFunction))
         arrFunction = lambda X : fltFunction(X[0],X[1],X[2])
         arrLess = np.array(list(map(arrFunction, self.__RealPoints)))
-        lstDeletedIndices = np.where(arrLess > fltTolerance)[0]
+        if len(strDomain) >0 :
+            fltDomain = lambdify(lstVariables,parse_expr(strDomain))
+            arrDomain = lambda X : fltDomain(X[0],X[1],X[2])
+            arrDomain = np.array(list(map(arrDomain, self.__RealPoints)))
+            lstDeletedIndices = np.where((arrLess > fltTolerance) & (arrDomain >= 0))[0]
+        else:
+            lstDeletedIndices = np.where(arrLess > fltTolerance)[0]
         self.DeletePoints(lstDeletedIndices)
     def GetQuaternionOrientation(self)->np.array:
         return gf.FCCQuaternionEquivalence(gf.GetQuaternionFromBasisMatrix(np.transpose(self.GetUnitBasisVectors())))     
@@ -532,7 +538,29 @@ class ParallelopiedGrain(GeneralGrain):
         arrConstraints = np.append(arrConstraints, arrConstraints2, axis=0)
         GeneralGrain.__init__(self,inBasisVectors, inCellNodes,inLatticeParameters,inOrigin,inCellBasis)
         self.MakeRealPoints(arrConstraints)
-        
+
+class IrregularSlantedGrain(GeneralGrain):
+    def __init__(self, arrBaseEdgeVectors: np.array, inAxis: np.array, inBasisVectors: np.array, inCellNodes: np.array, inLatticeParameters: np.array, inOrigin: np.array, inCellBasis=None):
+        if np.round(np.linalg.norm(np.sum(arrBaseEdgeVectors,axis=0)),10) == 0:
+            intConstraints = len(arrBaseEdgeVectors)
+            arrConstraints = np.zeros([intConstraints+2,4])
+            arrVectorSum = np.zeros(3)
+            for j in range(intConstraints):
+                arrEdge = arrBaseEdgeVectors[j]
+                arrOut = gf.NormaliseVector(np.cross(arrEdge,inAxis))
+                arrConstraints[j,:3] = arrOut
+                fltDistance = np.dot(arrOut,arrVectorSum)
+                arrConstraints[j,3] = fltDistance
+                arrVectorSum += arrEdge
+            arrConstraints[-2,:3] = gf.NormaliseVector(inAxis)
+            arrConstraints[-2,3] = np.linalg.norm(inAxis)
+            arrConstraints[-1,:3] = -gf.NormaliseVector(inAxis)
+            arrConstraints[-1,3] = 0
+            GeneralGrain.__init__(self,inBasisVectors, inCellNodes, inLatticeParameters,inOrigin, inCellBasis)
+            self.MakeRealPoints(arrConstraints)
+        else:
+            raise('Base perimeter is not closed')
+               
 class BaseSuperCell(object):
     def __init__(self,inBasisVectors: np.array, lstBoundaryTypes: list):
         self.__BasisVectors = inBasisVectors
@@ -1384,9 +1412,9 @@ class CSLTripleLine(object):
         arrBasis1 = arrBasisVectors
         arrBasis2 = gf.RotateVectors(arrTripleValues[0,1],self.__RotationAxis,arrBasisVectors)
         arrBasis3 = gf.RotateVectors(arrTripleValues[0,1] + arrTripleValues[1,1],self.__RotationAxis,arrBasisVectors)
-        objFirstLattice = ExtrudedRectangle(l,l,flth,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
-        objSecondLattice = ExtrudedRectangle(l,l,flth,arrBasis2, self.__CellType, np.ones(3),np.zeros(3))
-        objThirdLattice = ExtrudedRectangle(l,l,flth,arrBasis3, self.__CellType, np.ones(3),np.zeros(3))
+        objFirstLattice = ExtrudedRectangle(l,l,l,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
+        objSecondLattice = ExtrudedRectangle(l,l,l,arrBasis2, self.__CellType, np.ones(3),np.zeros(3))
+        objThirdLattice = ExtrudedRectangle(l,l,l,arrBasis3, self.__CellType, np.ones(3),np.zeros(3))
         arrPoints1 = objFirstLattice.GetRealPoints()
         arrPoints2 = objSecondLattice.GetRealPoints()
         arrPoints3 = objThirdLattice.GetRealPoints()
