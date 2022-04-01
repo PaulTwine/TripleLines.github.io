@@ -72,6 +72,8 @@ def FindBoundingBox(inVectors: np.array)->np.array:
                 vctDimensions[j] = [min(lstCoordinate), max(lstCoordinate)]
         return vctDimensions
 def VectorToConstraint(inVector)->np.array:
+        if len(np.shape(inVector)) ==1:
+                inVector = np.array([inVector])
         rtnVector = np.zeros([len(inVector),4])
         for j in range(len(inVector)):
                 rtnVector[j,:3] = NormaliseVector(inVector[j])
@@ -528,6 +530,18 @@ def GeneralCylinder(arrAxis: np.array, arrBasePoint: np.array, fltRadius: float,
         strReturn = strReturn.replace('a2', str(arrUnitAxis[1]))
         strReturn = strReturn.replace('a3', str(arrUnitAxis[2]))
         return strReturn
+def ParsePlane(arrNormal: np.array, arrPointOnPlane: np.array, lstVariables = ['x','y','z']):
+        arrUnit = NormaliseVector(arrNormal)
+        strReturn = 'x*n1 + y*n2 + z*n3'
+        strReturn = strReturn.replace('x', '(' + lstVariables[0] + '-' + str(arrPointOnPlane[0]) + ')')
+        strReturn = strReturn.replace('y', '(' + lstVariables[1] + '-' + str(arrPointOnPlane[1]) + ')')
+        strReturn = strReturn.replace('z', '(' + lstVariables[2] + '-' + str(arrPointOnPlane[2]) + ')')
+        strReturn = strReturn.replace('n1', str(arrUnit[0]))
+        strReturn = strReturn.replace('n2', str(arrUnit[1]))
+        strReturn = strReturn.replace('n3', str(arrUnit[2]))
+        return strReturn
+        
+        
 def ParseConic(lstCentre: list, lstScaling: list, lstPower:list, lstVariables = ['x','y','z'])->str:
         strReturn = ''
         for i in range(len(lstCentre)):
@@ -649,6 +663,10 @@ def CubicQuaternions():
         arrRows = np.unique(np.round(arrValues,3),axis=0, return_index=True)[1]                              
         return arrValues[arrRows]
 
+def GetReciprocalVectors(inRealVectors: np.array): 
+        V = np.linalg.det(inRealVectors)
+        return np.transpose(np.linalg.inv(np.transpose(inRealVectors)))
+
 def FindDuplicates(inPoints, inCellVectors, fltDistance, lstBoundaryType = ['p','p','p']):
         arrConstraints = FindConstraintsFromBasisVectors(inCellVectors)
         objPeriodicTree = PeriodicWrapperKDTree(inPoints, inCellVectors,arrConstraints,2*fltDistance, lstBoundaryType)
@@ -720,7 +738,8 @@ class PeriodicWrapperKDTree(object):
                 self.__ExtendedPoints = np.copy(inPoints)
         else:
                 self.__ExtendedPoints = arrExtendedPoints
-        self.__PeriodicTree = KDTree(self.__ExtendedPoints)
+        if len(self.__ExtendedPoints) > 0:
+                self.__PeriodicTree = KDTree(self.__ExtendedPoints)
     def Pquery_radius(self, inPoints: np.array, fltRadius: float,blnReturnDistance=True, blnSortResults=True):
         arrIndices,arrDistances = self.__PeriodicTree.query_radius(inPoints, fltRadius,return_distance=blnReturnDistance,sort_results=blnSortResults)
         return arrIndices, arrDistances
