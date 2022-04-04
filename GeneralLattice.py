@@ -1188,12 +1188,6 @@ class SigmaCell(object):
     def __init__(self, arrRotationAxis: np.array, inCellNodes: np.array):
         intGCD = np.gcd.reduce(arrRotationAxis)
         self.__RotationAxis = (arrRotationAxis/intGCD).astype('int')
-        # if np.all(self.__RotationAxis == np.array([0,0,1])):
-        #     self.__LatticeBasis = gf.StandardBasisVectors(3)
-        #     self.__CellHeight = 1
-        # else:
-        #     fltAngle, arrVector = gf.FindRotationVectorAndAngle(arrRotationAxis, np.array([0,0,1]))
-        #     self.__LatticeBasis = gf.RotatedBasisVectors(fltAngle,arrVector)
         self.__CellHeight = np.linalg.norm(self.__RotationAxis)
         self.__CellType = inCellNodes
         self.__BasisVectors = []
@@ -1222,7 +1216,6 @@ class SigmaCell(object):
             intSigmaValue = int(arrSigmas[intMin,0])
             h = self.__CellHeight
             l = intSigmaValue
-            #arrCSLCentre = np.array([l,l,l])
             fltSigma = float(arrSigmas[intMin,1])
             arrBasis1 = gf.StandardBasisVectors(3)
             arrBasis2 = gf.RotateVectors(fltSigma,self.__RotationAxis,gf.StandardBasisVectors(3))
@@ -1237,87 +1230,50 @@ class SigmaCell(object):
             arrIndicesOne = arrIndicesOne.ravel()
             arrIndicesOne = arrIndicesOne[arrCloseOne]
             arrCSLPoints = arrPoints1[arrIndicesOne]
-            arrMediod = gf.FindGeometricMediod(arrCSLPoints)
-            arrCSLPoints = arrCSLPoints - arrMediod
             self.__CSLPoints = arrCSLPoints
-            #arrRows = np.where(np.matmul(arrCSLPoints, np.transpose(self.__RotationAxis)) == 0)[0]
-            #arrPlane = arrCSLPoints[arrRows]
-            arrDistances = np.round(np.linalg.norm(arrCSLPoints,axis=1),5)
-            lstPositions = gf.FindNthSmallestPosition(arrDistances, 1)
-            arrVector1 = arrCSLPoints[lstPositions[0]]
-            blnFound1 = False
-            if len(lstPositions) > 1: #there are atleast two equidistance vectors
-                i = 1
-                while i < len(lstPositions) and not(blnFound1):
-                    arrVector2 = arrCSLPoints[lstPositions[i]]
-                    if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
-                        blnFound1  = True
-                    i +=1
-            if not(blnFound1): #equidistant vectors were all parallael
-                i = 3
-                blnFound2 = False
-                while i < len(arrDistances) and not(blnFound2):
-                    arrVector2 = arrCSLPoints[gf.FindNthSmallestPosition(arrDistances,i)[0]]
-                    if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
-                        blnFound2  = True
-                    i +=1
-            blnFound3 = False
-            while i < len(arrDistances) and not(blnFound3):
-                lstPositions = gf.FindNthSmallestPosition(arrDistances,i)
-                k = 0
-                while k < len(lstPositions) and not(blnFound3):
-                    arrVector3 = arrCSLPoints[lstPositions[k]]
-                    if abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) >1e-5:
-                        k +=1
-                        blnFound3  = True
-                    k +=1
-                i += 1
-            lstVectors = []
-            lstVectors.append(arrVector2)
-            lstVectors.append(arrVector1)
-            lstVectors.append(arrVector3)
-            arrPrimitiveVectors = np.vstack(lstVectors)
+            arrPrimitiveVectors = gf.FindPrimitiveVectors(arrCSLPoints)
             arrAllVectors = arrPrimitiveVectors
-            lstAllVectors = []
             self.__CSLPrimitiveVectors = arrPrimitiveVectors
             self.__CSLPrimitiveInverse = np.linalg.inv(arrPrimitiveVectors)
-            for a in arrPrimitiveVectors:
-                lstAllVectors.append(arrAllVectors + a)
-                lstAllVectors.append(arrAllVectors -a)
-                arrAllVectors = np.vstack(lstAllVectors)
-            arrAllVectors = np.unique(arrAllVectors, axis=0)
-            arrDeleteRows = np.where(np.all(arrAllVectors == np.zeros(3),axis=1))[0]
-            arrPlane = np.delete(arrAllVectors, arrDeleteRows, axis=0)
-            arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(self.__RotationAxis)))< 1e-5)[0]
-            arrPlane = arrPlane[arrRows]
-            if self.__CheckIsCSLVectors(self.__RotationAxis):
-                arrReturnVectors = np.zeros([3,3])
-                arrPlaneDistances = np.linalg.norm(arrPlane, axis=1)
-                lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,0)
-                arrNextVector = arrPlane[lstPositions[0]]
-                arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(arrNextVector)))< 1e-5)[0]
-                if len(arrRows) > 0:
-                    arrPlane = arrPlane[arrRows]
-                    arrNextDistances = np.linalg.norm(arrPlane, axis=1)
-                    lstPositions = gf.FindNthSmallestPosition(arrNextDistances,0)
-                    arrLastVector = arrPlane[lstPositions[0]]
-                    arrReturnVectors[0] = arrLastVector
-                    arrReturnVectors[1] = arrNextVector
-                    arrReturnVectors[-1] =  self.__RotationAxis
-                else:
-                    arrReturnVectors[1] = arrNextVector
-                    arrReturnVectors[-1] = self.__RotationAxis
-                    blnFound4 = False
-                    i = 0
-                    while i < len(arrPlaneDistances) and not(blnFound4):
-                        lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,i)
-                        k = 0
-                        while k < len(lstPositions) and not(blnFound4): 
-                            arrReturnVectors[0] = arrPlane[lstPositions[k]]
-                            if np.round(np.linalg.det(arrReturnVectors),10) > 0 and not(blnFound4):
-                                blnFound4 = True  
-                            k += 1
-                        i += 1    
+            # lstAllVectors = []
+            # for a in arrPrimitiveVectors:
+            #     lstAllVectors.append(arrAllVectors + a)
+            #     lstAllVectors.append(arrAllVectors -a)
+            #     arrAllVectors = np.vstack(lstAllVectors)
+            # arrAllVectors = np.unique(arrAllVectors, axis=0)
+            # arrDeleteRows = np.where(np.all(arrAllVectors == np.zeros(3),axis=1))[0]
+            # arrPlane = np.delete(arrAllVectors, arrDeleteRows, axis=0)
+            # arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(self.__RotationAxis)))< 1e-5)[0]
+            # arrPlane = arrPlane[arrRows]
+            # if self.__CheckIsCSLVectors(self.__RotationAxis):
+            #     arrReturnVectors = np.zeros([3,3])
+            #     arrPlaneDistances = np.linalg.norm(arrPlane, axis=1)
+            #     lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,0)
+            #     arrNextVector = arrPlane[lstPositions[0]]
+            #     arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(arrNextVector)))< 1e-5)[0]
+            #     if len(arrRows) > 0:
+            #         arrPlane = arrPlane[arrRows]
+            #         arrNextDistances = np.linalg.norm(arrPlane, axis=1)
+            #         lstPositions = gf.FindNthSmallestPosition(arrNextDistances,0)
+            #         arrLastVector = arrPlane[lstPositions[0]]
+            #         arrReturnVectors[0] = arrLastVector
+            #         arrReturnVectors[1] = arrNextVector
+            #         arrReturnVectors[-1] =  self.__RotationAxis
+            #     else:
+            #         arrReturnVectors[1] = arrNextVector
+            #         arrReturnVectors[-1] = self.__RotationAxis
+            #         blnFound4 = False
+            #         i = 0
+            #         while i < len(arrPlaneDistances) and not(blnFound4):
+            #             lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,i)
+            #             k = 0
+            #             while k < len(lstPositions) and not(blnFound4): 
+            #                 arrReturnVectors[0] = arrPlane[lstPositions[k]]
+            #                 if np.round(np.linalg.det(arrReturnVectors),10) > 0 and not(blnFound4):
+            #                     blnFound4 = True  
+            #                 k += 1
+            #             i += 1
+            arrReturnVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)    
             if blnUnitCell:
                 for k in range(len(arrReturnVectors)):
                     if arrReturnVectors[k,k] < 0:
@@ -1428,44 +1384,46 @@ class CSLTripleLine(object):
         arrIndicesTwo = arrIndicesTwo.ravel()
         arrCloseTwo = np.where(arrDistancesTwo< 1e-5)[0]
         arrCloseAll = arrOneAndTwo[arrIndicesTwo[arrCloseTwo]]
-        arrMean = np.mean(arrCloseAll,axis=0)
-        arrDistances = np.linalg.norm(arrCloseAll-arrMean, axis=1)
-        arrMediod = arrCloseAll[np.argmin(arrDistances)]
-        arrCentredPoints = arrCloseAll - arrMediod 
-        arrDistances = np.linalg.norm(arrCentredPoints, axis=1)
-        #arrVector1 = self.__RotationAxis
-        arrVector1 = arrCentredPoints[gf.FindNthSmallestPosition(arrDistances,1)[0]]
-        i = 2
-        blnFoundVector2 = False
-        while i < len(arrCentredPoints)  and not(blnFoundVector2):
-            lstPositions = gf.FindNthSmallestPosition(arrDistances, i)
-            k = 0
-            while k < len(lstPositions) and not(blnFoundVector2):
-                arrVector2 = arrCentredPoints[lstPositions[k]] 
-                if np.all(np.abs(np.cross(arrVector1,arrVector2)) <1e-5):
-                    k +=1
-                elif np.all(np.mod(arrVector2, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
-                    blnFoundVector2 = True
-                else:
-                    k +=1
-            i +=1
-        j = i
-        blnFoundVector3 = False
-        while j < len(arrCentredPoints)  and not(blnFoundVector3):
-            lstPositions = gf.FindNthSmallestPosition(arrDistances, j)
-            k = 0
-            while k < len(lstPositions) and not(blnFoundVector3):
-                arrVector3 = arrCentredPoints[lstPositions[k]] 
-                if abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) <1e-5:
-                    k +=1
-                elif np.all(np.mod(arrVector3, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
-                    blnFoundVector3 = True
-                else:
-                    k +=1
-            j +=1
-        lstVectors= [arrVector2,arrVector3, arrVector1]
-        arrVectors = np.vstack(lstVectors)
-       # arrVectors[:2,:] = arrVectors[:2,:][np.argsort(np.abs(arrVectors[:,0]))]
+        arrPrimitiveVectors = gf.FindPrimitiveVectors(arrCloseAll)
+        # arrMean = np.mean(arrCloseAll,axis=0)
+        # arrDistances = np.linalg.norm(arrCloseAll-arrMean, axis=1)
+        # arrMediod = arrCloseAll[np.argmin(arrDistances)]
+        # arrCentredPoints = arrCloseAll - arrMediod 
+        # arrDistances = np.linalg.norm(arrCentredPoints, axis=1)
+        # #arrVector1 = self.__RotationAxis
+        # arrVector1 = arrCentredPoints[gf.FindNthSmallestPosition(arrDistances,1)[0]]
+        # i = 2
+        # blnFoundVector2 = False
+    #     while i < len(arrCentredPoints)  and not(blnFoundVector2):
+    #         lstPositions = gf.FindNthSmallestPosition(arrDistances, i)
+    #         k = 0
+    #         while k < len(lstPositions) and not(blnFoundVector2):
+    #             arrVector2 = arrCentredPoints[lstPositions[k]] 
+    #             if np.all(np.abs(np.cross(arrVector1,arrVector2)) <1e-5):
+    #                 k +=1
+    #             elif np.all(np.mod(arrVector2, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
+    #                 blnFoundVector2 = True
+    #             else:
+    #                 k +=1
+    #         i +=1
+    #     j = i
+    #     blnFoundVector3 = False
+    #     while j < len(arrCentredPoints)  and not(blnFoundVector3):
+    #         lstPositions = gf.FindNthSmallestPosition(arrDistances, j)
+    #         k = 0
+    #         while k < len(lstPositions) and not(blnFoundVector3):
+    #             arrVector3 = arrCentredPoints[lstPositions[k]] 
+    #             if abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) <1e-5:
+    #                 k +=1
+    #             elif np.all(np.mod(arrVector3, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
+    #                 blnFoundVector3 = True
+    #             else:
+    #                 k +=1
+    #         j +=1
+    #     lstVectors= [arrVector2,arrVector3, arrVector1]
+    #     arrVectors = np.vstack(lstVectors)
+    #    # arrVectors[:2,:] = arrVectors[:2,:][np.argsort(np.abs(arrVectors[:,0]))]
+        arrVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)
         for k in range(len(arrVectors)):
             if arrVectors[k,k] < 0:
                 arrVectors[k] = -arrVectors[k]    

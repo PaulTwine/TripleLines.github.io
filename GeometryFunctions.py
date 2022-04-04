@@ -480,6 +480,10 @@ def FindReflectionMatrix(inPlaneNormal: np.array):
         fltDot = np.dot(inPlaneNormal,inPlaneNormal)
         arrNormal = np.array([inPlaneNormal])
         return np.identity(len(inPlaneNormal)) - 2*np.matmul(np.transpose(arrNormal), arrNormal)/fltDot
+def FindMediod(inPoints: np.array):
+        arrMean = np.mean(inPoints, axis=0)
+        arrDistances = np.linalg.norm(inPoints-arrMean, axis=1)
+        return inPoints[np.argmin(arrDistances)]
 def FindGeometricMediod(inPoints: np.array,bln2D = False, blnSquaring = True)-> np.array:
         if bln2D:
                 inPoints = inPoints[:,0:2]
@@ -539,8 +543,7 @@ def ParsePlane(arrNormal: np.array, arrPointOnPlane: np.array, lstVariables = ['
         strReturn = strReturn.replace('n1', str(arrUnit[0]))
         strReturn = strReturn.replace('n2', str(arrUnit[1]))
         strReturn = strReturn.replace('n3', str(arrUnit[2]))
-        return strReturn
-        
+        return strReturn        
         
 def ParseConic(lstCentre: list, lstScaling: list, lstPower:list, lstVariables = ['x','y','z'])->str:
         strReturn = ''
@@ -785,9 +788,84 @@ class PeriodicFullKDTree(object):
         arrMinimumIndices = arrStackedIndices[arrMinimum]
         return self.__ExtendedPoints[arrMinimumIndices], arrDistances[arrMinimum]            
 
+def FindPrimitiveVectors( inLatticePoints):
+        arrMediod = FindMediod(inLatticePoints)
+        inLatticePoints = inLatticePoints - arrMediod
+        arrDistances = np.round(np.linalg.norm(inLatticePoints,axis=1),5)
+        lstPositions = FindNthSmallestPosition(arrDistances, 1)
+        arrVector1 = inLatticePoints[lstPositions[0]]
+        blnFound1 = False
+        if len(lstPositions) > 1: #there are atleast two equidistance vectors
+                i = 1
+                while i < len(lstPositions) and not(blnFound1):
+                        arrVector2 = inLatticePoints[lstPositions[i]]
+                        if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
+                                blnFound1  = True
+                        i +=1
+        if not(blnFound1): #equidistant vectors were all parallael
+                i = 3
+                blnFound2 = False
+                while i < len(arrDistances) and not(blnFound2):
+                        arrVector2 = inLatticePoints[FindNthSmallestPosition(arrDistances,i)[0]]
+                        if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
+                                blnFound2  = True
+                        i +=1
+        blnFound3 = False
+        while i < len(arrDistances) and not(blnFound3):
+                lstPositions = FindNthSmallestPosition(arrDistances,i)
+                k = 0
+                while k < len(lstPositions) and not(blnFound3):
+                        arrVector3 = inLatticePoints[lstPositions[k]]
+                        if abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) >1e-5:
+                                blnFound3  = True
+                        k +=1
+                i += 1
+        lstVectors = []
+        lstVectors.append(arrVector2)
+        lstVectors.append(arrVector1)
+        lstVectors.append(arrVector3)
+        arrPrimitiveVectors = np.vstack(lstVectors)
+        return arrPrimitiveVectors
 
-
-
+def PrimitiveToOrthogonalVectors(inPrimitiveVectors, inAxis): #trys to find orthogonal vectors from primitive vectors
+        lstAllVectors = [] 
+        arrAllVectors = np.copy(inPrimitiveVectors)       
+        for a in inPrimitiveVectors:
+                lstAllVectors.append(arrAllVectors + a)
+                lstAllVectors.append(arrAllVectors -a)
+                arrAllVectors = np.vstack(lstAllVectors)
+        arrAllVectors = np.unique(arrAllVectors, axis=0)
+        arrDeleteRows = np.where(np.all(arrAllVectors == np.zeros(3),axis=1))[0]
+        arrPlane = np.delete(arrAllVectors, arrDeleteRows, axis=0)
+        arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(inAxis)))< 1e-5)[0]
+        arrPlane = arrPlane[arrRows]
+        arrReturnVectors = np.zeros([3,3])
+        arrPlaneDistances = np.linalg.norm(arrPlane, axis=1)
+        lstPositions = FindNthSmallestPosition(arrPlaneDistances,0)
+        arrNextVector = arrPlane[lstPositions[0]]
+        arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(arrNextVector)))< 1e-5)[0]
+        if len(arrRows) > 0:
+                arrPlane = arrPlane[arrRows]
+                arrNextDistances = np.linalg.norm(arrPlane, axis=1)
+                lstPositions = FindNthSmallestPosition(arrNextDistances,0)
+                arrLastVector = arrPlane[lstPositions[0]]
+                arrReturnVectors[0] = arrLastVector
+                arrReturnVectors[1] = arrNextVector
+                arrReturnVectors[-1] =  inAxis
+        else:
+                arrReturnVectors[1] = arrNextVector
+                arrReturnVectors[-1] = inAxis
+                blnFound4 = False
+                i = 0
+                while i < len(arrPlaneDistances) and not(blnFound4):
+                        lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,i)
+                        k = 0
+                        while k < len(lstPositions) and not(blnFound4): 
+                                arrReturnVectors[0] = arrPlane[lstPositions[k]]
+                                if np.round(np.linalg.det(arrReturnVectors),10) > 0 and not(blnFound4):
+                                        blnFound4 = True  
+                        i += 1
+        return arrReturnVectors
 
 
 class OLattice(object):

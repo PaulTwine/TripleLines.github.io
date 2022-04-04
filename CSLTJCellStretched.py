@@ -12,7 +12,6 @@ import MiscFunctions
 from mpl_toolkits.mplot3d import Axes3D
 
 
-
 strDirectory = str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
@@ -39,7 +38,7 @@ arrReciprocal =  gf.GetReciprocalVectors(np.round(arrBasis,10))
 
 print(np.matmul(np.round(arrBasis,10),arrReciprocal))
 
-s = np.round(np.sqrt(10**5/(4*intTJSigma)))
+s = np.round(np.sqrt(10**5/(np.linalg.det(arrBasis))))
 
 arrGrainBasis1 = objCSL.GetLatticeBasis(1)
 arrGrainBasis2 = objCSL.GetLatticeBasis(0)
