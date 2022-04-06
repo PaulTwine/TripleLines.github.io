@@ -1235,44 +1235,6 @@ class SigmaCell(object):
             arrAllVectors = arrPrimitiveVectors
             self.__CSLPrimitiveVectors = arrPrimitiveVectors
             self.__CSLPrimitiveInverse = np.linalg.inv(arrPrimitiveVectors)
-            # lstAllVectors = []
-            # for a in arrPrimitiveVectors:
-            #     lstAllVectors.append(arrAllVectors + a)
-            #     lstAllVectors.append(arrAllVectors -a)
-            #     arrAllVectors = np.vstack(lstAllVectors)
-            # arrAllVectors = np.unique(arrAllVectors, axis=0)
-            # arrDeleteRows = np.where(np.all(arrAllVectors == np.zeros(3),axis=1))[0]
-            # arrPlane = np.delete(arrAllVectors, arrDeleteRows, axis=0)
-            # arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(self.__RotationAxis)))< 1e-5)[0]
-            # arrPlane = arrPlane[arrRows]
-            # if self.__CheckIsCSLVectors(self.__RotationAxis):
-            #     arrReturnVectors = np.zeros([3,3])
-            #     arrPlaneDistances = np.linalg.norm(arrPlane, axis=1)
-            #     lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,0)
-            #     arrNextVector = arrPlane[lstPositions[0]]
-            #     arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(arrNextVector)))< 1e-5)[0]
-            #     if len(arrRows) > 0:
-            #         arrPlane = arrPlane[arrRows]
-            #         arrNextDistances = np.linalg.norm(arrPlane, axis=1)
-            #         lstPositions = gf.FindNthSmallestPosition(arrNextDistances,0)
-            #         arrLastVector = arrPlane[lstPositions[0]]
-            #         arrReturnVectors[0] = arrLastVector
-            #         arrReturnVectors[1] = arrNextVector
-            #         arrReturnVectors[-1] =  self.__RotationAxis
-            #     else:
-            #         arrReturnVectors[1] = arrNextVector
-            #         arrReturnVectors[-1] = self.__RotationAxis
-            #         blnFound4 = False
-            #         i = 0
-            #         while i < len(arrPlaneDistances) and not(blnFound4):
-            #             lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,i)
-            #             k = 0
-            #             while k < len(lstPositions) and not(blnFound4): 
-            #                 arrReturnVectors[0] = arrPlane[lstPositions[k]]
-            #                 if np.round(np.linalg.det(arrReturnVectors),10) > 0 and not(blnFound4):
-            #                     blnFound4 = True  
-            #                 k += 1
-            #             i += 1
             arrReturnVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)    
             if blnUnitCell:
                 for k in range(len(arrReturnVectors)):

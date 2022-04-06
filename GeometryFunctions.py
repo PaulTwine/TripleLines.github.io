@@ -839,33 +839,40 @@ def PrimitiveToOrthogonalVectors(inPrimitiveVectors, inAxis): #trys to find orth
         arrPlane = np.delete(arrAllVectors, arrDeleteRows, axis=0)
         arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(inAxis)))< 1e-5)[0]
         arrPlane = arrPlane[arrRows]
+        lstPlaneVectors = []
+        arrAllPlane = np.copy(arrPlane)
+        for b in arrPlane:
+                lstPlaneVectors.append(arrAllPlane + b)
+                lstPlaneVectors.append(arrAllPlane -b)
+                arrAllPlane = np.vstack(lstPlaneVectors)
+        arrAllPlane = np.unique(arrAllPlane, axis=0)
+        arrDeleteRows = np.where(np.all(arrAllPlane == np.zeros(3),axis=1))[0]
+        arrAllPlane = np.delete(arrAllPlane, arrDeleteRows, axis=0)
+        arrRows, arrCols = np.where(np.abs(np.matmul(arrAllPlane,np.transpose(arrAllPlane))) < 1e-5)
         arrReturnVectors = np.zeros([3,3])
-        arrPlaneDistances = np.linalg.norm(arrPlane, axis=1)
-        lstPositions = FindNthSmallestPosition(arrPlaneDistances,0)
-        arrNextVector = arrPlane[lstPositions[0]]
-        arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(arrNextVector)))< 1e-5)[0]
-        if len(arrRows) > 0:
-                arrPlane = arrPlane[arrRows]
-                arrNextDistances = np.linalg.norm(arrPlane, axis=1)
-                lstPositions = FindNthSmallestPosition(arrNextDistances,0)
-                arrLastVector = arrPlane[lstPositions[0]]
-                arrReturnVectors[0] = arrLastVector
-                arrReturnVectors[1] = arrNextVector
-                arrReturnVectors[-1] =  inAxis
+        if len(arrRows) > 1:
+                arrRowVectors = arrAllPlane[arrRows]
+                arrRowDistances = np.linalg.norm(arrRowVectors, axis=1)
+                intPosition = FindNthSmallestPosition(arrRowDistances,0)[0]
+                arrRowVector = arrRowVectors[intPosition]
+                arrColPositions = np.where(arrRows == arrRows[intPosition])[0]
+                arrColVectors = arrAllPlane[arrCols[arrColPositions]]
+                arrColDistances = np.linalg.norm(arrColVectors, axis=1)
+                arrColVector = arrColVectors[np.argmin(arrColDistances)]
+                arrReturnVectors[1] = arrRowVector
+                arrReturnVectors[0] = arrColVector
+                arrReturnVectors[2] = inAxis
         else:
-                arrReturnVectors[1] = arrNextVector
-                arrReturnVectors[-1] = inAxis
-                blnFound4 = False
-                i = 0
-                while i < len(arrPlaneDistances) and not(blnFound4):
-                        lstPositions = FindNthSmallestPosition(arrPlaneDistances,i)
-                        k = 0
-                        while k < len(lstPositions) and not(blnFound4): 
-                                arrReturnVectors[0] = arrPlane[lstPositions[k]]
-                                if np.round(np.linalg.det(arrReturnVectors),10) > 0 and not(blnFound4):
-                                        blnFound4 = True 
-                                k +=1 
-                        i += 1
+                arrPlaneDistances = np.linalg.norm(arrAllPlane, axis=1)
+                lstPositions = FindNthSmallestPosition(arrPlaneDistances)
+                if len(lstPositions) > 1:
+                        arrReturnVectors[1] = arrAllPlane[lstPositions[0]]
+                        arrReturnVectors[0] = arrAllPlane[lstPositions[1]]
+                        arrReturnVectors[2] = inAxis
+                else:
+                        arrReturnVectors[1] = arrAllPlane[lstPositions[0]]
+                        arrReturnVectors[0] = arrAllPlane[FindNthSmallestPosition(arrPlaneDistances,1)]
+                        arrReturnVectors[2] = inAxis
         return arrReturnVectors
 
 
