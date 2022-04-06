@@ -858,12 +858,13 @@ def PrimitiveToOrthogonalVectors(inPrimitiveVectors, inAxis): #trys to find orth
                 blnFound4 = False
                 i = 0
                 while i < len(arrPlaneDistances) and not(blnFound4):
-                        lstPositions = gf.FindNthSmallestPosition(arrPlaneDistances,i)
+                        lstPositions = FindNthSmallestPosition(arrPlaneDistances,i)
                         k = 0
                         while k < len(lstPositions) and not(blnFound4): 
                                 arrReturnVectors[0] = arrPlane[lstPositions[k]]
                                 if np.round(np.linalg.det(arrReturnVectors),10) > 0 and not(blnFound4):
-                                        blnFound4 = True  
+                                        blnFound4 = True 
+                                k +=1 
                         i += 1
         return arrReturnVectors
 

@@ -46,17 +46,17 @@ def FindTotalGBArea(intSigma: int, strAxis: str):
     arrSigmaBasis = objSigma.GetBasisVectors()
     s0 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
     s1 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
-    s2 = np.linalg.norm(arrSigmaBasis, axis=1)[2]    
+    s2 = np.linalg.norm(arrSigmaBasis, axis=1)[2] 
     intHeight = 4
-    intAtoms = 1*10**5
-    intAtomsPerCell = 4 
+    intAtoms = 1.5*10**5
+    intAtomsPerCell = 4
     a = 4.05 ##lattice parameter
     h = a*np.round(intHeight/s2,0)
-    i = np.sqrt((intAtoms/intAtomsPerCell)*a/(28*10*h*s0*s1))
-    i = np.round(i,0).astype('int')
+    i = np.sqrt(intAtoms*a/(32*12*intAtomsPerCell*h*np.linalg.det(arrSigmaBasis)))
+    i = np.round(i,0).astype('int')   
     r = 2*a*s1*i
-    w = 28*a*i
-    l = 10*a*i
+    w = 32*a*i
+    l = 12*a*i
     return 2*l*h, 4*r*np.pi*h
 def SECalculation(inArray: np.array):
     fltLength = inArray[0,-1]
@@ -65,6 +65,12 @@ def SECalculation(inArray: np.array):
     arrStrainDifference = inArray[:,5]-inArray[:,4] +(inArray[:,8]-inArray[:,9])*arrTJMean
     return arrStrainDifference/fltLength
 
+
+strCSLAxis = 'CSL grain boundary excess energy \n per unit area in eV $\AA^{-2}$'
+strSigmaAxis = 'CSL grain boundary $\Sigma$ value' 
+strTJAxis  =  'Mean triple line formation energy \n per unit length in eV $\AA^{-1}$'
+strMeanTJAxis = 'Mean of the mean triple line formation energies \n per unit length  in eV $\AA^{-1}$'
+strGBAxis = 'Non-weighted mean grain boundary excess energy \n per unit area in eV $\AA^{-2}$ in $S_{\mathrm{GB}}$'
 
 lstAxes = ['Axis001', 'Axis101','Axis111']
 
@@ -109,9 +115,9 @@ for strAxis in lstAxes:
         if len(arrUnique) > 1:
             while i < len(arrUnique):
                 blnRemove = False
-                f = 1
+                f = 1.00
                 if i == 0:
-                    if arrUnique[i] > arrUnique[1]:
+                    if arrUnique[i] > f*arrUnique[1]:
                         blnRemove= True
                 elif i == len(arrUnique) -1: 
                     if arrUnique[i] > f*arrUnique[i-1]:
@@ -139,6 +145,8 @@ for strAxis in lstAxes:
             lstMetaGrouped.append(lstIndices)
         arrTJValues = np.loadtxt(strTJDir + strAxis +'/'  + strTJSigma +'Values.txt')
         strDMINKey = strAxis + ',' + str(intSigma)
+       # if strDMINKey == 'Axis101,27':
+       #     lstMetaGrouped = [[5]]
         dctDMIN[strDMINKey] = lstMetaGrouped
         for k in range(len(lstMetaGrouped)):
             if k ==2:
@@ -148,7 +156,6 @@ for strAxis in lstAxes:
             arrRows = np.isin(arrTJValues[:,1], lstMetaGrouped[k])
             intLength = len(np.where(arrRows)[0])
             dctAllTJ[strKey] =  TJCalculation(arrTJValues[arrRows],False)/4
-            #dctCSLGB[strKey] = arrCSLGBExcessPerArea[np.array(lstMetaGrouped[k])][0]*np.ones(intLength)
             dctCSLGB[strKey] = FindCSLExcess(arrValues[arrRows])
             dctAllGB[strKey] = GBCalculation(arrTJValues[arrRows],arrValues[arrRows], intSigma, strAxis)
             dctDMIN[strKey] = lstMetaGrouped[k]
@@ -191,8 +198,8 @@ for i in range(3):
         lstLegend.extend([r'First $d_{\mathrm{min}}$'])
 #plt.legend([r'First $d_{\mathrm{min}}$',r'Middle $d_{\mathrm{min}}$',r'Last $d_{\mathrm{min}}$'])
 plt.legend(lstLegend)
-plt.ylabel('CSL grain boundary excess energy per unit area in eV $\AA^{-2}$')
-plt.xlabel('CSL grain boundary $\Sigma$ value')
+plt.ylabel(strCSLAxis)
+plt.xlabel(strSigmaAxis)
 plt.xticks(list(range(3,31,2)))
 plt.tight_layout()
 plt.show()
@@ -266,14 +273,17 @@ def ShiftValuesOfList(lstOfArrays: np.array, d: float):
 
 
 
-lstMod = ['Axis001,13,1','Axis001,25,1','Axis001,29,1','Axis101,27,1','Axis111,7,2','Axis111,21,1']
+#lstMod = ['Axis001,13,1','Axis001,25,1','Axis001,25,2','Axis001,29,1','Axis111,7,2','Axis111,21,1']
+lstMod = ['Axis001,13,1','Axis001,25,1','Axis001,29,1','Axis111,7,2','Axis111,21,1']
 #comment this section out for original values
 for k in lstMod:
     dctAllTJ.pop(k)
     dctCSLGB.pop(k)
     dctDMIN.pop(k)
     dctAllGB.pop(k)
-lstAxis101 = [3,9,11,17]
+#lstAxis001 = [5,13,17,29]
+#lstAxis101 = [3,9,11,17,27]
+#lstAxis111 = [3,7,13,19,21]
 ##############################################
 
 
@@ -298,8 +308,8 @@ elif len(lstSigma001L)>0:
     plt.legend([r'First $d_{\mathrm{min}}$',r'Last $d_{\mathrm{min}}$'])
 else:
     plt.legend([r'First $d_{\mathrm{min}}$'])
-plt.ylabel('Mean triple line formation energy per unit length in eV $\AA^{-1}$')
-plt.xlabel('CSL grain boundary $\Sigma$ value')
+plt.ylabel(strTJAxis)
+plt.xlabel(strSigmaAxis)
 plt.xticks(list(range(3,31,2)))
 
 plt.tight_layout()
@@ -319,8 +329,8 @@ elif len(lstAllGBL) > 0:
     plt.legend([r'First $d_{\mathrm{min}}$',r'Last $d_{\mathrm{min}}$'])
 else:
     plt.legend([r'First $d_{\mathrm{min}}$'])
-plt.xlabel('CSL grain boundary excess energy per unit area in eV $\AA^{-2}$ in $S_{\mathrm{GB}}$')
-plt.ylabel('Mean triple line formation energy per unit length in eV $\AA^{-1}$')
+plt.xlabel(strCSLAxis)
+plt.ylabel(strTJAxis)
 plt.tight_layout()
 plt.show()
 
@@ -338,8 +348,8 @@ elif len(lstAllGBL) > 0:
     plt.legend([r'First $d_{\mathrm{min}}$',r'Last $d_{\mathrm{min}}$'])
 else:
     plt.legend([r'First $d_{\mathrm{min}}$'])
-plt.xlabel('Total grain boundary excess energy per unit area in eV $\AA^{-2}$ in $S_{\mathrm{GB}}$')
-plt.ylabel('Mean triple line formation energy per unit length in eV $\AA^{-1}$')
+plt.xlabel(strGBAxis)
+plt.ylabel(strTJAxis)
 plt.tight_layout()
 plt.show()
 
@@ -356,9 +366,13 @@ lstAllGBValues.append(lstAllGBL)
 lstAllTJValues = np.concatenate(lstAllTJValues,axis=0)
 lstAllGBValues = np.concatenate(lstAllGBValues,axis=0)
 plt.scatter(lstAllGBValues,lstAllTJValues)
+plt.tight_layout()
 plt.show()
-print(np.corrcoef(lstAllGBValues,lstAllTJValues))
+print(stats.pearsonr(lstAllGBValues,lstAllTJValues))
+print(stats.spearmanr(lstAllGBValues,lstAllTJValues))
 plt.hist(lstAllTJValues, bins =20)
+plt.show()
+plt.scatter(lstAllGBValues,lstAllTJValues)
 plt.show()
 
 
@@ -374,22 +388,37 @@ arr111TJ = np.concatenate(lst111TJ,axis=0)
 
 print(np.mean(arr100TJ),np.std(arr100TJ),np.mean(arr101TJ),np.std(arr101TJ),np.mean(arr111TJ),np.std(arr111TJ))
 
-lstAll = []
-lstAll.extend(lst100TJ)
-lstAll.extend(lst101TJ)
-lstAll.extend(lst111TJ)
+lstAllTJ = []
+lstAllTJ.extend(lst100TJ)
+lstAllTJ.extend(lst101TJ)
+lstAllTJ.extend(lst111TJ)
 
-arrAll = np.concatenate(lstAll, axis=0)
+lstAllGB = []
+lstAllGB.extend(lst100GB)
+lstAllGB.extend(lst101GB)
+lstAllGB.extend(lst111GB)
 
-print(np.mean(arrAll),np.std(arrAll), len(arrAll), len(arrAll[arrAll < 0])/len(arrAll))
+arrAllTJ = np.concatenate(lstAllTJ, axis=0)
+arrAllGB = np.concatenate(lstAllGB, axis=0)
+
+plt.scatter(arrAllGB,arrAllTJ)
+plt.xlabel(strGBAxis)
+plt.ylabel(strTJAxis)
+plt.tight_layout()
+plt.show()
+print("all data",stats.pearsonr(arrAllGB,arrAllTJ))
+
+
+
+print(np.mean(arrAllTJ),np.std(arrAllTJ), len(arrAllTJ), len(arrAllTJ[arrAllTJ < 0])/len(arrAllTJ))
 
 
 plt.scatter(lstAxis001,MapMeanAcrossList(lst100TJ),marker='o',c='black')
 plt.scatter(lstAxis101, MapMeanAcrossList(lst101TJ),marker='v',c='blue')
 plt.scatter(lstAxis111,MapMeanAcrossList(lst111TJ),marker='s',c='purple')
-plt.xlabel('CSL grain boundary $\Sigma$ value')
+plt.xlabel(strSigmaAxis)
 plt.xticks(list(range(3,31,2)))
-plt.ylabel('Mean triple line formation energy per unit length in eV $\AA^{-1}$')
+plt.ylabel(strMeanTJAxis)
 plt.legend(['Axis 001', 'Axis 101', 'Axis 111'])
 plt.tight_layout()
 plt.show()
@@ -400,8 +429,8 @@ plt.show()
 plt.scatter(MapMeanAcrossList(lst100GB),MapMeanAcrossList(lst100TJ),marker='o',c='black')
 plt.scatter(MapMeanAcrossList(lst101GB),MapMeanAcrossList(lst101TJ),marker='v',c='blue')
 plt.scatter(MapMeanAcrossList(lst111GB),MapMeanAcrossList(lst111TJ),marker='s',c='purple')
-plt.xlabel('Total grain boundary excess energy per unit area in eV $\AA^{-2}$ in $S_{\mathrm{GB}}$')
-plt.ylabel('Mean triple line formation energy per unit length in eV $\AA^{-1}$')
+plt.xlabel(strGBAxis)
+plt.ylabel(strMeanTJAxis)
 plt.legend(['Axis 001', 'Axis 101', 'Axis 111'])
 plt.tight_layout()
 plt.show()
@@ -418,6 +447,8 @@ lstTJs.extend(MapMeanAcrossList(lst101TJ))
 lstTJs.extend(MapMeanAcrossList(lst111TJ))
 
 print(stats.pearsonr(lstGBs,lstTJs))#,nan_policy ='omit'))
+plt.scatter(lstGBs,lstTJs)
+plt.show()
 # print(stats.pearsonr(np.concatenate(lst100GB,axis=0),np.concatenate(lst100TJ,axis=0)))#,nan_policy ='omit'))
 # print(stats.pearsonr(np.concatenate(lst101GB,axis=0),np.concatenate(lst101TJ,axis=0)))#,nan_policy ='omit'))
 # print(stats.pearsonr(np.concatenate(lst111GB,axis=0),np.concatenate(lst111TJ,axis=0)))#,nan_policy ='omit'))
@@ -435,25 +466,27 @@ lstCSLExcess111 = AppendDictionaryValuesBySigmaValues(dctCSLGB, lstAxis111, 'Axi
 plt.scatter(MapMeanAcrossList(lstCSLExcess100),MapMeanAcrossList(lst100TJ),marker='o',c='black')
 plt.scatter(MapMeanAcrossList(lstCSLExcess101),MapMeanAcrossList(lst101TJ),marker='v',c='blue')
 plt.scatter(MapMeanAcrossList(lstCSLExcess111),MapMeanAcrossList(lst111TJ),marker='s',c='purple')
-plt.xlabel('CSL grain boundary excess energy per unit area in eV $\AA^{-2}$ in $S_{\mathrm{GB}}$')
-plt.ylabel('Mean triple line formation energy per unit length in eV $\AA^{-1}$')
+plt.xlabel(strCSLAxis)
+plt.ylabel(strMeanTJAxis)
 plt.legend(['Axis 001', 'Axis 101', 'Axis 111'])
 plt.tight_layout()
 plt.show()
-plt.show()
+
 
 plt.scatter(np.concatenate(lstCSLExcess100,axis=0),np.concatenate(lst100GB,axis=0),marker='o',c='black')
 plt.scatter(np.concatenate(lstCSLExcess101,axis=0),np.concatenate(lst101GB,axis=0),marker='v',c='blue')
 plt.scatter(np.concatenate(lstCSLExcess111,axis=0),np.concatenate(lst111GB,axis=0),marker='s',c='purple')
-plt.xlabel('CSL grain boundary excess energy per unit area in eV $\AA^{-2}$')
-plt.ylabel('Total grain boundary excess energy per unit area in eV $\AA^{-2}$ in $S_{\mathrm{GB}}$')
+plt.xlabel(strCSLAxis)
+plt.ylabel(strGBAxis)
 plt.legend(['Axis 001', 'Axis 101', 'Axis 111'])
+plt.tight_layout()
 plt.show()
 
 
-plt.hist(arrAll, bins=25, density = True)
-plt.xlabel('Mean triple line formation energy per unit length in eV $\AA^{-1}$')
+plt.hist(arrAllTJ, bins=25, density = True)
+plt.xlabel(strTJAxis)
 plt.ylabel('Proportion')
+plt.tight_layout()
 plt.show()
 
 
