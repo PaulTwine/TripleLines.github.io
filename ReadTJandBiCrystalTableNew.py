@@ -14,7 +14,7 @@ import re
 import sys 
 import matplotlib.lines as mlines
 
-
+blnMod = True
 
 ## Assumes columns are 2: GBPE, 3: TJPE, 4: GB Lattice Atoms PE 5: TJLattice Atoms, 6: Number of GB atoms, 7 Number of TJ atoms, -1 is TJ Length
 def TJCalculation(inArray: np.array,blnLocalOnly = False):
@@ -145,8 +145,12 @@ for strAxis in lstAxes:
             lstMetaGrouped.append(lstIndices)
         arrTJValues = np.loadtxt(strTJDir + strAxis +'/'  + strTJSigma +'Values.txt')
         strDMINKey = strAxis + ',' + str(intSigma)
-       # if strDMINKey == 'Axis101,27':
-       #     lstMetaGrouped = [[5]]
+        if strDMINKey == 'Axis101,27' and blnMod:
+            lstMetaGrouped = [[6,7,8,9]]
+        if strDMINKey == 'Axis101,17' and blnMod:
+            lstMetaGrouped = [[7,8,9]]
+
+
         dctDMIN[strDMINKey] = lstMetaGrouped
         for k in range(len(lstMetaGrouped)):
             if k ==2:
@@ -276,18 +280,20 @@ def ShiftValuesOfList(lstOfArrays: np.array, d: float):
 #lstMod = ['Axis001,13,1','Axis001,25,1','Axis001,25,2','Axis001,29,1','Axis111,7,2','Axis111,21,1']
 lstMod = ['Axis001,13,1','Axis001,25,1','Axis001,29,1','Axis111,7,2','Axis111,21,1']
 #comment this section out for original values
-for k in lstMod:
-    dctAllTJ.pop(k)
-    dctCSLGB.pop(k)
-    dctDMIN.pop(k)
-    dctAllGB.pop(k)
+if blnMod:
+    #lstAxis101 = [3,9,11,27]
+    for k in lstMod:
+        dctAllTJ.pop(k)
+        dctCSLGB.pop(k)
+        dctDMIN.pop(k)
+        dctAllGB.pop(k)
 #lstAxis001 = [5,13,17,29]
-#lstAxis101 = [3,9,11,17,27]
+
 #lstAxis111 = [3,7,13,19,21]
 ##############################################
 
 
-intP = 2
+intP = 1
 strAxis = lstAxes[intP]
 strMarker = lstMarkers[intP]
 lstColours = ['red','orange','green']

@@ -1204,7 +1204,7 @@ class SigmaCell(object):
         return self.__RotationAxis
     def GetSigmaValues(self, intSigmaMax, blnDisorientation = True):
         return  gf.CubicCSLGenerator(self.__RotationAxis, intSigmaMax,blnDisorientation)
-    def MakeCSLCell(self, intSigmaValue: int, arrHorizontalVector = np.array([1,0,0]), blnUnitCell = True):
+    def MakeCSLCell(self, intSigmaValue: int, blnUnitCell = True):
         blnValidSigma = True
         arrSigma = self.GetSigmaValues(25, True)
         arrRows = np.where(arrSigma[:,0].astype('int') == intSigmaValue)
@@ -1232,16 +1232,18 @@ class SigmaCell(object):
             arrCSLPoints = arrPoints1[arrIndicesOne]
             self.__CSLPoints = arrCSLPoints
             arrPrimitiveVectors = gf.FindPrimitiveVectors(arrCSLPoints)
-            arrAllVectors = arrPrimitiveVectors
             self.__CSLPrimitiveVectors = arrPrimitiveVectors
-            self.__CSLPrimitiveInverse = np.linalg.inv(arrPrimitiveVectors)
-            arrReturnVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)    
+            self.__CSLPrimitiveInverse = np.linalg.inv(arrPrimitiveVectors)    
             if blnUnitCell:
-                for k in range(len(arrReturnVectors)):
-                    if arrReturnVectors[k,k] < 0:
-                        arrReturnVectors[k] = - arrReturnVectors[k]
+                arrReturnVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)
+                # for k in range(len(arrReturnVectors)):
+                #    if arrReturnVectors[k,k] < 0:
+                #        arrReturnVectors[k] = - arrReturnVectors[k]
                 arrReturnVectors, arrTransformation = gf.ConvertToLAMMPSBasis(arrReturnVectors)
             else: 
+                # for k in range(len(arrPrimitiveVectors)):
+                #    if arrPrimitiveVectors[k,k] < 0:
+                #        arrPrimitiveVectors[k] = - arrPrimitiveVectors[k]
                 arrReturnVectors, arrTransformation = gf.ConvertToLAMMPSBasis(arrPrimitiveVectors)
 
             self.__BasisVectors = np.round(arrReturnVectors,10)
