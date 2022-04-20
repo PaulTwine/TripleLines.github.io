@@ -25,8 +25,6 @@ arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIncrements = 10
 fltTolerance = 0.1
 a = 4.05
-#lstOldTemplate = ['read.dat','read.dmp','read.lst', 'logfile']
-#strTemplateName = 'TemplateMob.in'
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
@@ -58,7 +56,6 @@ objSimulationCell = gl.SimulationCell(arrFullBox)
 arrBaseVectors2 = np.array([0.5*arrHorizontalBox[0]+0.5*arrHorizontalBox[1],arrHorizontalBox[1],-0.5*arrHorizontalBox[0],-1.5*arrHorizontalBox[1]])
 arrBaseVectors3 = np.array([0.5*arrHorizontalBox[0]-0.5*arrHorizontalBox[1],1.5*arrHorizontalBox[1],-0.5*arrHorizontalBox[0],-arrHorizontalBox[1]])
 
-
 strPlane1 = gf.ParsePlane(-np.cross(arrHorizontalBox[0]-arrHorizontalBox[1],arrHorizontalBox[2]),arrHorizontalBox[1])
 strPlane2 = gf.ParsePlane(-np.cross(arrHorizontalBox[0]+arrHorizontalBox[1],arrHorizontalBox[2]),+arrHorizontalBox[0] + arrHorizontalBox[1])
 strDomain = gf.ParsePlane(-np.cross(arrHorizontalBox[1],arrHorizontalBox[2]),0.5*arrHorizontalBox[0])
@@ -78,5 +75,5 @@ objSimulationCell.AddGrain(arrGrain3)
 
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename + '.dat')
-MiscFunctions.WriteAnnealTemplate(strDirectory,strFilename + '.in', intTemp)
+MiscFunctions.WriteAnnealTemplate(strDirectory,strFilename, intTemp)
 

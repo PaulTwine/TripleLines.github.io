@@ -54,6 +54,6 @@ def WriteAnnealTemplate(strDirectory: str, strFilename: str, intTemp: int):
     strLAMMPS += 'dump 3 all custom 100 ' + str2MinDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
     strLAMMPS += 'minimize 0.0 1.0e-6 10000 20000\n'
     strLAMMPS += 'write_dump all custom ' + strLastFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
-    fIn = open(strDirectory + strFilename, 'wt')
+    fIn = open(strDirectory + strFilename + '.in', 'wt')
     fIn.write(strLAMMPS)
     fIn.close()

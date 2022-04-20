@@ -667,14 +667,14 @@ def CubicQuaternions():
         return arrValues[arrRows]
 
 def FindReciprocalVectors(inRealVectors: np.array): 
-        V = np.linalg.det(inRealVectors)
-        #rtnMatrix= np.matmul(np.transpose(inRealVectors),np.linalg.inv(np.matmul(inRealVectors,np.transpose(inRealVectors))))
-        #return rtnMatrix
-        lstVectors = []
-        for k in range(len(inRealVectors)):
-                intFirst = np.mod(k+1,3)
-                intSecond = np.mod(k+2,3)
-                lstVectors.append(np.cross(inRealVectors[intFirst],inRealVectors[intSecond])/V)
+        # V = np.linalg.det(inRealVectors)
+        # #rtnMatrix= np.matmul(np.transpose(inRealVectors),np.linalg.inv(np.matmul(inRealVectors,np.transpose(inRealVectors))))
+        # #return rtnMatrix
+        # lstVectors = []
+        # for k in range(len(inRealVectors)):
+        #         intFirst = np.mod(k+1,3)
+        #         intSecond = np.mod(k+2,3)
+        #         lstVectors.append(np.cross(inRealVectors[intFirst],inRealVectors[intSecond])/V)
         return np.linalg.inv(np.transpose(inRealVectors))
 
 def FindDuplicates(inPoints, inCellVectors, fltDistance, lstBoundaryType = ['p','p','p']):
