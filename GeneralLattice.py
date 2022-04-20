@@ -1,4 +1,5 @@
 from cmath import pi
+#from socket import EAI_PROTOCOL
 #from statistics import Normal
 import numpy as np
 import GeometryFunctions as gf
@@ -114,8 +115,12 @@ class RealCell(PureCell):
         return np.abs(np.dot(self.__RealCellVectors[0], np.cross(self.__RealCellVectors[1],self.__RealCellVectors[2])))    
     def GetQuaternion(self):
         return gf.GetQuaternionFromBasisMatrix(self.__CellVectors)
-
-
+    def GetPrimitiveVectors(self):
+        arrReturn = gf.FindPrimitiveVectors(self.__RealNodes)
+        for k in range(len(arrReturn)):
+            if arrReturn[k,k] < 0:
+                arrReturn[k] = -arrReturn[k]
+        return arrReturn
 class PureLattice(PureCell):
     def __init__(self,inCellNodes):
         PureCell.__init__(self, inCellNodes)
@@ -1236,16 +1241,9 @@ class SigmaCell(object):
             self.__CSLPrimitiveInverse = np.linalg.inv(arrPrimitiveVectors)    
             if blnUnitCell:
                 arrReturnVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)
-                # for k in range(len(arrReturnVectors)):
-                #    if arrReturnVectors[k,k] < 0:
-                #        arrReturnVectors[k] = - arrReturnVectors[k]
                 arrReturnVectors, arrTransformation = gf.ConvertToLAMMPSBasis(arrReturnVectors)
             else: 
-                # for k in range(len(arrPrimitiveVectors)):
-                #    if arrPrimitiveVectors[k,k] < 0:
-                #        arrPrimitiveVectors[k] = - arrPrimitiveVectors[k]
                 arrReturnVectors, arrTransformation = gf.ConvertToLAMMPSBasis(arrPrimitiveVectors)
-
             self.__BasisVectors = np.round(arrReturnVectors,10)
             self.__TransformationMatrix = arrTransformation
             lstLatticeBasis = []
@@ -1287,7 +1285,11 @@ class CSLTripleLine(object):
             self.__CellHeight = np.linalg.norm(self.__RotationAxis)
         self.__CellType = inCellNodes
         self.__CSLBasisVectors = []
+        self.__CSLPrimitiveVectors = []
         self.__TripleValues = []
+        self.__CurrentTJSigmaValue = []
+        self.__OriginalBases = []
+        self.__DSCBasisVectors = []
     def FindTripleLineSigmaValues(self,  intSigmaMax: int, intIterations = 50):
         arrSigma = gf.CubicCSLGenerator(self.__RotationAxis,intIterations)
         arrSigmaValues = arrSigma[:,0].astype('int')
@@ -1324,17 +1326,10 @@ class CSLTripleLine(object):
         #intSigma = np.sqrt(arrSigmaArray[2,0]**2*intGCD)
         intSigma = np.sqrt(np.product(arrSigmaArray[:,0]))
         return intSigma
-    def GetTJBasisVectors(self, intTJSigmaValueIndex: int, blnUnitCell = False):
-        arrTripleValues = self.__TripleValues[intTJSigmaValueIndex]
-        arrBasisVectors = gf.StandardBasisVectors(3)
-        flth = 2*np.linalg.norm(self.__RotationAxis) 
-        l = self.__TJSigmaValues[intTJSigmaValueIndex]
-        arrBasis1 = arrBasisVectors
-        arrBasis2 = gf.RotateVectors(arrTripleValues[0,1],self.__RotationAxis,arrBasisVectors)
-        arrBasis3 = gf.RotateVectors(arrTripleValues[0,1] + arrTripleValues[1,1],self.__RotationAxis,arrBasisVectors)
-        objFirstLattice = ExtrudedRectangle(l,l,l,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
-        objSecondLattice = ExtrudedRectangle(l,l,l,arrBasis2, self.__CellType, np.ones(3),np.zeros(3))
-        objThirdLattice = ExtrudedRectangle(l,l,l,arrBasis3, self.__CellType, np.ones(3),np.zeros(3))
+    def FindCoincidentLattice(self, lstThreeBases: list, fltL: float):
+        objFirstLattice = ExtrudedRectangle(fltL,fltL,fltL,lstThreeBases[0], self.__CellType, np.ones(3),np.zeros(3))
+        objSecondLattice = ExtrudedRectangle(fltL,fltL,fltL,lstThreeBases[1], self.__CellType, np.ones(3),np.zeros(3))
+        objThirdLattice = ExtrudedRectangle(fltL,fltL,fltL,lstThreeBases[2], self.__CellType, np.ones(3),np.zeros(3))
         arrPoints1 = objFirstLattice.GetRealPoints()
         arrPoints2 = objSecondLattice.GetRealPoints()
         arrPoints3 = objThirdLattice.GetRealPoints()
@@ -1349,49 +1344,26 @@ class CSLTripleLine(object):
         arrCloseTwo = np.where(arrDistancesTwo< 1e-5)[0]
         arrCloseAll = arrOneAndTwo[arrIndicesTwo[arrCloseTwo]]
         arrPrimitiveVectors = gf.FindPrimitiveVectors(arrCloseAll)
-        # arrMean = np.mean(arrCloseAll,axis=0)
-        # arrDistances = np.linalg.norm(arrCloseAll-arrMean, axis=1)
-        # arrMediod = arrCloseAll[np.argmin(arrDistances)]
-        # arrCentredPoints = arrCloseAll - arrMediod 
-        # arrDistances = np.linalg.norm(arrCentredPoints, axis=1)
-        # #arrVector1 = self.__RotationAxis
-        # arrVector1 = arrCentredPoints[gf.FindNthSmallestPosition(arrDistances,1)[0]]
-        # i = 2
-        # blnFoundVector2 = False
-    #     while i < len(arrCentredPoints)  and not(blnFoundVector2):
-    #         lstPositions = gf.FindNthSmallestPosition(arrDistances, i)
-    #         k = 0
-    #         while k < len(lstPositions) and not(blnFoundVector2):
-    #             arrVector2 = arrCentredPoints[lstPositions[k]] 
-    #             if np.all(np.abs(np.cross(arrVector1,arrVector2)) <1e-5):
-    #                 k +=1
-    #             elif np.all(np.mod(arrVector2, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
-    #                 blnFoundVector2 = True
-    #             else:
-    #                 k +=1
-    #         i +=1
-    #     j = i
-    #     blnFoundVector3 = False
-    #     while j < len(arrCentredPoints)  and not(blnFoundVector3):
-    #         lstPositions = gf.FindNthSmallestPosition(arrDistances, j)
-    #         k = 0
-    #         while k < len(lstPositions) and not(blnFoundVector3):
-    #             arrVector3 = arrCentredPoints[lstPositions[k]] 
-    #             if abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) <1e-5:
-    #                 k +=1
-    #             elif np.all(np.mod(arrVector3, np.ones(3))==np.zeros(3)) or not(blnUnitCell):
-    #                 blnFoundVector3 = True
-    #             else:
-    #                 k +=1
-    #         j +=1
-    #     lstVectors= [arrVector2,arrVector3, arrVector1]
-    #     arrVectors = np.vstack(lstVectors)
-    #    # arrVectors[:2,:] = arrVectors[:2,:][np.argsort(np.abs(arrVectors[:,0]))]
-        arrVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)
-        for k in range(len(arrVectors)):
-            if arrVectors[k,k] < 0:
-                arrVectors[k] = -arrVectors[k]    
-        arrReturn = arrVectors
+        return arrPrimitiveVectors
+    def GetTJBasisVectors(self, intTJSigmaValueIndex: int, blnUnitCell = True):
+        arrTripleValues = self.__TripleValues[intTJSigmaValueIndex]
+        arrBasisVectors = gf.StandardBasisVectors(3)
+        l = self.__TJSigmaValues[intTJSigmaValueIndex]
+        self.__CurrentTJSigmaValue = l
+        arrBasis1 = arrBasisVectors
+        arrBasis2 = gf.RotateVectors(arrTripleValues[0,1],self.__RotationAxis,arrBasisVectors)
+        arrBasis3 = gf.RotateVectors(arrTripleValues[0,1] + arrTripleValues[1,1],self.__RotationAxis,arrBasisVectors)
+        lstOriginalBases = []
+        lstOriginalBases.append(arrBasis1)
+        lstOriginalBases.append(arrBasis2)
+        lstOriginalBases.append(arrBasis3)
+        self.__OriginalBases = lstOriginalBases
+        arrPrimitiveVectors = self.FindCoincidentLattice(lstOriginalBases, l)
+        self.__CSLPrimitiveVectors = arrPrimitiveVectors
+        if blnUnitCell:
+            arrReturn = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)
+        else:
+            arrReturn = arrPrimitiveVectors
         self.__CSLBasisVectors = arrReturn
         arrRealBasis, arrTransformationMatrix  = gf.ConvertToLAMMPSBasis(arrReturn)
         self.__SimulationCellBasis = arrRealBasis
@@ -1400,7 +1372,94 @@ class CSLTripleLine(object):
         lstLatticeBasis.append(np.matmul(arrBasis1,arrTransformationMatrix))
         lstLatticeBasis.append(np.matmul(arrBasis2,arrTransformationMatrix))
         lstLatticeBasis.append(np.matmul(arrBasis3,arrTransformationMatrix))
-        self.__LatticeBases = lstLatticeBasis
+        self.__LatticeBases = lstLatticeBasis    
+    def GetDSCBasisVectors(self):
+        lstDSCBases = list(map(lambda x: gf.FindReciprocalVectors(x), self.__LatticeBases))
+        arrCSL = self.FindCoincidentLattice(lstDSCBases, self.__CurrentTJSigmaValue)
+        arrDSC = gf.FindReciprocalVectors(arrCSL)
+        return arrDSC
+        #return  np.matmul(arrDSC,self.__RotationMatrix)
+        # lstAllPoints = []
+        # l = self.__CurrentTJSigmaValue
+        # arrEdgeVectors = gf.ConvertToLAMMPSBasis(self.__CSLPrimitiveVectors)[0]
+        # for j in self.__OriginalBases:
+        #     objLattice = ParallelopiedGrain(arrEdgeVectors,gf.FindReciprocalVectors(j), self.__CellType, np.ones(3),np.zeros(3))
+        #     lstAllPoints.append(objLattice.GetRealPoints())
+        # arrPoints = np.unique(np.vstack(lstAllPoints),axis=0)
+        # arrDistanceMatrix = np.round(sc.spatial.distance_matrix(arrPoints, arrPoints),5)
+        # arrDistances = np.unique(arrDistanceMatrix)
+        # fltDistance = arrDistances[gf.FindNthSmallestPosition(arrDistances,1)[0]]
+        # arrRows,arrCols = np.where(arrDistanceMatrix ==fltDistance)
+        # lstVectors = []
+        # for i in range(len(arrRows)):
+        #     lstVectors.append(arrPoints[arrRows[i]]-arrPoints[arrCols[i]])
+        # arrVectors = np.unique(np.vstack(lstVectors),axis=0)
+        # objTree = KDTree(arrPoints)
+        # arrDistances, arrIndices = objTree.query(arrPoints, 2)
+        # arrDistances = arrDistances[:,1]
+        # arrSorted = np.argsort(arrDistances)
+        # arrDistances = arrDistances[arrSorted]
+        # arrPoints2 = arrPoints[arrIndices[arrSorted]]
+        # arrReturnVectors = np.zeros([3,3])
+        # i = 0
+        # arrIndices = objTree.query_radius(arrPoints2[i],arrDistances[i])[1]
+        # arrIndices = np.unique(arrIndices)
+        # lstVectors = []
+        # for a in arrPoints2[i]:
+        #     lstVectors.append(arrPoints[arrIndices] - a)
+        # arrVectors = np.vstack(lstVectors)
+        # arrVectors = np.delete(arrVectors, np.where(np.all(arrVectors==np.zeros(3),axis=1))[0],axis=0)
+        # arrVectors = arrVectors[np.argsort(np.linalg.norm(arrVectors, axis=1))]
+        # arrVector1 = arrVectors[0]
+        # arrReturnVectors[0] = arrVector1
+        # blnFound2 = False
+        # if len(arrVectors) > 1:
+        #     k = 0
+        #     while k < len(arrVectors):
+        #         arrVector2 = arrVectors[k]
+        #         if np.any(np.abs(np.cross(arrVector1,arrVector2)) > 1e-5):
+        #             blnFound2 = True
+        #         k +=1
+        # i = 1
+        # while i < len(arrPoints) and not(blnFound2): 
+        #     arrIndices = objTree.query_radius(arrPoints2[i],arrDistances[i])[0]
+        #     arrIndices = np.unique(arrIndices)
+        #     lstVectors = []
+        #     for a in arrPoints2[i]:
+        #         lstVectors.append(arrPoints[arrIndices]-a)   
+        #     arrVectors = np.vstack(lstVectors)
+        #     arrVectors = np.delete(arrVectors, np.where(np.all(arrVectors==np.zeros(3),axis=1))[0],axis=0)
+        #     arrVectors = arrVectors[np.argsort(np.linalg.norm(arrVectors, axis=1))]
+        #     if len(arrVectors) > 0:
+        #         k = 0
+        #         while k < len(arrVectors) and not(blnFound2):
+        #             arrVector2 = arrVectors[k]
+        #             if np.any(np.abs(np.cross(arrVector1,arrVector2)) > 1e-5):
+        #                 blnFound2 = True
+        #             k +=1
+        #     i += 1
+        # blnFound3 = False
+        # while i < len(arrPoints) and not(blnFound3): 
+        #     arrIndices = objTree.query_radius(arrPoints2[i],arrDistances[i])[0]
+        #     arrIndices = np.unique(arrIndices)
+        #     lstVectors = []
+        #     for a in arrPoints2[i]:
+        #         lstVectors.append(arrPoints[arrIndices]-a)   
+        #     arrVectors = np.vstack(lstVectors)
+        #     arrVectors = np.delete(arrVectors, np.where(np.all(arrVectors==np.zeros(3),axis=1))[0],axis=0)
+        #     arrVectors = arrVectors[np.argsort(np.linalg.norm(arrVectors, axis=1))]
+        #     if len(arrVectors) > 0:
+        #         k = 0
+        #         while k < len(arrVectors) and not(blnFound3):
+        #             arrVector3 = arrVectors[k]
+        #             if np.abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) > 1e-5:
+        #                 blnFound2 = True
+        #             k +=1
+        #     i += 1
+        # arrReturn = np.array([arrVector1, arrVector2, arrVector3])
+        self.__DSCBasisVectors = arrReturn
+        return arrReturn
+        
     def GetCSLBasisVectors(self):
         return self.__CSLBasisVectors                 
     def GetSimulationCellBasis(self):

@@ -666,9 +666,16 @@ def CubicQuaternions():
         arrRows = np.unique(np.round(arrValues,3),axis=0, return_index=True)[1]                              
         return arrValues[arrRows]
 
-def GetReciprocalVectors(inRealVectors: np.array): 
+def FindReciprocalVectors(inRealVectors: np.array): 
         V = np.linalg.det(inRealVectors)
-        return np.transpose(np.linalg.inv(np.transpose(inRealVectors)))
+        #rtnMatrix= np.matmul(np.transpose(inRealVectors),np.linalg.inv(np.matmul(inRealVectors,np.transpose(inRealVectors))))
+        #return rtnMatrix
+        lstVectors = []
+        for k in range(len(inRealVectors)):
+                intFirst = np.mod(k+1,3)
+                intSecond = np.mod(k+2,3)
+                lstVectors.append(np.cross(inRealVectors[intFirst],inRealVectors[intSecond])/V)
+        return np.linalg.inv(np.transpose(inRealVectors))
 
 def FindDuplicates(inPoints, inCellVectors, fltDistance, lstBoundaryType = ['p','p','p']):
         arrConstraints = FindConstraintsFromBasisVectors(inCellVectors)
@@ -795,20 +802,24 @@ def FindPrimitiveVectors( inLatticePoints):
         lstPositions = FindNthSmallestPosition(arrDistances, 1)
         arrVector1 = inLatticePoints[lstPositions[0]]
         blnFound1 = False
+        i = 1
         if len(lstPositions) > 1: #there are atleast two equidistance vectors
-                i = 1
-                while i < len(lstPositions) and not(blnFound1):
-                        arrVector2 = inLatticePoints[lstPositions[i]]
+                j = 1
+                while j < len(lstPositions) and not(blnFound1):
+                        arrVector2 = inLatticePoints[lstPositions[j]]
                         if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
                                 blnFound1  = True
-                        i +=1
+                        j +=1
         if not(blnFound1): #equidistant vectors were all parallael
-                i = 3
                 blnFound2 = False
                 while i < len(arrDistances) and not(blnFound2):
-                        arrVector2 = inLatticePoints[FindNthSmallestPosition(arrDistances,i)[0]]
-                        if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
-                                blnFound2  = True
+                        lstPositions = FindNthSmallestPosition(arrDistances,i)
+                        j=0
+                        while j < len(lstPositions) and not(blnFound2):
+                                arrVector2 = inLatticePoints[lstPositions[j]]
+                                if np.any(np.abs(np.round(np.cross(arrVector2,arrVector1),5)) > 0):
+                                        blnFound2  = True
+                                j +=1
                         i +=1
         blnFound3 = False
         while i < len(arrDistances) and not(blnFound3):
@@ -928,7 +939,7 @@ def TripleLineTensor(arrTripleLine: np.array, lstOfBases: list, lstOfGBAngles: l
                 arrTensor += np.matmul(lstOfBases[np.mod(k+1,3)] - lstOfBases[np.mod(k,3)], RotatedBasisVectors(lstOfGBAngles[k],arrUnit)) 
         return arrTensor
 
-def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis and writes in the form [x 0 0], [y, yx , 0] [zx zy z] where x > 0, y >y, z>0
+def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis and writes in the form [x 0 0], [y, yx , 0] [zx zy z] where x > 0, yx >0, z>0
         arrIdent = np.identity(3)
         if np.linalg.det(arrBasisVectors) < 0:
                 arrIdent[0,0] = -1
@@ -942,18 +953,10 @@ def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis
                 arrTransform1 = StandardBasisVectors(3)
         arrVector2 = NormaliseVector(arrBasisVectors2[1])
         if np.abs(arrVector2[2]) > 1e-5:
-                # arrCross = np.cross(arrVector2,np.array([1,0,0])) 
-                # arrCrossInXY = np.array([0,np.linalg.norm(arrCross),0])
-                # fltAngle2, arrAxis2 = FindRotationVectorAndAngle(arrCross, arrCrossInXY)
-                # #arrNewVector = RotateVector(arrVector2, arrAxis2, fltAngle2)
                 arrInYZ = np.zeros(3)
                 arrInYZ[1:] =arrVector2[1:]
                 arrFinal = np.array([0, np.linalg.norm(arrInYZ),0])
                 fltAngle2, arrAxis2 = FindRotationVectorAndAngle(arrInYZ,arrFinal) 
-                #fltAngle3,arrAxis3 = FindRotationVectorAndAngle(arrVector2,arrNewVector)
-                #fltAngle2 = np.arccos(np.dot(NormaliseVector(arrVector2), np.array([1,0,0])))
-                #arrInXY = np.array([np.cos(fltAngle2), np.sin(fltAngle2),0])
-                #fltAngle2, arrAxis2 = FindRotationVectorAndAngle(arrVector2, arrInXY)
                 arrTransform2 = RotateVectors(fltAngle2,arrAxis2,arrTransform1)
                 arrReturn = RotateVectors(fltAngle2,arrAxis2,arrBasisVectors2)
         else:
