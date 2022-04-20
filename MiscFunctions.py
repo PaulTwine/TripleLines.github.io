@@ -18,7 +18,8 @@ def WriteAnnealTemplate(strDirectory: str, strFilename: str, intTemp: int):
     str2MinDumpFile = '2Min*.dmp'
     strDumpFile = '1Sim*.dmp'
     strDatFile = strFilename + '.dat'
-    strLastFile = '2Min.lst'
+    strFirstMin = '1Min.lst'
+    strLastMin = '2Min.lst'
     strLAMMPS =''
     strLAMMPS += 'units metal\n'
     strLAMMPS += 'dimension 3\n'
@@ -41,6 +42,7 @@ def WriteAnnealTemplate(strDirectory: str, strFilename: str, intTemp: int):
     strLAMMPS += 'timestep 0.002\n'
     strLAMMPS += 'min_modify integrator verlet tmax 6.0 dmax 0.1\n'
     strLAMMPS += 'minimize 0.0 1.0e-6 10000 20000\n'
+    strLAMMPS += 'write_dump all custom ' + strFirstMin + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
     strLAMMPS += 'undump 1 \n'
     strLAMMPS += 'reset_timestep \n'
     strLAMMPS += 'timestep 0.001\n'
@@ -53,7 +55,7 @@ def WriteAnnealTemplate(strDirectory: str, strFilename: str, intTemp: int):
     strLAMMPS += 'timestep 0.002\n'
     strLAMMPS += 'dump 3 all custom 100 ' + str2MinDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
     strLAMMPS += 'minimize 0.0 1.0e-6 10000 20000\n'
-    strLAMMPS += 'write_dump all custom ' + strLastFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
+    strLAMMPS += 'write_dump all custom ' + strLastMin + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
     fIn = open(strDirectory + strFilename + '.in', 'wt')
     fIn.write(strLAMMPS)
     fIn.close()
