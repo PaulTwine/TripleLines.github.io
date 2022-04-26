@@ -169,21 +169,89 @@ def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.arr
 def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: float)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(inPlane[:,:-1])), np.transpose(inPlane[:,-1]))
         arrPositions = np.argwhere(np.abs(arrPositions) < fltTolerance)[:,0]        
-        return arrPositions    
-def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list, fltMinDistance = 0.5):
+        return arrPositions
+def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBoundaryList: list, fltMin = 4.05):
+        inConstraints = FindConstraintsFromBasisVectors(inCellVectors)
         lstPoints = []
-        clustering = DBSCAN(fltMinDistance, min_samples=1).fit(inPoints)
+        clustering = DBSCAN(fltMin).fit(inPoints)
         arrValues = clustering.labels_
         arrUniqueValues, arrCounts = np.unique(arrValues, return_counts=True)
-        intMaxClusterValue = arrUniqueValues[np.argmax(arrCounts)] # find the largest cluster
-        arrFixedPoint = np.mean(inPoints[arrValues ==intMaxClusterValue],axis=0) 
-        lstPoints.append(inPoints[arrValues ==intMaxClusterValue])
-        for j in arrValues:
-                if j != intMaxClusterValue:
-                        arrPointsToMove = inPoints[arrValues ==j]
-                        arrPointsToMove = PeriodicShiftAllCloser(arrFixedPoint, arrPointsToMove, inCellVectors, inBasisConversion, inBoundaryList)
-                        lstPoints.append(arrPointsToMove)
-        return np.concatenate(lstPoints)
+        arrUniqueValues = arrUniqueValues[np.argsort(arrCounts)[::-1]]
+        lstTranslations = []
+        lstPosition = []
+        lstUniqueValues = list(arrUniqueValues)
+        lstMergedPoints = []
+        if -1 in lstUniqueValues:
+                lstUniqueValues.remove(-1)
+        while  len(lstUniqueValues) > 0:
+                lstEquivalentPoints = []
+                arrPoints = inPoints[arrValues == lstUniqueValues[0]]
+                lstUniqueValues.remove(lstUniqueValues[0])
+                lstEquivalentPoints.append(arrPoints)
+                objTree = PeriodicWrapperKDTree(arrPoints, inCellVectors, inConstraints, fltMin)
+                k = 0
+                while k < len(lstUniqueValues):
+                        arrNextPoints = inPoints[arrValues == lstUniqueValues[k]]
+                        arrDistances, arrIndices = objTree.Pquery(arrNextPoints, 1)
+                        arrDistances = np.array([x[0] for x in arrDistances])
+                        arrIndices = np.array([x[0] for x in arrIndices])
+                        arrRows = np.where(arrDistances <= fltMin)[0]
+                        if len(arrRows) > 0:
+                                arrCloseIndices = arrIndices[arrRows]
+                                arrTranslation = arrPoints[objTree.GetPeriodicIndices(arrCloseIndices)]-objTree.GetExtendedPoints()[arrCloseIndices]
+                                intMin = np.argmin(np.linalg.norm(arrTranslation,axis=1))
+                                lstEquivalentPoints.append(arrNextPoints + arrTranslation[intMin])
+                                lstUniqueValues.remove(lstUniqueValues[k])
+                        else:
+                                k +=1
+                if len(lstEquivalentPoints) == 1:
+                        lstMergedPoints.append(lstEquivalentPoints[0])
+                else:
+                        lstMergedPoints.append(np.concatenate(lstEquivalentPoints, axis= 0))
+        return lstMergedPoints        
+        
+        
+        
+        # for j in arrUniqueValues:
+        #         arrPoints = inPoints[arrValues == j]
+        #         arrTranslation = np.zeros(3)
+        #         for k in range(len(inConstraints)):
+        #                 arrUnitVector = inConstraints[k,:-1]
+        #                 fltLength = inConstraints[k,-1]
+        #                 arrDots = np.dot(arrPoints,arrUnitVector)
+        #                 if np.all(arrDots > fltMin ) and (np.any(arrDots > fltLength-fltMin)):
+        #                         arrTranslation -= inCellVectors[k]
+        #         lstTranslations.append(arrTranslation)
+        # arrAllTranslations = np.vstack(lstTranslations)
+        # for i in range(len(arrUniqueValues)):
+        #         arrPoints = inPoints[arrValues == arrUniqueValues[i]]
+        #         lstPoints.append(arrPoints + arrAllTranslations[i])
+        # arrAllPoints = np.vstack(lstPoints)
+        # clustering = DBSCAN(fltMin).fit(arrAllPoints)
+        # arrValues = clustering.labels_
+        # arrUniqueValues, arrCounts = np.unique(arrValues, return_counts=True)
+        # return arrAllPoints
+
+                        
+
+        
+
+
+
+# def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list, fltMinDistance = 0.5):
+#         lstPoints = []
+#         clustering = DBSCAN(fltMinDistance, min_samples=1).fit(inPoints)
+#         arrValues = clustering.labels_
+#         arrUniqueValues, arrCounts = np.unique(arrValues, return_counts=True)
+#         intMaxClusterValue = arrUniqueValues[np.argmax(arrCounts)] # find the largest cluster
+#         arrFixedPoint = np.mean(inPoints[arrValues ==intMaxClusterValue],axis=0) 
+#         lstPoints.append(inPoints[arrValues ==intMaxClusterValue])
+#         for j in arrValues:
+#                 if j != intMaxClusterValue:
+#                         arrPointsToMove = inPoints[arrValues ==j]
+#                         arrPointsToMove = PeriodicShiftAllCloser(arrFixedPoint, arrPointsToMove, inCellVectors, inBasisConversion, inBoundaryList)
+#                         lstPoints.append(arrPointsToMove)
+#         return np.concatenate(lstPoints)
 def IsVectorOutsideSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array):
         arrCoefficients = np.matmul(inVector, invMatrix)
         if np.any(arrCoefficients >= 1) or np.any(arrCoefficients < 0):
@@ -203,8 +271,7 @@ def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array)->n
         arrMod = np.linalg.norm(inBasis, axis=1)           
         arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
         arrRows = np.where(np.all(arrCoefficients < arrMod, axis=1) & np.all(arrCoefficients >= 0 , axis=1))[0]
-        return arrRows
-       
+        return arrRows   
 def WrapVectorIntoSimulationCell(inCellVectors: np.array, inVector: np.array, fltTolerance = 1e-5)->np.array: 
         arrUnitBasis = inCellVectors/np.linalg.norm(inCellVectors, ord=2, axis=1, keepdims=True)
         invMatrix = np.linalg.inv(arrUnitBasis) 
@@ -666,6 +733,43 @@ def CubicQuaternions():
         arrRows = np.unique(np.round(arrValues,3),axis=0, return_index=True)[1]                              
         return arrValues[arrRows]
 
+def MergeTooCloseAtoms(inPoints, inBasisVectors, fltDistance, intLimit =50):
+        if fltDistance == 0:
+                fltDistance = 1e-5
+        blnStop = False
+        i = 0
+        arrPoints = np.copy(inPoints)
+        inConstraints = FindConstraintsFromBasisVectors(inBasisVectors)
+        while not(blnStop) and i < intLimit:
+                lstMergedAtoms = []
+                objGBTree = PeriodicWrapperKDTree(arrPoints,inBasisVectors,inConstraints,fltDistance/2)
+                arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
+                arrIndices,arrDistances = objGBTree.Pquery_radius(arrPoints,fltDistance) #by default points are returned in distance order
+                lstDistances = list(map(lambda x: np.round(x,5),arrDistances))
+                arrLengths = np.array(list(map(lambda x: len(x),arrIndices)))
+                arrRows = np.where(arrLengths > 1)[0]
+                if len(arrRows) > 0:
+                        lstIndices = list(map(lambda x: arrIndices[x][lstDistances[x] <= lstDistances[x][1]],arrRows)) #every point 0 distance from itself 
+                        #point at position [1] is then the next closest point. 
+                        lstUsedIndices = [item for sublist in lstIndices for item in sublist]
+                        lstTrueIndices = np.unique(objGBTree.GetPeriodicIndices(lstUsedIndices)).tolist()
+                        arrUnusedIndices = np.unique(list(set(range(len(arrPoints))).difference(lstTrueIndices)))
+                        lstMergedAtoms = list(map(lambda x: np.mean(arrExtendedGBAtoms[x],axis=0),lstIndices))
+                        if len(arrUnusedIndices) > 0:
+                                lstMergedAtoms.append(arrPoints[arrUnusedIndices])
+                        arrPoints = np.vstack(lstMergedAtoms)
+                        arrRows = FindDuplicates(arrPoints, inBasisVectors,fltDistance) 
+                        lstUniqueIndices = list(set(range(len(arrPoints))).difference(arrRows.tolist()))
+                        arrUniqueIndices = np.unique(lstUniqueIndices)
+                        arrPoints = arrPoints[arrUniqueIndices]
+
+                else:
+                        blnStop = True
+                i +=1
+        if i == intLimit:
+                warnings.warn('Merge too close atoms terminated after ' + str(i) + ' iterations')
+        
+        return arrPoints
 def FindReciprocalVectors(inRealVectors: np.array): 
         # V = np.linalg.det(inRealVectors)
         # #rtnMatrix= np.matmul(np.transpose(inRealVectors),np.linalg.inv(np.matmul(inRealVectors,np.transpose(inRealVectors))))
@@ -736,6 +840,7 @@ class PeriodicWrapperKDTree(object):
         arrInverse = np.linalg.inv(inPeriodicVectors)
         self.__InverseBasis = arrInverse
         self.__ModValue = len(inPoints)
+        self.__WrapperWidth = fltWrapperLength
         arrScaling = np.linalg.inv(np.diag(np.linalg.norm(inPeriodicVectors, axis=1)))  
         self.__UnitPeriodicVectors = np.matmul(arrScaling,inPeriodicVectors)
         arrExtendedPoints, arrUniqueIndices = AddPeriodicWrapperAndIndices(inPoints, inPeriodicVectors,inConstraints,fltWrapperLength,lstBoundaryType)
@@ -760,6 +865,8 @@ class PeriodicWrapperKDTree(object):
     def Pquery(self,inPoints:np.array,k=1):
         arrDistances, arrIndices = self.__PeriodicTree.query(inPoints,k)
         return arrDistances, arrIndices
+    def GetWrapperLength(self):
+        return self.__WrapperWidth
     def GetOriginalPoints(self):
         return self.__OriginalPoints
 
