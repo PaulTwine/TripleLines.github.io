@@ -14,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 strDirectory = str(sys.argv[1])
-intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
@@ -53,18 +53,9 @@ arrVerticalBox = np.matmul(arrVerticalCell, arrBasis)
 
 objSimulationCell = gl.SimulationCell(arrFullBox)
 
-arrBaseVectors2 = np.array([0.5*arrHorizontalBox[0]+0.5*arrHorizontalBox[1],arrHorizontalBox[1],-0.5*arrHorizontalBox[0],-1.5*arrHorizontalBox[1]])
-arrBaseVectors3 = np.array([0.5*arrHorizontalBox[0]-0.5*arrHorizontalBox[1],1.5*arrHorizontalBox[1],-0.5*arrHorizontalBox[0],-arrHorizontalBox[1]])
-
-strPlane1 = gf.ParsePlane(-np.cross(arrHorizontalBox[0]-arrHorizontalBox[1],arrHorizontalBox[2]),arrHorizontalBox[1])
-strPlane2 = gf.ParsePlane(-np.cross(arrHorizontalBox[0]+arrHorizontalBox[1],arrHorizontalBox[2]),+arrHorizontalBox[0] + arrHorizontalBox[1])
-strDomain = gf.ParsePlane(-np.cross(arrHorizontalBox[1],arrHorizontalBox[2]),0.5*arrHorizontalBox[0])
-
 arrGrain1 = gl.ParallelopiedGrain(arrHorizontalBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), np.zeros(3))
-arrGrain1.ApplyGeneralConstraint(strPlane1,'[x,y,z]',1e-5,strDomain)
-arrGrain1.ApplyGeneralConstraint(strPlane2,'[x,y,z]',1e-5,gf.InvertRegion(strDomain))
-arrGrain2 = gl.IrregularSlantedGrain(arrBaseVectors2,arrHorizontalBox[2],arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrFullBox[0]+0.5*arrHorizontalBox[1])
-arrGrain3 = gl.IrregularSlantedGrain(arrBaseVectors3,arrHorizontalBox[2],arrGrainBasis3,ld.FCCCell,a*np.ones(3), 0.5*arrFullBox[1])
+arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrFullBox[0]+0.5*arrFullBox[1])
+arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3),0.5*arrFullBox[1])
 
 fltNearestNeighbour = arrGrain1.GetNearestNeighbourDistance()
 fltTolerance = 0.1*fltNearestNeighbour

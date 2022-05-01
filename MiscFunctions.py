@@ -1,6 +1,7 @@
 import sys
 import numpy as np
-from sympy import intt
+from scipy import stats
+import GeometryFunctions as gf
 
 def UpdateTemplate(lstOriginal: list, lstNew: list, strOldFilename: str,strNewFilename: str):
     fIn = open(strOldFilename, 'rt')
@@ -59,3 +60,31 @@ def WriteAnnealTemplate(strDirectory: str, strFilename: str, intTemp: int):
     fIn = open(strDirectory + strFilename + '.in', 'wt')
     fIn.write(strLAMMPS)
     fIn.close()
+
+def ConfidenceInterval(arrValues: np.array, fltAlpha: float, blnInside = True)-> np.array:
+    mu,st = stats.norm.fit(arrValues)
+    tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)
+    if blnInside:
+        arrRows = np.where((arrValues > tupValues[0]) & (arrValues < tupValues[1]))[0]
+    else:
+        arrRows = np.where((arrValues < tupValues[0] ) | (arrValues > tupValues[1]))[0]
+    return arrRows
+def MatchPairsOfIDs(lstOldIDs: list, lstNewIDs: list):
+        arrMatrix = np.zeros([len(lstNewIDs), len(lstOldIDs)])
+        for i in range(len(lstNewIDs)):
+            for j in range(len(lstOldIDs)):
+                arrMatrix[i,j] = len(set(lstOldIDs[j]).intersection(lstNewIDs[i]))
+        lstMatched = []
+        for j in arrMatrix:
+                blnMatched = False
+                counter = 0
+                while not(blnMatched) and counter < len(j):
+                    k = gf.FindNthLargestPosition(j, counter)
+                    if k not in lstMatched:
+                        lstMatched.append(k[0])
+                        blnMatched = True
+                    counter += 1
+        return lstMatched
+
+
+        
