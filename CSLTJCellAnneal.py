@@ -14,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 strDirectory = str(sys.argv[1])
-intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = 1# int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
