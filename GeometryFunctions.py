@@ -16,6 +16,8 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import KDTree
 import warnings
 from decimal import Decimal
+import scipy.stats as stats
+
 #import shapely as sp
 #import geopandas as gpd
 #All angles are assumed to be in radians 
@@ -188,7 +190,7 @@ def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBoundar
                 arrPoints = inPoints[arrValues == lstUniqueValues[0]]
                 lstUniqueValues.remove(lstUniqueValues[0])
                 lstEquivalentPoints.append(arrPoints)
-                objTree = PeriodicWrapperKDTree(arrPoints, inCellVectors, inConstraints, fltMin)
+                objTree = PeriodicWrapperKDTree(arrPoints, inCellVectors, inConstraints, fltMin,inBoundaryList)
                 k = 0
                 while k < len(lstUniqueValues):
                         arrNextPoints = inPoints[arrValues == lstUniqueValues[k]]
@@ -742,7 +744,7 @@ def MergeTooCloseAtoms(inPoints, inBasisVectors, fltDistance, intLimit =50):
         inConstraints = FindConstraintsFromBasisVectors(inBasisVectors)
         while not(blnStop) and i < intLimit:
                 lstMergedAtoms = []
-                objGBTree = PeriodicWrapperKDTree(arrPoints,inBasisVectors,inConstraints,fltDistance/2)
+                objGBTree = PeriodicWrapperKDTree(arrPoints,inBasisVectors,inConstraints,1.05*fltDistance/2)
                 arrExtendedGBAtoms = objGBTree.GetExtendedPoints()
                 arrIndices,arrDistances = objGBTree.Pquery_radius(arrPoints,fltDistance) #by default points are returned in distance order
                 lstDistances = list(map(lambda x: np.round(x,5),arrDistances))
@@ -1070,7 +1072,43 @@ def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis
                 arrReturn = arrBasisVectors2
                 arrTransform2 = arrTransform1
         
-        return arrReturn, arrTransform2        
+        return arrReturn, arrTransform2    
+
+
+
+def ConfidenceAndPredictionBands(x,y, fltPercent):
+
+
+        slope, intercept = np.polyfit(x, y, 1)  # linear model adjustment
+        y_model = np.polyval([slope, intercept], x)   # modeling...
+        x_mean = np.mean(x)
+        y_mean = np.mean(y)
+        n = x.size                        # number of samples
+        m = 2                             # number of parameters
+        dof = n - m                       # degrees of freedom
+        t = stats.t.ppf(fltPercent, dof)       # Students statistic of interval confidence
+        residual = y - y_model
+        std_error = (np.sum(residual**2) / dof)**.5   # Standard deviation of the error
+
+        numerator = np.sum((x - x_mean)*(y - y_mean))
+        denominator = ( np.sum((x - x_mean)**2) * np.sum((y - y_mean)**2) )**.5
+        correlation_coef = numerator / denominator
+        r2 = correlation_coef**2
+        MSE = 1/n * np.sum( (y - y_model)**2 )
+        x_line = np.linspace(np.min(x), np.max(x), 100)
+        y_line = np.polyval([slope, intercept], x_line)
+# confidence interval
+        ci = t * std_error * (1/n + (x_line - x_mean)**2 / np.sum((x - x_mean)**2))**.5
+# predicting interval
+        pi = t * std_error * (1 + 1/n + (x_line - x_mean)**2 / np.sum((x - x_mean)**2))**.5  
+
+        return x_line, y_line, ci, pi
+
+        #objAxis.plot(x, y, 'o', color = 'royalblue')
+        #objAxis.plot(x_line, y_line, color = 'royalblue')
+        #objAxis.fill_between(x_line, y_line + pi, y_line - pi, color = 'lightcyan', label = '95% prediction interval')
+        #objAxis.fill_between(x_line, y_line + ci, y_line - ci, color = 'skyblue', label = '95% confidence interval')
+
 
 
 

@@ -85,6 +85,9 @@ def MatchPairsOfIDs(lstOldIDs: list, lstNewIDs: list):
                         blnMatched = True
                     counter += 1
         return lstMatched
+def FlattenList(t):
+    return [item for sublist in t for item in sublist]
+
 
 
         
