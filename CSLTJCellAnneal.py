@@ -13,17 +13,18 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 
-strDirectory = str(sys.argv[1])
-intHeight = 1# int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = eval(str(sys.argv[2]))
-lstSigmaAxis = eval(str(sys.argv[3]))
-intTemp = int(sys.argv[4])
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+intHeight = 5 # int(sys.argv[2]) #numbers of repeated CSL layers
+lstAxis = [2,2,1] #eval(str(sys.argv[2]))
+lstSigmaAxis = [9,9,9] #eval(str(sys.argv[3]))
+intTemp = 900 #int(sys.argv[4])
+intRuns = 200000
 
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIncrements = 10
-fltTolerance = 0.1
+fltTolerance = 0.6
 a = 4.05
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
@@ -35,7 +36,7 @@ arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-s = np.round(np.sqrt(10**5/(np.linalg.det(arrBasis))))
+s = np.round(np.sqrt(10**5/(intHeight*np.linalg.det(arrBasis))))
 
 arrGrainBasis1 = objCSL.GetLatticeBasis(1)
 arrGrainBasis2 = objCSL.GetLatticeBasis(0)
@@ -58,13 +59,13 @@ arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.one
 arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3),0.5*arrFullBox[1])
 
 fltNearestNeighbour = arrGrain1.GetNearestNeighbourDistance()
-fltTolerance = 0.1*fltNearestNeighbour
+fltE = fltTolerance*fltNearestNeighbour
 strFilename = 'TJ'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
 
-objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
+objSimulationCell.MergeTooCloseAtoms(fltE,1)
 objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename + '.dat')
-MiscFunctions.WriteAnnealTemplate(strDirectory,strFilename, intTemp)
+MiscFunctions.WriteAnnealTemplate(strDirectory,strFilename, intTemp, intRuns)
 
