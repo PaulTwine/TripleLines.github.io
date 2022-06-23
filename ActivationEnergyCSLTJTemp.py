@@ -18,17 +18,20 @@ import MiscFunctions as mf
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
 
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp750/'
-intTemp = 750
+strRoot = str(sys.argv[1])
+intTemp = int(sys.argv[2])
+intSteps = int(sys.argv[3])
+intLimit = int(sys.argv[4])
+#strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp750/'
+#intTemp = 750
 
 fltKeV = 8.617333262e-5
 #strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis111/Sigma3_7_21/'
-dt = 10000
 lstTJCluster = []
 lstAllTimes = []
 lstAllPoints = []
 lstProjections = []
-strDir = strRoot  + '/1Min.lst'
+strDir = strRoot  + '1Min.lst'
 objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
 objLT = objData.GetTimeStepByIndex(-1)
 objLT.PartitionGrains(0.99, 25)
@@ -40,7 +43,7 @@ lstMerged = gf.MergePeriodicClusters(pts,objLT.GetCellVectors(), ['p','p','n'],5
 lstInitialMeans = list(map(lambda x: np.mean(x,axis=0),lstMerged))
 arrInitialMeans = np.stack(lstInitialMeans)
 objInitialTree = gf.PeriodicWrapperKDTree(arrInitialMeans,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
-strDir = strRoot  + '/2Min.lst'
+strDir = strRoot  + '2Min.lst'
 objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
 objLT = objData.GetTimeStepByIndex(-1)
 objLT.PartitionGrains(0.99, 25)
@@ -57,9 +60,9 @@ arrExtendedPoints = objInitialTree.GetExtendedPoints()[np.ravel(arrIndices)[arrR
 arrDirections = arrFinalMeans - arrExtendedPoints
 objFinalTree = gf.PeriodicWrapperKDTree(arrFinalMeans,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
 arrDirections = gf.NormaliseMatrixAlongRows(arrDirections)
-for k in range(0,40000+dt,dt):
+for k in range(0,intLimit+intSteps,intSteps):
     if objLT.GetGrainLabels() == [0,1,2,3]:   
-        strDir = strRoot + '/1Sim' + str(k) + '.dmp'
+        strDir = strRoot + '1Sim' + str(k) + '.dmp'
         objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
         objLT = objData.GetTimeStepByIndex(-1)
         objLT.PartitionGrains(0.99,25)
@@ -94,49 +97,6 @@ lstLogVelocity.append(np.log(stats.linregress(np.sort(lstAllTimes*4),arrAllProje
 
 np.savetxt(strRoot + 'logV.txt', np.array(lstLogVelocity))
 np.savetxt(strRoot + 'lstITemp.txt',np.ones(len(lstLogVelocity))/intTemp)
-# plt.scatter(lstITemp, lstLogVelocity)
-# plt.show()
 
-# for p in range(len(lstProjections)):
-#     plt.scatter(lstAllTimes[p],lstProjections[p][1], c='red')
-#     # plt.scatter(lstAllTimes[p],lstProjections[p][1], c='blue')
-#     # plt.scatter(lstAllTimes[p],lstProjections[p][2], c='green')
-#     # plt.scatter(lstAllTimes[p],lstProjections[p][3], c='orange')
-    
-    
-# # for p in lstAllPoints:
-# #     plt.scatter(p[0,0],p[0,1])
-# #plt.legend(lstAllTimes)
-
-
-
-fig = plt.figure()
-ax = plt.axes(projection='3d')
-
-def animate_func(num):
-    ax.clear()  # Clears the figure to update the line, point,   
-                # title, and axes
-    # Updating Trajectory Line (num+1 due to Python indexing)
-    #ax.plot3D(*(lstAllPoints[num][0]), c='blue')
-    # Updating Point Location 
-    ax.scatter(*tuple(zip(*lstTJCluster[num])), c='blue', marker='o')
-    # Adding Constant Origin
-    #ax.plot3D(*(lstAllPoints[0][0]), c='black', marker='o')
-    # Setting Axes Limits
-    ax.set_xlim3d([arrInitialMeans[0][0]-50,arrInitialMeans[0][0]+50])
-    ax.set_ylim3d([arrInitialMeans[0][1]-50,arrInitialMeans[0][1]+50])
-    ax.set_zlim3d([0,objLT.GetCellVectors()[-1,-1]])
-
-    # # Adding Figure Labels
-    # ax.set_title('Trajectory \nTime = ' + str(np.round(t[num],    
-    #              decimals=2)) + ' sec')
-    # ax.set_xlabel('x')
-    # ax.set_ylabel('y')
-    # ax.set_zlabel('z')
-
-line_ani = animation.FuncAnimation(fig, animate_func, interval=1000, frames=len(lstAllPoints))
-writergif = animation.PillowWriter(fps=len(lstAllPoints)/6)
-line_ani.save('/home/p17992pt/LAMMPSData/Animation1.gif', writer=writergif)
-plt.show()
 
 
