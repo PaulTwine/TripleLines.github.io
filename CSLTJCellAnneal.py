@@ -1,30 +1,26 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import LatticeDefinitions as ld
 import GeometryFunctions as gf
 import GeneralLattice as gl
 import LAMMPSTool as LT
 import sys
-from mpl_toolkits.mplot3d import Axes3D 
 import copy as cp
-from scipy import spatial
 import MiscFunctions
-from mpl_toolkits.mplot3d import Axes3D
 
 
 
-strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
-intHeight = 5 # int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = [2,2,1] #eval(str(sys.argv[2]))
-lstSigmaAxis = [9,9,9] #eval(str(sys.argv[3]))
-intTemp = 900 #int(sys.argv[4])
+strDirectory = str(sys.argv[1])
+intHeight = 2 #int(sys.argv[2]) #numbers of repeated CSL layers
+lstAxis = eval(str(sys.argv[2]))
+lstSigmaAxis = eval(str(sys.argv[3]))
+intTemp = int(sys.argv[4])
 intRuns = 200000
 
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIncrements = 10
-fltTolerance = 0.6
+fltTolerance = 0.5
 a = 4.05
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
