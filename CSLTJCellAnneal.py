@@ -8,13 +8,12 @@ import copy as cp
 import MiscFunctions
 
 
-
 strDirectory = str(sys.argv[1])
-intHeight = 2 #int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
-intRuns = 200000
+intRuns = 400000
 
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
@@ -32,7 +31,7 @@ arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-s = np.round(np.sqrt(10**5/(intHeight*np.linalg.det(arrBasis))))
+s = np.round(np.sqrt(4*10**5/(intHeight*np.linalg.det(arrBasis))))
 
 arrGrainBasis1 = objCSL.GetLatticeBasis(1)
 arrGrainBasis2 = objCSL.GetLatticeBasis(0)
