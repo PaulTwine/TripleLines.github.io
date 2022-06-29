@@ -15,15 +15,16 @@ import sys
 import matplotlib.lines as mlines
 from scipy import stats
 import MiscFunctions as mf
-from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
 
-strRoot = str(sys.argv[1])
-intTemp = int(sys.argv[2])
-intSteps = int(sys.argv[3])
-intLimit = int(sys.argv[4])
-#strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp750/'
-#intTemp = 750
+#strRoot = str(sys.argv[1])
+#intTemp = int(sys.argv[2])
+#intSteps = int(sys.argv[3])
+#intLimit = int(sys.argv[4])
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp750/'
+intTemp = 750
+intSteps = 100000
+intLimit = 400000
 
 fltKeV = 8.617333262e-5
 #strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis111/Sigma3_7_21/'
@@ -58,6 +59,7 @@ arrRealIndices = objInitialTree.GetPeriodicIndices(np.ravel(arrIndices))
 arrFinalMeans = arrFinalMeans[arrRealIndices]
 arrExtendedPoints = objInitialTree.GetExtendedPoints()[np.ravel(arrIndices)[arrRealIndices],:]
 arrDirections = arrFinalMeans - arrExtendedPoints
+arrProjectedDistances = np.linalg.norm(arrDirections,axis=1)
 objFinalTree = gf.PeriodicWrapperKDTree(arrFinalMeans,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
 arrDirections = gf.NormaliseMatrixAlongRows(arrDirections)
 for k in range(0,intLimit+intSteps,intSteps):
@@ -86,8 +88,10 @@ for k in range(0,intLimit+intSteps,intSteps):
         lstAllTimes.append(k)
 lstLogVelocity = []
 arrAllProjections = np.vstack(lstProjections)
-for p in range(4):        
-    lstLogVelocity.append(np.log(stats.linregress(lstAllTimes,arrAllProjections[:,p])[0]))
+for p in range(4): 
+    intMin = np.max(np.where(arrAllProjections[:,p] < 1)[0])
+    intMax = np.min(np.where(arrAllProjections[:,p] > arrProjectedDistances[p]-1)[0])
+    lstLogVelocity.append(np.log(stats.linregress(lstAllTimes[intMin:intMax+1],arrAllProjections[intMin:intMax+1,p])[0]))
 arrPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[0]+arrCellVectors[2]), 0.5*(arrCellVectors[1]+arrCellVectors[2]), 0.5*(arrCellVectors[0]+arrCellVectors[1]+arrCellVectors[2])])
 objPositionsTree = gf.PeriodicWrapperKDTree(arrPositions,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
 arrDistances, arrIndices = objPositionsTree.Pquery(arrFinalMeans)
