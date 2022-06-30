@@ -1,33 +1,30 @@
 import numpy as np
-import os
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-from matplotlib import transforms
-from scipy import optimize
+#import os
+#from mpl_toolkits.mplot3d import Axes3D
+#import matplotlib.pyplot as plt
+#from matplotlib import transforms
+#from scipy import optimize
 from scipy import stats
-from sklearn.neighbors import NearestNeighbors
+#from sklearn.neighbors import NearestNeighbors
 import GeometryFunctions as gf
 import GeneralLattice as gl
 import LAMMPSTool as LT 
 import LatticeDefinitions as ld
-import re
-import sys 
-import matplotlib.lines as mlines
+#import re
+#import sys 
+#import matplotlib.lines as mlines
 from scipy import stats
 import MiscFunctions as mf
-from matplotlib import animation
+#from matplotlib import animation
 
-#strRoot = str(sys.argv[1])
-#intTemp = int(sys.argv[2])
-#intSteps = int(sys.argv[3])
-#intLimit = int(sys.argv[4])
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp750/'
-intTemp = 750
-intSteps = 100000
-intLimit = 400000
+strRoot = str(sys.argv[1])
+intTemp = int(sys.argv[2])
+intSteps = int(sys.argv[3])
+intLimit = int(sys.argv[4])
+
+
 
 fltKeV = 8.617333262e-5
-#strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis111/Sigma3_7_21/'
 lstTJCluster = []
 lstAllTimes = []
 lstAllPoints = []
@@ -49,6 +46,7 @@ objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
 objLT = objData.GetTimeStepByIndex(-1)
 objLT.PartitionGrains(0.99, 25)
 objLT.MergePeriodicGrains(25)
+fltNearest = 4.05/np.sqrt(2)
 ids = objLT.FindMeshAtomIDs([1,2,3])
 pts = objLT.GetAtomsByID(ids)[:,1:4]
 lstMerged = gf.MergePeriodicClusters(pts,objLT.GetCellVectors(), ['p','p','n'],5)
@@ -89,9 +87,18 @@ for k in range(0,intLimit+intSteps,intSteps):
 lstLogVelocity = []
 arrAllProjections = np.vstack(lstProjections)
 for p in range(4): 
-    intMin = np.max(np.where(arrAllProjections[:,p] < 1)[0])
-    intMax = np.min(np.where(arrAllProjections[:,p] > arrProjectedDistances[p]-1)[0])
-    lstLogVelocity.append(np.log(stats.linregress(lstAllTimes[intMin:intMax+1],arrAllProjections[intMin:intMax+1,p])[0]))
+    arrRows = np.where((arrAllProjections[:,p] >= 0) & (arrAllProjections[:,p] < 0.5))[0]
+    if len(arrRows) > 0:
+        intMin = np.max(arrRows)
+    else:
+        intMin = 0
+    arrRows = np.where(arrAllProjections[:,p] > arrProjectedDistances[p]-1)[0]
+    if len(arrRows) > 0:
+        intMax = np.min(arrRows)+1
+    else:
+        intMax = len(arrAllProjections[:,p])
+    intMax = np.min([len(arrAllProjections),intMax])
+    lstLogVelocity.append(np.log(stats.linregress(lstAllTimes[intMin:intMax],arrAllProjections[intMin:intMax,p])[0]))
 arrPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[0]+arrCellVectors[2]), 0.5*(arrCellVectors[1]+arrCellVectors[2]), 0.5*(arrCellVectors[0]+arrCellVectors[1]+arrCellVectors[2])])
 objPositionsTree = gf.PeriodicWrapperKDTree(arrPositions,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
 arrDistances, arrIndices = objPositionsTree.Pquery(arrFinalMeans)
