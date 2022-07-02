@@ -11,7 +11,7 @@ import GeneralLattice as gl
 import LAMMPSTool as LT 
 import LatticeDefinitions as ld
 #import re
-#import sys 
+import sys 
 #import matplotlib.lines as mlines
 from scipy import stats
 import MiscFunctions as mf
@@ -22,7 +22,7 @@ intTemp = int(sys.argv[2])
 intSteps = int(sys.argv[3])
 intLimit = int(sys.argv[4])
 
-
+strRoot += str(intTemp) + '/'
 
 fltKeV = 8.617333262e-5
 lstTJCluster = []
@@ -61,15 +61,15 @@ arrProjectedDistances = np.linalg.norm(arrDirections,axis=1)
 objFinalTree = gf.PeriodicWrapperKDTree(arrFinalMeans,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
 arrDirections = gf.NormaliseMatrixAlongRows(arrDirections)
 for k in range(0,intLimit+intSteps,intSteps):
-    if objLT.GetGrainLabels() == [0,1,2,3]:   
-        strDir = strRoot + '1Sim' + str(k) + '.dmp'
-        objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
-        objLT = objData.GetTimeStepByIndex(-1)
-        objLT.PartitionGrains(0.99,25)
-        objLT.MergePeriodicGrains(5)
-        ids2 = objLT.FindMeshAtomIDs([1,2,3])
-        pts2 = objLT.GetAtomsByID(ids2)[:,1:4]
-        lstMerged2 = gf.MergePeriodicClusters(pts2,objLT.GetCellVectors(), ['p','p','n'],20)
+    strDir = strRoot + '1Sim' + str(k) + '.dmp'
+    objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
+    objLT = objData.GetTimeStepByIndex(-1)
+    objLT.PartitionGrains(0.99,25)
+    objLT.MergePeriodicGrains(5)
+    ids2 = objLT.FindMeshAtomIDs([1,2,3])
+    pts2 = objLT.GetAtomsByID(ids2)[:,1:4]
+    lstMerged2 = gf.MergePeriodicClusters(pts2,objLT.GetCellVectors(), ['p','p','n'],20)
+    if objLT.GetGrainLabels() == [0,1,2,3] and len(lstMerged2) ==4:   
         lstMeanPoints = list(map(lambda x: np.mean(x,axis=0),lstMerged2))          
         arrMeanPoints = np.stack(lstMeanPoints)
         arrDistances,arrIndices = objInitialTree.Pquery(arrMeanPoints,1)           
@@ -86,28 +86,29 @@ for k in range(0,intLimit+intSteps,intSteps):
         lstAllTimes.append(k)
 lstLogVelocity = []
 arrAllProjections = np.vstack(lstProjections)
-for p in range(4): 
-    arrRows = np.where((arrAllProjections[:,p] >= 0) & (arrAllProjections[:,p] < 0.5))[0]
-    if len(arrRows) > 0:
-        intMin = np.max(arrRows)
-    else:
-        intMin = 0
-    arrRows = np.where(arrAllProjections[:,p] > arrProjectedDistances[p]-1)[0]
-    if len(arrRows) > 0:
-        intMax = np.min(arrRows)+1
-    else:
-        intMax = len(arrAllProjections[:,p])
-    intMax = np.min([len(arrAllProjections),intMax])
-    lstLogVelocity.append(np.log(stats.linregress(lstAllTimes[intMin:intMax],arrAllProjections[intMin:intMax,p])[0]))
+# for p in range(4): 
+#     arrRows = np.where((arrAllProjections[:,p] >= 0) & (arrAllProjections[:,p] < 0.5))[0]
+#     if len(arrRows) > 0:
+#         intMin = np.max(arrRows)
+#     else:
+#         intMin = 0
+#     arrRows = np.where(arrAllProjections[:,p] > arrProjectedDistances[p]-1)[0]
+#     if len(arrRows) > 0:
+#         intMax = np.min(arrRows)+1
+#     else:
+#         intMax = len(arrAllProjections[:,p])
+#     intMax = np.min([len(arrAllProjections),intMax])
+#     lstLogVelocity.append(np.log(stats.linregress(lstAllTimes[intMin:intMax],arrAllProjections[intMin:intMax,p])[0]))
 arrPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[0]+arrCellVectors[2]), 0.5*(arrCellVectors[1]+arrCellVectors[2]), 0.5*(arrCellVectors[0]+arrCellVectors[1]+arrCellVectors[2])])
 objPositionsTree = gf.PeriodicWrapperKDTree(arrPositions,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
 arrDistances, arrIndices = objPositionsTree.Pquery(arrFinalMeans)
 arrRealIndices = objPositionsTree.GetPeriodicIndices(np.ravel(arrIndices))
-lstLogVelocity = list(np.array(lstLogVelocity)[arrRealIndices])
-lstLogVelocity.append(np.log(stats.linregress(np.sort(lstAllTimes*4),arrAllProjections.reshape(4*len(arrAllProjections)))[0]))
+arrAllProjections = arrAllProjections[:,arrRealIndices]
+# lstLogVelocity = list(np.array(lstLogVelocity)[arrRealIndices])
+# lstLogVelocity.append(np.log(stats.linregress(np.sort(lstAllTimes*4),arrAllProjections.reshape(4*len(arrAllProjections)))[0]))
 
-np.savetxt(strRoot + 'logV.txt', np.array(lstLogVelocity))
-np.savetxt(strRoot + 'lstITemp.txt',np.ones(len(lstLogVelocity))/intTemp)
+np.savetxt(strRoot + 'Projections.txt', arrAllProjections)
+np.savetxt(strRoot + 'lstITemp.txt',np.ones(1)/intTemp)
 
 
 
