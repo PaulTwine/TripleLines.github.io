@@ -17,18 +17,21 @@ from scipy import stats
 import MiscFunctions as mf
 #from matplotlib import animation
 
-strRoot = str(sys.argv[1])
-intTemp = int(sys.argv[2])
-intSteps = int(sys.argv[3])
-intLimit = int(sys.argv[4])
-
+# strRoot = str(sys.argv[1])
+# intTemp = int(sys.argv[2])
+# intSteps = int(sys.argv[3])
+# intLimit = int(sys.argv[4])
+intTemp = 600
+intSteps = 100000
+intLimit = 400000
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp'
 strRoot += str(intTemp) + '/'
 
 fltKeV = 8.617333262e-5
-lstTJCluster = []
 lstAllTimes = []
 lstAllPoints = []
 lstProjections = []
+lstCrossProjections = []
 strDir = strRoot  + '1Min.lst'
 objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
 objLT = objData.GetTimeStepByIndex(-1)
@@ -55,11 +58,7 @@ arrFinalMeans = np.stack(lstFinalMeans)
 arrDistances, arrIndices = objInitialTree.Pquery(arrFinalMeans)
 arrRealIndices = objInitialTree.GetPeriodicIndices(np.ravel(arrIndices))
 arrFinalMeans = arrFinalMeans[arrRealIndices]
-arrExtendedPoints = objInitialTree.GetExtendedPoints()[np.ravel(arrIndices)[arrRealIndices],:]
-arrDirections = arrFinalMeans - arrExtendedPoints
-arrProjectedDistances = np.linalg.norm(arrDirections,axis=1)
 objFinalTree = gf.PeriodicWrapperKDTree(arrFinalMeans,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
-arrDirections = gf.NormaliseMatrixAlongRows(arrDirections)
 for k in range(0,intLimit+intSteps,intSteps):
     strDir = strRoot + '1Sim' + str(k) + '.dmp'
     objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
@@ -74,41 +73,33 @@ for k in range(0,intLimit+intSteps,intSteps):
         arrMeanPoints = np.stack(lstMeanPoints)
         arrDistances,arrIndices = objInitialTree.Pquery(arrMeanPoints,1)           
         arrRealIndices = objInitialTree.GetPeriodicIndices(np.ravel(arrIndices))
-        arrMeanPoints = arrMeanPoints[arrRealIndices]
+        arrMeanPoints = gf.WrapVectorIntoSimulationCell(objLT.GetCellVectors(),arrMeanPoints[arrRealIndices])
         arrDistances,arrIndices = objInitialTree.Pquery(arrMeanPoints,1)
-        lstTJCluster.append(lstMerged2[arrRealIndices[0]])
-        arrExtendedPoints = objInitialTree.GetExtendedPoints()[np.ravel(arrIndices),:]
-        arrTranslation = arrInitialMeans - arrExtendedPoints
-        arrAllPoints = (arrMeanPoints+arrTranslation) -arrInitialMeans
-        lstAllPoints.append(arrAllPoints)
-        arrProjections = (np.matmul(arrAllPoints[:,:2],np.transpose(arrDirections[:,:2]))).diagonal()
+        arrInitialPoints = objInitialTree.GetExtendedPoints()[np.ravel(arrIndices),:]
+        arrDistances,arrIndices = objFinalTree.Pquery(arrInitialPoints)
+        arrFinalPoints = objFinalTree.GetExtendedPoints()[np.ravel(arrIndices),:]
+        arrDirections = gf.NormaliseMatrixAlongRows(arrFinalPoints-arrInitialPoints)
+        arrCross = np.cross(arrDirections, np.array([0,0,1]))
+        arrTranslations = arrMeanPoints -arrInitialPoints
+        arrProjections = (np.matmul(arrTranslations[:,:2],np.transpose(arrDirections[:,:2]))).diagonal()
+        arrCrossProjections = (np.matmul(arrTranslations[:,:2],np.transpose(arrCross[:,:2]))).diagonal()
         lstProjections.append(arrProjections)
+        lstCrossProjections.append(arrCrossProjections)
         lstAllTimes.append(k)
 lstLogVelocity = []
 arrAllProjections = np.vstack(lstProjections)
-# for p in range(4): 
-#     arrRows = np.where((arrAllProjections[:,p] >= 0) & (arrAllProjections[:,p] < 0.5))[0]
-#     if len(arrRows) > 0:
-#         intMin = np.max(arrRows)
-#     else:
-#         intMin = 0
-#     arrRows = np.where(arrAllProjections[:,p] > arrProjectedDistances[p]-1)[0]
-#     if len(arrRows) > 0:
-#         intMax = np.min(arrRows)+1
-#     else:
-#         intMax = len(arrAllProjections[:,p])
-#     intMax = np.min([len(arrAllProjections),intMax])
-#     lstLogVelocity.append(np.log(stats.linregress(lstAllTimes[intMin:intMax],arrAllProjections[intMin:intMax,p])[0]))
+arrAllCrossProjections = np.vstack(lstCrossProjections)
 arrPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[0]+arrCellVectors[2]), 0.5*(arrCellVectors[1]+arrCellVectors[2]), 0.5*(arrCellVectors[0]+arrCellVectors[1]+arrCellVectors[2])])
 objPositionsTree = gf.PeriodicWrapperKDTree(arrPositions,objLT.GetCellVectors(),gf.FindConstraintsFromBasisVectors(objLT.GetCellVectors()),50)
 arrDistances, arrIndices = objPositionsTree.Pquery(arrFinalMeans)
 arrRealIndices = objPositionsTree.GetPeriodicIndices(np.ravel(arrIndices))
 arrAllProjections = arrAllProjections[:,arrRealIndices]
-# lstLogVelocity = list(np.array(lstLogVelocity)[arrRealIndices])
-# lstLogVelocity.append(np.log(stats.linregress(np.sort(lstAllTimes*4),arrAllProjections.reshape(4*len(arrAllProjections)))[0]))
+arrCrossProjections  = arrCrossProjections[:, arrRealIndices]
 
 np.savetxt(strRoot + 'Projections.txt', arrAllProjections)
-np.savetxt(strRoot + 'lstITemp.txt',np.ones(1)/intTemp)
+np.savetxt(strRoot + 'CrossProjections.txt', arrCrossProjections)
+np.savetxt(strRoot + 'ITemp.txt',np.ones(1)/intTemp)
+np.savetxt(strRoot + 'Times.txt', np.array(lstAllTimes))
 
 
 
