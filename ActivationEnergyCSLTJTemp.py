@@ -17,16 +17,10 @@ from scipy import stats
 import MiscFunctions as mf
 #from matplotlib import animation
 
-# strRoot = str(sys.argv[1])
-# intTemp = int(sys.argv[2])
-# intSteps = int(sys.argv[3])
-# intLimit = int(sys.argv[4])
-
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp'
-strRoot += '600/'
-intLimit = 400000
-intSteps = 50000
-intTemp = 600
+strRoot = str(sys.argv[1])
+intTemp = int(sys.argv[2])
+intSteps = int(sys.argv[3])
+intLimit = int(sys.argv[4])
 
 fltKeV = 8.617333262e-5
 lstAllTimes = []
@@ -66,7 +60,7 @@ objFinalTree = gf.PeriodicWrapperKDTree(arrFinalMeans,objLT.GetCellVectors(),gf.
 arrDirections = arrFinalMeans - arrExtendedInitial
 arrDirections = gf.NormaliseMatrixAlongRows(arrDirections)
 arrCross = np.cross(arrDirections, np.array([0,0,1]))
-for k in range(250000,intLimit+intSteps,intSteps):
+for k in range(0,intLimit+intSteps,intSteps):
     strDir = strRoot + '1Sim' + str(k) + '.dmp'
     objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
     objLT = objData.GetTimeStepByIndex(-1)
