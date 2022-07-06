@@ -67,8 +67,11 @@ for k in range(0,intLimit+intSteps,intSteps):
     objLT.PartitionGrains(0.99,25)
     objLT.MergePeriodicGrains(5)
     ids2 = objLT.FindMeshAtomIDs([1,2,3])
-    pts2 = objLT.GetAtomsByID(ids2)[:,1:4]
-    lstMerged2 = gf.MergePeriodicClusters(pts2,objLT.GetCellVectors(), ['p','p','n'],20)
+    if len(ids2):
+        pts2 = objLT.GetAtomsByID(ids2)[:,1:4]
+        lstMerged2 = gf.MergePeriodicClusters(pts2,objLT.GetCellVectors(), ['p','p','n'],20)
+    else:
+        lstMerged2 = []
     if objLT.GetGrainLabels() == [0,1,2,3] and len(lstMerged2) ==4:   
         lstMeanPoints = list(map(lambda x: np.mean(x,axis=0),lstMerged2))          
         arrMeanPoints = np.stack(lstMeanPoints)
