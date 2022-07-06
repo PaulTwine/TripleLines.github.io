@@ -541,7 +541,6 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
     def FindGrainAtomIDs(self, fltAlpha= 0.99):
-        #arrValues = self.FindPEPerVolume(self.GetPTMAtomIDs())
         lstIDs = []
         intV = self.GetColumnIndex('c_v[1]')
         arrValues = self.GetPTMAtoms()[:,intV]
@@ -561,10 +560,6 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrRows = np.where(np.all(tupValues[0] < arrDistances,axis=1) & np.all(arrDistances < tupValues[1],axis=1))[0]
         fltNearest = np.median(arrDistances[arrRows])
         self.__GBSeparation = fltNearest 
-        # arrUniqueIndices = np.unique(arrIndices[arrRows])
-        # arrGrainIndices = objPTMKDTree.GetPeriodicIndices(arrUniqueIndices)
-        # arrGrainIndices = np.unique(arrGrainIndices)
-        #return arrIDs[arrGrainIndices]
         return arrIDs[arrRows]
     def ClusterGrains(self, fltTolerance=0.01,intMinGrainSize = 25, fltWrapperWidth = 25):
         arrIDs = self.FindGrainAtomIDs(0.9) 
@@ -721,17 +716,20 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             fltMax = 2*np.min(arrSorted[:,-1])
         return fltMax
     def FindMeshAtomIDs(self, lstGrains):
-        fltWidth = self.EstimateLocalGrainBoundaryWidth()
-        arrPoints = self.GetAtomsByID(self.GetNonGrainAtomIDs())[:,0:4]
-        arrIDs = arrPoints[:,0]
-        arrPoints = arrPoints[:,1:4]
-        lstAllDistances = []
-        for l in lstGrains:
-                arrDistances1, arrIndices1 = self.__PeriodicGrains[l].Pquery(arrPoints, k=1)
-                lstAllDistances.append(np.array([x[0] for x in arrDistances1]))
-        arrAllDistances = np.transpose(np.vstack(lstAllDistances))
-        arrRows = np.where(np.all(arrAllDistances < fltWidth,axis=1))[0]
-        return arrIDs[arrRows]            
+        arrReturn = []
+        if set(lstGrains).issubset(set(self.__GrainLabels)):
+            fltWidth = self.EstimateLocalGrainBoundaryWidth()
+            arrPoints = self.GetAtomsByID(self.GetNonGrainAtomIDs())[:,0:4]
+            arrIDs = arrPoints[:,0]
+            arrPoints = arrPoints[:,1:4]
+            lstAllDistances = []
+            for l in lstGrains:
+                    arrDistances1, arrIndices1 = self.__PeriodicGrains[l].Pquery(arrPoints, k=1)
+                    lstAllDistances.append(np.array([x[0] for x in arrDistances1]))
+            arrAllDistances = np.transpose(np.vstack(lstAllDistances))
+            arrRows = np.where(np.all(arrAllDistances < fltWidth,axis=1))[0]
+            arrReturn = arrIDs[arrRows] 
+        return arrReturn            
     def FindDefectiveMesh(self,intGrain1, intGrain2):
         fltWidth = 2*self.EstimateLocalGrainBoundaryWidth()
         arrDistances1, arrIndices1 = self.__PeriodicGrains[intGrain1].Pquery(self.__PeriodicGrains[intGrain2].GetOriginalPoints(),k=1) 
