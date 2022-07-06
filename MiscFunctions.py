@@ -61,6 +61,39 @@ def WriteAnnealTemplate(strDirectory: str, strFilename: str, intTemp: int, intRu
     fIn.write(strLAMMPS)
     fIn.close()
 
+def WriteMinTemplate(strDirectory: str, strFilename: str):
+    strLogFile =  strFilename + '.log'
+    str1MinDumpFile = strFilename + '*.dmp'
+    strDatFile = strFilename + '.dat'
+    strFirstMin = strFilename + '.lst'
+    strLAMMPS =''
+    strLAMMPS += 'units metal\n'
+    strLAMMPS += 'dimension 3\n'
+    strLAMMPS += 'boundary p p p\n'
+    strLAMMPS += 'atom_style atomic\n'
+    strLAMMPS += 'box tilt large\n'
+    strLAMMPS += 'read_data ' + strDatFile +'\n'
+    strLAMMPS += 'log ' + strLogFile +  '\n'
+    strLAMMPS += 'pair_style eam/alloy\n'
+    strLAMMPS += 'pair_coeff * * Al03.eam.alloy Al\n'
+    strLAMMPS += 'neighbor 0.3 bin\n'
+    strLAMMPS += 'neigh_modify delay 10\n'
+    strLAMMPS += 'thermo 100\n'
+    strLAMMPS += 'compute pe1 all pe/atom\n'
+    strLAMMPS += 'compute v all voronoi/atom\n'
+    strLAMMPS += 'compute pt all ptm/atom default 0.15 all\n'
+    strLAMMPS += 'compute st all stress/atom NULL virial\n'
+    strLAMMPS += 'dump 1 all custom 100 ' + str1MinDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
+    strLAMMPS += 'min_style fire\n'
+    strLAMMPS += 'timestep 0.002\n'
+    strLAMMPS += 'min_modify integrator verlet tmax 6.0 dmax 0.1\n'
+    strLAMMPS += 'minimize 0.0 1.0e-6 10000 100000\n'
+    strLAMMPS += 'write_dump all custom ' + strFirstMin + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
+    fIn = open(strDirectory + strFilename + '.in', 'wt')
+    fIn.write(strLAMMPS)
+    fIn.close()
+
+
 def ConfidenceInterval(arrValues: np.array, fltAlpha: float, blnInside = True)-> np.array:
     mu,st = stats.norm.fit(arrValues)
     tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)

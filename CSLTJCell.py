@@ -13,15 +13,15 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 
-strDirectory = str(sys.argv[1])
+strRoot = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = eval(str(sys.argv[2]))
-lstSigmaAxis = eval(str(sys.argv[3]))
+lstAxis = [2,2,1] #eval(str(sys.argv[2]))
+lstSigmaAxis = [9,9,9] #eval(str(sys.argv[3]))
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIncrements = 10
-fltTolerance = 0.1
+fltTolerance = 0.5
 a = 4.05
 lstOldTemplate = ['read.dat','read.dmp','read.lst', 'logfile']
 strTemplateName = 'TemplateMob.in'
@@ -30,12 +30,12 @@ arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
-objCSL.GetTJBasisVectors(intIndex,False)
+objCSL.GetTJBasisVectors(intIndex,True)
 arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-arrReciprocal =  gf.GetReciprocalVectors(np.round(arrBasis,10))
+arrReciprocal =  gf.FindReciprocalVectors(np.round(arrBasis,10))
 
 print(np.matmul(np.round(arrBasis,10),arrReciprocal))
 
@@ -62,74 +62,73 @@ arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.one
 arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3), 0.5*arrFullBox[1])
 
 fltNearestNeighbour = arrGrain1.GetNearestNeighbourDistance()
+fltTolerance = fltTolerance*fltNearestNeighbour
 
-strFilename = 'TJ0.dat'
+strFilename = 'TJ.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
 
-# for j in range(intIncrements):
-#     objSimulationCell.MergeTooCloseAtoms(fltNearestNeighbour*j/10,1)
-#     objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename[:-4] + str(j) + '.dat')
-#     lstNew = [strFilename[:-4] + str(j) + '.dat', strFilename[:-4]+ str(j) + '.dmp', strFilename[:-4]+ str(j) +'.lst', strFilename[:-4] + str(j) + '.log']
-#     MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-4] + str(j) + '.in')
 
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
-objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename[:-4] + '.dat')
-lstNew = [strFilename[:-4] + '.dat', strFilename[:-4] + '.dmp', strFilename[:-4] +'.lst', strFilename[:-4] + '.log']
-MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-4] + '.in')
+objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename[:-4] + '.dat')
+#lstNew = [strFilename[:-4] + '.dat', strFilename[:-4] + '.dmp', strFilename[:-4] +'.lst', strFilename[:-4] + '.log']
+MiscFunctions.WriteMinTemplate(strRoot,strFilename[:-4])
+#MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strRoot + strTemplateName,  strRoot +'Template' + strFilename[:-4] + '.in')
 
 
 objSimulationCell = gl.SimulationCell(arrSmallBox)
 arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), np.zeros(3))
 arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), np.zeros(3))
-strFilename = 'G1.dat'
+strFilename = '1G.dat'
 objSimulationCell.AddGrain(arrGrain1)
-objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename)
-lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
-MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
+objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename)
+#lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
+#MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strRoot + strTemplateName,  strRoot +'Template' + strFilename[:-3] + 'in')
+MiscFunctions.WriteMinTemplate(strRoot,strFilename[:-4])
 objSimulationCell.RemoveAllGrains()
-strFilename = 'G2.dat'
+strFilename = '2G.dat'
 objSimulationCell.AddGrain(arrGrain2)
-objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename)
-lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
-MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
-
+objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename)
+#lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
+#MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strRoot + strTemplateName,  strRoot +'Template' + strFilename[:-3] + 'in')
+MiscFunctions.WriteMinTemplate(strRoot,strFilename[:-4])
 
 objSimulationCell = gl.SimulationCell(arrVerticalBox)
 arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), np.zeros(3))
 arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrVerticalBox[1])
-strFilename = 'BV12.dat'
+strFilename = '12BV.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
-objSimulationCell.WriteLAMMPSDataFile(strDirectory + strFilename)
-lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
-MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
-
+objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename)
+#lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
+#MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strRoot + strTemplateName,  strRoot +'Template' + strFilename[:-3] + 'in')
+MiscFunctions.WriteMinTemplate(strRoot,strFilename[:-4])
 
 objSimulationCell.RemoveAllGrains()
 arrGrain1 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis1,ld.FCCCell,a*np.ones(3), np.zeros(3))
 arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3), 0.5*arrVerticalBox[1])
-strFilename = 'BV13.dat'
+strFilename = '13BV.dat'
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
-objSimulationCell.WriteLAMMPSDataFile(strDirectory+ strFilename)
-lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
-MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
+objSimulationCell.WriteLAMMPSDataFile(strRoot+ strFilename)
+#lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
+#MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strRoot + strTemplateName,  strRoot +'Template' + strFilename[:-3] + 'in')
+MiscFunctions.WriteMinTemplate(strRoot,strFilename[:-4])
 
 
 objSimulationCell = gl.SimulationCell(arrHorizontalBox)
 arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrHorizontalBox[0])
 arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.ones(3), np.zeros(3))
-strFilename = 'BH32.dat'
+strFilename = '32BH.dat'
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
-objSimulationCell.WriteLAMMPSDataFile(strDirectory+ strFilename)
+objSimulationCell.WriteLAMMPSDataFile(strRoot+ strFilename)
 lstNew = [strFilename, strFilename[:-3]+'dmp', strFilename[:-3]+'lst', strFilename[:-3] + 'log']
-MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strDirectory + strTemplateName,  strDirectory +'Template' + strFilename[:-3] + 'in')
-
+#MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strRoot + strTemplateName,  strRoot +'Template' + strFilename[:-3] + 'in')
+MiscFunctions.WriteMinTemplate(strRoot,strFilename[:-4])
 
 
