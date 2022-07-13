@@ -8,11 +8,11 @@ import copy as cp
 import MiscFunctions
 
 
-strDirectory = str(sys.argv[1])
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = eval(str(sys.argv[2]))
-lstSigmaAxis = eval(str(sys.argv[3]))
-intTemp = int(sys.argv[4])
+lstAxis = [1,0,1] # eval(str(sys.argv[2]))
+lstSigmaAxis = [3,3,9] #eval(str(sys.argv[3]))
+intTemp = 650 #int(sys.argv[4])
 intRuns = 400000
 
 arrAxis = np.array(lstAxis)
@@ -32,20 +32,20 @@ arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
 s = np.round(np.sqrt(4*10**5/(intHeight*np.linalg.det(arrBasis))))
-
-arrGrainBasis1 = objCSL.GetLatticeBasis(1)
-arrGrainBasis2 = objCSL.GetLatticeBasis(0)
-arrGrainBasis3 = objCSL.GetLatticeBasis(2)
+intRound = 6
+arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(0),intRound) 
+arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(2),intRound)
+arrGrainBasis3 = np.round(objCSL.GetLatticeBasis(1),intRound)
 
 arrFullCell = np.array([[4*s,0,0],[0,4*s,0],[0,0,intHeight]])
 arrSmallCell = np.array([[2*s,0,0],[0,2*s,0],[0,0,intHeight]])
 arrHorizontalCell = np.array([[4*s,0,0],[0,2*s,0],[0,0,intHeight]])
 arrVerticalCell = np.array([[2*s,0,0],[0,4*s,0],[0,0,intHeight]])
 
-arrFullBox = np.matmul(arrFullCell,arrBasis)
-arrSmallBox = np.matmul(arrSmallCell,arrBasis)
-arrHorizontalBox = np.matmul(arrHorizontalCell,arrBasis)
-arrVerticalBox = np.matmul(arrVerticalCell, arrBasis)
+arrFullBox = np.round(np.matmul(arrFullCell,arrBasis),intRound)
+arrSmallBox = np.round(np.matmul(arrSmallCell,arrBasis),intRound)
+arrHorizontalBox = np.round(np.matmul(arrHorizontalCell,arrBasis),intRound)
+arrVerticalBox = np.round(np.matmul(arrVerticalCell, arrBasis),intRound)
 
 objSimulationCell = gl.SimulationCell(arrFullBox)
 

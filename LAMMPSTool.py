@@ -196,6 +196,7 @@ class LAMMPSTimeStep(object):
                 arrCellVectors[0,0] = arrCellVectors[0,0] -arrCellVectors[1,0] 
                 arrCellVectors[2,0] = lstBoundBox[1][2]
                 arrCellVectors[2,1] = lstBoundBox[2][2]
+        arrCellVectors = np.round(arrCellVectors, 10)
         arrNonZero = np.argwhere(arrCellVectors != 0.0)
         if len(arrNonZero) == 3: #if there is no tilt then each coordinate direction is of the form [a 0 0], [0 b 0] and [0 0 c]
             self.__blnCuboid = True
@@ -273,7 +274,7 @@ class LAMMPSTimeStep(object):
                 strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(self.__BoundBoxDimensions[j,2]) + '\n'
         strHeader += 'ITEM: ATOMS ' + ' '.join(self.__ColumnNames)
         np.savetxt(strFilename, self.GetAtomData(), fmt= ' '.join(self.__ColumnTypes), header=strHeader, comments='')
-    def WriteDataFile(self, strFilename: str):
+    def WriteDataFile(self, strFilename: str, blnIncludeVelocities = False):
         now = datetime.now()
         strDateTime = now.strftime("%d/%m/%Y %H:%M:%S")
         strHeader = '##' + strDateTime +  '\n'
@@ -292,10 +293,18 @@ class LAMMPSTimeStep(object):
                 # strHeader += str(self.__BoundBoxDimensions[j,0]) + ' ' + str(self.__BoundBoxDimensions[j,1]) + ' '  + str(lstNames[j]) +  'lo ' + str#(lstNames[j]) + 'hi \n'
             strHeader += str(self.__BoundBoxDimensions[0,-1]) + ' ' + str(self.__BoundBoxDimensions[1,-1]) + ' ' + str(self.__BoundBoxDimensions[2,-1]) + ' xy xz yz \n'
         strHeader += '\nAtoms \n'
-        arrValues = np.ones([self.GetNumberOfAtoms(),5]) ##currently hard coded to atom type 1
+        intCols = 5 
+        strFormat = "%d " "%d " "%.6f " "%.6f " "%.6f " 
+        arrValues = np.ones([self.GetNumberOfAtoms(),intCols]) ##currently hard coded to atom type 1
         arrValues[:,0] = self.GetAtomData()[:,0]
-        arrValues[:,2:5] = self.GetAtomData()[:,1:4]
-        np.savetxt(strFilename, arrValues, fmt = "%d " "%d " "%.6f " "%.6f " "%.6f ", header=strHeader, comments='')
+        arrValues[:,2:intCols] = self.GetAtomData()[:,1:intCols-1]
+        np.savetxt(strFilename, arrValues, fmt = strFormat, header=strHeader, comments='')
+        if blnIncludeVelocities:
+            strHeader = '\nVelocities \n '
+            arrValues = self.GetAtomData()[:,[0,5,6,7]]
+            f = open(strFilename,'a')
+            np.savetxt(f,arrValues, fmt = "%d " "%.6f " "%.6f " "%.6f ", header=strHeader,comments='')
+            f.close()
 
 class LAMMPSPostProcess(LAMMPSTimeStep):
     def __init__(self, fltTimeStep: float,intNumberOfAtoms: int, intNumberOfColumns: int, lstColumnNames: list, lstBoundaryType: list, lstBounds: list,intLatticeType: int):
