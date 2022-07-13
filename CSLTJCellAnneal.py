@@ -8,12 +8,12 @@ import copy as cp
 import MiscFunctions
 
 
-strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+strDirectory = str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = [1,0,1] # eval(str(sys.argv[2]))
-lstSigmaAxis = [3,3,9] #eval(str(sys.argv[3]))
-intTemp = 650 #int(sys.argv[4])
-intRuns = 400000
+lstAxis = eval(str(sys.argv[2]))
+lstSigmaAxis = eval(str(sys.argv[3]))
+intTemp = int(sys.argv[4])
+intRuns = 3000000
 
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
