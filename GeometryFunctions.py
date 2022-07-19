@@ -1074,8 +1074,6 @@ def ConvertToLAMMPSBasis(arrBasisVectors: np.array):   #takes a general 3d Basis
         
         return arrReturn, arrTransform2    
 
-
-
 def ConfidenceAndPredictionBands(x,y, fltPercent):
 
 
