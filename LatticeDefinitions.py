@@ -11,5 +11,5 @@ def GetCellNodes(strLatticeType):
     objdct['3'] = BCCCell
     return objdct[strLatticeType]
 
-FCCPrimitive = np.array([[1,0,1],[1,1,0],[0,1,1]])
+FCCPrimitive = np.array([[1,0,1],[1,1,0],[0,1,1]])/2
 BCCPrimitive = np.array([[1,0,0],[0,1,0],[0.5,0.5,0.5]])

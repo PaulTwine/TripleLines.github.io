@@ -51,8 +51,8 @@ h = a*np.round(intHeight/s2,0)
 arrXTJ = w*arrSigmaBasis[0]
 arrXYTJ = l*arrSigmaBasis[1]
 
-arrOrientBases = np.round(np.append(np.matmul(ld.FCCPrimitive,arrBasis1), np.matmul(ld.FCCPrimitive,arrBasis2), axis=0),7)
-np.savetxt(strDirectory + 'Values.ori', arrOrientBases, delimiter=' ')
+arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrBasis1), np.matmul(a*ld.FCCPrimitive,arrBasis2), axis=0),7)
+np.savetxt(strDirectory + 'Values.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 
 objSimulationCellTJ = gl.SimulationCell(np.array([arrXTJ,arrXYTJ, s2*h*np.array([0,0,1])])) 
 arrCellCentreTJ = objSimulationCellTJ.GetCentre()
