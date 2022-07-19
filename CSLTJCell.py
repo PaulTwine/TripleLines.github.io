@@ -11,6 +11,12 @@ from scipy import spatial
 import MiscFunctions
 from mpl_toolkits.mplot3d import Axes3D
 
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJ/Axis221/Sigma9_9_9/Temp700/'
+strFile = strRoot + '1Sim1500000.dmp'
+objData = LT.LAMMPSData(strFile, 1, 4.05, LT.LAMMPSAnalysis3D)
+objLT = objData.GetTimeStepByIndex(-1)
+objLT.WriteDataFile(strRoot + 'NextTJ2.dat',True)
+
 
 
 strRoot = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
