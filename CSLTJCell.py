@@ -19,18 +19,16 @@ objLT.WriteDataFile(strRoot + 'NextTJ2.dat',True)
 
 
 
-strRoot = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+strRoot = str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = [2,2,1] #eval(str(sys.argv[2]))
-lstSigmaAxis = [9,9,9] #eval(str(sys.argv[3]))
+lstAxis = eval(str(sys.argv[2]))
+lstSigmaAxis = eval(str(sys.argv[3]))
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIncrements = 10
 fltTolerance = 0.5
 a = 4.05
-lstOldTemplate = ['read.dat','read.dmp','read.lst', 'logfile']
-strTemplateName = 'TemplateMob.in'
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
@@ -78,9 +76,8 @@ objSimulationCell.AddGrain(arrGrain3)
 
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename[:-4] + '.dat')
-#lstNew = [strFilename[:-4] + '.dat', strFilename[:-4] + '.dmp', strFilename[:-4] +'.lst', strFilename[:-4] + '.log']
 MiscFunctions.WriteMinTemplate(strRoot,strFilename[:-4])
-#MiscFunctions.UpdateTemplate(lstOldTemplate,lstNew, strRoot + strTemplateName,  strRoot +'Template' + strFilename[:-4] + '.in')
+
 
 
 objSimulationCell = gl.SimulationCell(arrSmallBox)
