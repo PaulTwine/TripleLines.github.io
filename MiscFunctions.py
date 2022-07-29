@@ -167,14 +167,16 @@ def WriteGBDrivenTemplate(strDirectory: str, strFilename: str, intTemp: int, int
     strLAMMPS += 'undump 1 \n'
     strLAMMPS += 'reset_timestep 0\n'
     strLAMMPS += 'timestep 0.001\n'
-    strLAMMPS += 'fix 1 all orient/eco ' +  str(lstEco[0]) + ' ' + str(lstEco[1]) + ' ' + str(lstEco[2])  + ' ' + strEcoFilename + '\n'
+    if len(strEcoFilename) > 0:
+        strLAMMPS += 'fix 1 all orient/eco ' +  str(lstEco[0]) + ' ' + str(lstEco[1]) + ' ' + str(lstEco[2])  + ' ' + strEcoFilename + '\n'
     strLAMMPS += 'dump 2 all custom 100 ' + strDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
     strLAMMPS += 'velocity all create ' + str(intTemp) + ' 24577\n'
     strLAMMPS += 'fix 2 all nvt temp ' + str(intTemp) + ' ' + str(intTemp) + ' $(100.0*dt)\n'
     strLAMMPS += 'run ' +str(intRuns) + '\n'
     strLAMMPS += 'unfix 2 \n'
     strLAMMPS += 'undump 2 \n'
-    strLAMMPS += 'unfix 1 \n'
+    if len(strEcoFilename) > 0:
+        strLAMMPS += 'unfix 1 \n'
     strLAMMPS += 'timestep 0.002\n'
     strLAMMPS += 'dump 3 all custom 100 ' + str2MinDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
     strLAMMPS += 'minimize 0.0 1.0e-6 10000 100000\n'
