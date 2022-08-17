@@ -4,8 +4,7 @@ Created on Fri May 31 10:38:14 2019
 
 @author: twine
 """
-from ssl import ALERT_DESCRIPTION_BAD_CERTIFICATE_HASH_VALUE, ALERT_DESCRIPTION_BAD_RECORD_MAC
-from tkinter.messagebox import NO
+
 import numpy as np
 import itertools as it
 from numpy.linalg.linalg import det

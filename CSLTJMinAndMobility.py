@@ -25,6 +25,7 @@ arrCell = objCSL.FindTripleLineSigmaValues(75)
 intRuns = 5*10**4
 fltTolerance = 0.5
 a = 4.05
+lstOrient = [0.06,0.25,4.05] 
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
@@ -38,9 +39,9 @@ intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 intNumberOfAtoms = 4*10**5
 s = np.round(np.sqrt(intNumberOfAtoms/(4*intTJSigma)))
 
-arrGrainBasis1 = objCSL.GetLatticeBasis(1)
-arrGrainBasis2 = objCSL.GetLatticeBasis(0)
-arrGrainBasis3 = objCSL.GetLatticeBasis(2)
+arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(1),10)
+arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(0),10)
+arrGrainBasis3 = np.round(objCSL.GetLatticeBasis(2),10)
 
 arrFullCell = np.array([[2*s,0,0],[0,2*s,0],[0,0,intHeight]])
 arrSmallCell = np.array([[s,0,0],[0,s,0],[0,0,intHeight]])
@@ -68,7 +69,7 @@ objSimulationCell.AddGrain(arrGrain3)
 
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/' + strFilename + '.dat')
-MiscFunctions.WriteTJDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, [0.08,0.25,4.05], ['Values12.ori', 'Values13.ori'] )
+MiscFunctions.WriteTJDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, lstOrient, ['Values12.ori', 'Values13.ori'] )
 arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis2), axis=0),7)
 np.savetxt(strRoot + strFilename + '/Values12.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), axis=0),7)
@@ -96,7 +97,7 @@ objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/'  + strFilename + '.dat')
-MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, [0.04,0.25,4.05], 'Values12.ori')
+MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, lstOrient, 'Values12.ori')
 arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis2), axis=0),7)
 np.savetxt(strRoot + strFilename + '/Values12.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 
@@ -108,9 +109,8 @@ objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/' + strFilename + '.dat')
-MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, [0.04,0.25,4.05], 'Values13.ori')
-arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), axis=0),7)
-arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis2), axis=0),7)
+MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns,lstOrient, 'Values13.ori')
+arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), axis=0),7)
 np.savetxt(strRoot + strFilename + '/Values12.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 
 objSimulationCell = gl.SimulationCell(arrHorizontalBox)
@@ -121,6 +121,6 @@ objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/' +  strFilename +  '.dat')
-MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, [0.08,0.25,4.05], '')
+MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, lstOrient, '')
 
 

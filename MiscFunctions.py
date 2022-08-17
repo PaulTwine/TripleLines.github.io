@@ -169,7 +169,7 @@ def WriteGBDrivenTemplate(strDirectory: str, strFilename: str, intTemp: int, int
     strLAMMPS += 'timestep 0.001\n'
     if len(strEcoFilename) > 0:
         strLAMMPS += 'fix 1 all orient/eco ' +  str(lstEco[0]) + ' ' + str(lstEco[1]) + ' ' + str(lstEco[2])  + ' ' + strEcoFilename + '\n'
-    strLAMMPS += 'dump 2 all custom 100 ' + strDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
+    strLAMMPS += 'dump 2 all custom 100 ' + strDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6] f_1[1]  f_1[2]  \n'
     strLAMMPS += 'velocity all create ' + str(intTemp) + ' 24577\n'
     strLAMMPS += 'fix 2 all nvt temp ' + str(intTemp) + ' ' + str(intTemp) + ' $(100.0*dt)\n'
     strLAMMPS += 'run ' +str(intRuns) + '\n'
@@ -221,7 +221,7 @@ def WriteTJDrivenTemplate(strDirectory: str, strFilename: str, intTemp: int, int
     strLAMMPS += 'timestep 0.001\n'
     strLAMMPS += 'fix 1 all orient/eco ' +  str(lstEco[0]) + ' ' + str(lstEco[1]) + ' ' + str(lstEco[2])  + ' ' + str(lstEcoFilenames[0]) + '\n'
     strLAMMPS += 'fix 2 all orient/eco ' +  str(lstEco[0]) + ' ' + str(lstEco[1]) + ' ' + str(lstEco[2])  + ' ' + str(lstEcoFilenames[1]) + '\n'
-    strLAMMPS += 'dump 2 all custom 100 ' + strDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6]\n'
+    strLAMMPS += 'dump 2 all custom 100 ' + strDumpFile + ' id x y z vx vy vz c_pe1 c_v[1] c_pt[1] c_pt[4] c_pt[5] c_pt[6] c_pt[7] c_st[1] c_st[2] c_st[3] c_st[4] c_st[5] c_st[6] f_1[1]  f_1[2]  f_2[1]  f_2[2] \n'
     strLAMMPS += 'velocity all create ' + str(intTemp) + ' 24577\n'
     strLAMMPS += 'fix 3 all nvt temp ' + str(intTemp) + ' ' + str(intTemp) + ' $(100.0*dt)\n'
     strLAMMPS += 'run ' +str(intRuns) + '\n'
