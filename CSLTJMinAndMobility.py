@@ -10,8 +10,7 @@ from scipy import spatial
 import MiscFunctions
 from mpl_toolkits.mplot3d import Axes3D
 
-##Currently Grain 1 is rectangular with nonad-justed PE. Grain 3 has higher PE (+0.04) and Grain 2 has lower PE (-0.04) 
-# and Grain 1 is unaffected by fix orient eco.
+
 
 
 strRoot = str(sys.argv[1])
@@ -113,7 +112,7 @@ objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/' + strFilename + '.dat')
 MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns,lstOrientGB, 'Values13.ori')
 arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), axis=0),7)
-np.savetxt(strRoot + strFilename + '/Values12.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
+np.savetxt(strRoot + strFilename + '/Values13.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 
 objSimulationCell = gl.SimulationCell(arrHorizontalBox)
 arrGrain2 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis2,ld.FCCCell,a*np.ones(3), 0.5*arrHorizontalBox[0])
