@@ -10,7 +10,7 @@ from scipy import spatial
 import MiscFunctions
 from mpl_toolkits.mplot3d import Axes3D
 
-
+###TJ Cell PE difference -u0 from grains 1 to 2, -u0/2 between grains 1 and 3 and +u0/2 between grains 2 and 1.
 
 
 strRoot = str(sys.argv[1])
@@ -24,9 +24,9 @@ arrCell = objCSL.FindTripleLineSigmaValues(75)
 intRuns = 5*10**4
 fltTolerance = 0.5
 a = 4.05
-u0 = 0.09
-lstOrientGB = [u0,0.25,a]
-lstOrientTJ = [2*u0/3,0.25,a] 
+u0 = 0.08
+#lstOrientGB = [u0,0.25,a]
+#lstOrientTJ = [u0,0.25,a] 
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
@@ -70,11 +70,11 @@ objSimulationCell.AddGrain(arrGrain3)
 
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/' + strFilename + '.dat')
-MiscFunctions.WriteTJDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, lstOrientTJ, ['Values12.ori', 'Values13.ori'] )
+MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, [u0,0.25,a], 'Values12.ori')
 arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis2), axis=0),7)
 np.savetxt(strRoot + strFilename + '/Values12.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
-arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), axis=0),7)
-np.savetxt(strRoot + strFilename + '/Values13.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
+# arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), axis=0),7)
+# np.savetxt(strRoot + strFilename + '/Values13.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 
 
 objSimulationCell = gl.SimulationCell(arrSmallBox)
@@ -98,7 +98,7 @@ objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/'  + strFilename + '.dat')
-MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, lstOrientGB, 'Values12.ori')
+MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, [u0,0.25,a], 'Values12.ori')
 arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis2), axis=0),7)
 np.savetxt(strRoot + strFilename + '/Values12.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 
@@ -110,7 +110,7 @@ objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/' + strFilename + '.dat')
-MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns,lstOrientGB, 'Values13.ori')
+MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns,[u0/2,0.25,a], 'Values13.ori')
 arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis1), np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), axis=0),7)
 np.savetxt(strRoot + strFilename + '/Values13.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
 
@@ -122,6 +122,8 @@ objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)
 objSimulationCell.MergeTooCloseAtoms(fltTolerance,1)
 objSimulationCell.WriteLAMMPSDataFile(strRoot + strFilename + '/' +  strFilename +  '.dat')
-MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, lstOrientGB, '')
+arrOrientBases = np.round(np.append(np.matmul(a*ld.FCCPrimitive,arrGrainBasis3), np.matmul(a*ld.FCCPrimitive,arrGrainBasis2), axis=0),7)
+np.savetxt(strRoot + strFilename + '/Values32.ori', arrOrientBases, delimiter=' ',fmt='%1.5f')
+MiscFunctions.WriteGBDrivenTemplate(strRoot + strFilename + '/', strFilename, intTemp, intRuns, [u0/2,0.25,a], 'Values32.ori')
 
 
