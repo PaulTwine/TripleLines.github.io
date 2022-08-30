@@ -35,8 +35,9 @@ arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-intNumberOfAtoms = 4*10**5
-s = np.round(np.sqrt(intNumberOfAtoms/(4*intTJSigma)))
+intNumberOfAtoms = 4*10**5 #choose approximate numbers of atoms here
+intAtomsPerCell = 4 # 4 for FCC and 2 for BCC
+s = np.round(np.sqrt(intNumberOfAtoms/(intAtomsPerCell*intTJSigma))/4) #
 
 arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(1),10)
 arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(0),10)
