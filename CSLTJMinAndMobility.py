@@ -18,13 +18,13 @@ intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
+u0 = float(sys.argv[5])
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intRuns = 5*10**4
 fltTolerance = 0.5
 a = 4.05
-u0 = 0.03
 lstOrientGB = [u0,0.25,a]
 lstOrientTJ = [np.round(2*u0/3,5),0.25,a] 
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
