@@ -1,3 +1,4 @@
+#%%
 import re
 #from types import NoneType
 import numpy as np
@@ -21,9 +22,44 @@ from sklearn.neighbors import NearestNeighbors, KDTree
 from sklearn.cluster import KMeans
 import MiscFunctions as mf
 
-
-
-
+class LAMMPSLog(object):
+    def __init__(self,strFilename):
+        self.__FileName = strFilename
+        self.__Values = dict()
+        self.__ColumnNames = dict()
+        self.__Stages = 0
+        dctValues = dict()
+        dctColumns = dict()
+        intStages = 0
+        with open(strFilename) as Dfile:
+            while True:
+                lstBounds = []
+                try:
+                    line = next(Dfile).strip()
+                except StopIteration as EndOfFile:
+                    break
+                if "Step" == line[:4]:
+                    lstColumnNames = line.split(' ')
+                    lstRows = []
+                    line = next(Dfile).strip()
+                    while "Loop" != line[:4]:
+                        lstRow = list(map(float,line.strip().split()))
+                        lstRows.append(lstRow)
+                        line = next(Dfile).strip()
+                    arrValues = np.vstack(lstRows)
+                    dctValues[intStages] = arrValues
+                    dctColumns[intStages] = lstColumnNames
+                    intStages += 1    
+            self.__Values = dctValues
+            self.__ColumnNames = dctColumns
+            self.__Stages = intStages
+            Dfile.close()
+    def GetNumberOfStages(self):
+            return self.__Stages
+    def GetValues(self, intStage):
+            return self.__Values[intStage]
+    def GetColumnNames(self, intStage):
+            return self.__ColumnNames[intStage]    
 
 class LAMMPSData(object):
     def __init__(self,strFilename: str, intLatticeType: int, fltLatticeParameter: float, objAnalysis: object):
@@ -541,6 +577,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.intGrainNumber = -1 #set to a dummy value to check 
         self.intGrainBoundary = -1
         self.__objRealCell = gl.RealCell(ld.GetCellNodes(str(intLatticeType)),fltLatticeParameter*np.ones(3))
+    def GetGrainAtomIDsByEcoOrient(self, strColumnName, intValue):
+        arrRow = self.GetColumnByName(strColumnName)
+        arrPositions = np.where(arrRow == intValue)
+        arrIDs = self.GetAtomData()[arrPositions,0]
+        return arrIDs[0]
     def GetUnassignedGrainAtomIDs(self):
         if 'GrainNumber' not in self.GetColumnNames():
             warnings.warn('Grain labels not set.')
@@ -1124,8 +1165,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         intFirst = self.GetColumnIndex('c_pt[1]')
         intSecond = self.GetColumnIndex('c_pt[7]')
         arrQuaternions = self.GetAtomData()[:,intFirst:intSecond+1]
-        arrRows = np.matmul(arrQuaternions[:,1:5], inQuaternion)
-        lstRows.append(np.where((np.abs(arrRows) > 1- fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0])
+        #arrRows = np.matmul(arrQuaternions[:,1:5], inQuaternion)
+        #lstRows.append(np.where((np.abs(arrRows) > 1- fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0])
         for j in gf.CubicQuaternions():
             y = gf.QuaternionProduct(j,inQuaternion)
             arrRows = np.matmul(arrQuaternions[:,1:5], y)
@@ -1134,15 +1175,25 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         rtnValue = []
         if len(arrRows) > 0:
             arrIDs = self.GetColumnByIndex(0)[arrRows].astype('int')
-            clustering = DBSCAN(eps=1.05*self.__objRealCell.GetNearestNeighbourDistance()).fit(self.GetAtomsByID(arrIDs)[:,1:4])
-            arrLabels = clustering.labels_
-            arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
-            arrMax = np.argmax(arrCounts)
-            if arrUniqueLabels[arrMax] != -1:
-                rtnValue =  arrIDs[arrLabels==arrUniqueLabels[arrMax]]
-                self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'GrainNumber',strFormat='%i')
-                self.SetColumnByIDs(rtnValue,self.GetColumnIndex('GrainNumber'),np.ones(len(rtnValue)))
-        return rtnValue       
+            rtnValue = arrIDs
+            # clustering = DBSCAN(eps=1.05*self.__objRealCell.GetNearestNeighbourDistance()).fit(self.GetAtomsByID(arrIDs)[:,1:4])
+            # arrLabels = clustering.labels_
+            # arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
+            # arrMax = np.argmax(arrCounts)
+            # if arrUniqueLabels[arrMax] != -1:
+            #     rtnValue =  arrIDs[arrLabels==arrUniqueLabels[arrMax]]
+            #     self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'GrainNumber',strFormat='%i')
+            #     self.SetColumnByIDs(rtnValue,self.GetColumnIndex('GrainNumber'),np.ones(len(rtnValue)))
+        return rtnValue 
+    def GetAtomIDsByOrderParameter(self, intOrderIndex: list):
+        strColumnName = 'f_' + str(intOrderIndex) + '[2]'
+        arrRows1 = np.where(self.GetColumnByName(strColumnName) == 1)[0]
+        arrRows2 = np.where(self.GetColumnByName(strColumnName) == -1)[0]
+        arrIDs1 =  self.GetColumnByIndex(0)[arrRows1].astype('int')
+        arrIDs2 =  self.GetColumnByIndex(0)[arrRows2].astype('int')
+        return arrIDs1, arrIDs2
+        
+
 
          
 class LAMMPSGlobal(LAMMPSAnalysis3D): #includes file writing and reading to correlate labels over different time steps

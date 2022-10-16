@@ -211,6 +211,7 @@ def WriteTJDrivenTemplate(strDirectory: str, strFilename: str, intTemp: int, int
     strLAMMPS += 'neighbor 0.3 bin\n'
     strLAMMPS += 'neigh_modify delay 10\n'
     strLAMMPS += 'thermo 100\n'
+    strLAMMPS += 'thermo_style custom step temp pe etotal press\n'
     strLAMMPS += 'compute pe1 all pe/atom\n'
     strLAMMPS += 'compute v all voronoi/atom\n'
     strLAMMPS += 'compute pt all ptm/atom default 0.15 all\n'
@@ -244,11 +245,16 @@ def WriteTJDrivenTemplate(strDirectory: str, strFilename: str, intTemp: int, int
     fIn.write(strLAMMPS)
     fIn.close()
 
-
-
-
-
-
+def LogNormalConfidenceInterval(arrValues: np.array, fltAlpha: float, blnInside = True)-> np.array:
+    arrPositive = np.where(arrValues > 0)[0]
+    arrLog = np.log(arrValues[arrPositive])
+    mu,st = stats.norm.fit(arrLog)
+    tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)
+    if blnInside:
+        arrRows = np.where((arrLog > tupValues[0]) & (arrLog < tupValues[1]))[0]
+    else:
+        arrRows = np.where((arrLog < tupValues[0] ) | (arrLog > tupValues[1]))[0]
+    return arrRows
 def ConfidenceInterval(arrValues: np.array, fltAlpha: float, blnInside = True)-> np.array:
     mu,st = stats.norm.fit(arrValues)
     tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)
