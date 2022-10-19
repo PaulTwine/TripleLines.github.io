@@ -154,6 +154,7 @@ def WriteGBDrivenTemplate(strDirectory: str, strFilename: str, intTemp: int, int
     strLAMMPS += 'neighbor 0.3 bin\n'
     strLAMMPS += 'neigh_modify delay 10\n'
     strLAMMPS += 'thermo 100\n'
+    strLAMMPS += 'thermo_style custom step temp pe etotal press\n'
     strLAMMPS += 'compute pe1 all pe/atom\n'
     strLAMMPS += 'compute v all voronoi/atom\n'
     strLAMMPS += 'compute pt all ptm/atom default 0.15 all\n'
