@@ -1222,6 +1222,7 @@ class SigmaCell(object):
             h = self.__CellHeight
             l = intSigmaValue
             fltSigma = float(arrSigmas[intMin,1])
+            self.__LatticeRotation = fltSigma
             arrBasis1 = gf.StandardBasisVectors(3)
             arrBasis2 = gf.RotateVectors(fltSigma,self.__RotationAxis,gf.StandardBasisVectors(3))
             arrBasisMedian = gf.RotateVectors(fltSigma/2,self.__RotationAxis,gf.StandardBasisVectors(3))
@@ -1261,8 +1262,8 @@ class SigmaCell(object):
         return self.__TransformationMatrix
     def GetBasisVectors(self):
         return self.__BasisVectors
-    def GetLatticeRotations(self):
-        return self.__LatticeRotations
+    def GetLatticeRotation(self):
+        return self.__LatticeRotation
     def GetPrimitiveCoefficients(self,inVector: np.array):
         return np.round(np.matmul(np.transpose(inVector),self.__CSLPrimitiveInverse),10)
     def __CheckIsCSLVectors(self,inVector: np.array):

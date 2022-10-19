@@ -26,9 +26,15 @@ from scipy.optimize import curve_fit
 
 # %%
 #plt.rc('text', usetex=True)
-#plt.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
-plt.rcParams['text.latex.preamble'] = r"\usepackage{bm} \usepackage{amsmath}"
-strDeltaAxis = r'$\boldsymbol{\delta}_{i}$' 
+# plt.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
+#plt.rcParams['text.latex.preamble'] = r"\usepackage{bm} \usepackagstrDeltaAxisstrDeltaAxise{amsmath}"
+plt.rc('text', usetex=True)
+plt.rc('text.latex', preamble=r'\usepackage{amsmath} \usepackage{bm}')
+#plt.rc('text', usetex=True)
+#plt.rcParams["text.latex.preamble"].join([r"\usepackage{bm},"r"\usepackage{amsmath}",])
+plt.rcParams['figure.dpi'] = 300
+#matplotlib.verbose.level = 'debug-annoying'
+strDeltaAxis = r'$\bm{\delta_{i}}$'
 strFAxis = r'$F_{L}$ in eV $\AA^{-2}$'
 strCSLAxis = r'$\gamma_{\mathrm{CSL}}$ in eV $\AA^{-2}$'
 strCurved = r'$\gamma_{\mathrm{curved}}$ in eV $\AA^{-2}$'
@@ -248,7 +254,8 @@ class TJAndGBData(object):
         arrGB = arrGB[self.__ArrayPositions]
         arrCSL = arrCSLArray[:, 1][self.__ArrayPositions]
         return (arrExcessCSL/fltGBArea + 2*(arrGB-arrCSL)/fltCylinderArea)/3
-    def GetCylindricalExcessPerArea(self,inCSLGBData: CSLGBData):
+
+    def GetCylindricalExcessPerArea(self, inCSLGBData: CSLGBData):
         fltCylinderArea = self.FindTotalGBArea()[1]
         arrCSLArray = inCSLGBData.GetOriginalValues()
         arrCSLArray = np.tile(arrCSLArray, (10, 1))
@@ -258,13 +265,14 @@ class TJAndGBData(object):
         arrGB = arrGB[self.__ArrayPositions]
         arrCSL = arrCSLArray[:, 1][self.__ArrayPositions]
         return (arrGB-arrCSL)/fltCylinderArea
+
     def AdjustEnergyByMassBalance(self):
        # arrNMax = np.max(self.__Values[:, [6, 7]])*np.ones(len(self.__Values))
         arrMu = self.__Values[:, 4]/self.__Values[:, 8]
         arrTJAdjusted = self.__Values[:, 3] + \
-            arrMu*(self.__Values[:, 6]-self.__Values[:,7])
-        arrGBAdjusted = self.__Values[:, 2] #+ \
-           # arrMu*(arrNMax-self.__Values[:, 6])
+            arrMu*(self.__Values[:, 6]-self.__Values[:, 7])
+        arrGBAdjusted = self.__Values[:, 2]  # + \
+        # arrMu*(arrNMax-self.__Values[:, 6])
         return arrTJAdjusted, arrGBAdjusted
 
     def GetExcessEnergies(self):
@@ -290,33 +298,36 @@ class TJAndGBData(object):
                 lstValues.append(arrRows[arrMin])
         return np.array(lstValues)
 
-    def GetTJEnergyGradient(self, fltLattice: float):  # only looks at nearest triple line
+    # only looks at nearest triple line
+    def GetTJEnergyGradient(self, fltLattice: float):
         lstValues = []
         objCSL = gl.SigmaCell(self.__Axis, ld.FCCCell)
         objCSL.MakeCSLCell(self.__Sigma)
         arrBasis = fltLattice*objCSL.GetBasisVectors()
         arrTJExcess = self.GetTJExcessPerLength()
-        arrUniqueDMin = np.sort(np.unique(self.__Values[:,1]))
+        arrUniqueDMin = np.sort(np.unique(self.__Values[:, 1]))
         for j in arrUniqueDMin:
             arrRows = np.where(self.__Values[:, 1] == j)[0]
-            arrDeltaRows = self._TJAndGBData__Values[arrRows,0].astype('int')
+            arrDeltaRows = self._TJAndGBData__Values[arrRows, 0].astype('int')
             if len(arrRows) > 0:
                 arrCurrentValues = arrTJExcess[arrRows]
                 arrMin = np.argmin(arrCurrentValues)
-                objPeriodicTree = gf.PeriodicWrapperKDTree(np.array([self.__Displacments[arrDeltaRows[arrMin]]]), fltLattice*objCSL.GetBasisVectors(), gf.FindConstraintsFromBasisVectors(arrBasis), np.max(np.linalg.norm(arrBasis)))
+                objPeriodicTree = gf.PeriodicWrapperKDTree(np.array([self.__Displacments[arrDeltaRows[arrMin]]]), fltLattice*objCSL.GetBasisVectors(
+                ), gf.FindConstraintsFromBasisVectors(arrBasis), np.max(np.linalg.norm(arrBasis)))
                 arrDistances, arrIndices = objPeriodicTree.Pquery(
-            self.__Displacments[arrDeltaRows], 1)
+                    self.__Displacments[arrDeltaRows], 1)
                 arrFValues = arrCurrentValues - arrCurrentValues[arrMin]
                 arrDistances = arrDistances
                 arrFValues = np.delete(arrFValues, arrMin)
                 arrDistances2 = np.delete(arrDistances, arrMin)
                 arrCutOff = np.where(arrDistances2 < 4.05)[0]
                 # if len(arrDistances2) > 0:
-                #     intMin = np.argmin(arrDistances2) 
+                #     intMin = np.argmin(arrDistances2)
                 if len(arrFValues) > 0:
-                    lstValues.append(arrFValues[arrCutOff]/arrDistances2[arrCutOff])     
-        #return lstValues
-        return np.concatenate(lstValues,axis=0)
+                    lstValues.append(
+                        arrFValues[arrCutOff]/arrDistances2[arrCutOff])
+        # return lstValues
+        return np.concatenate(lstValues, axis=0)
 
     def GetTJDifferenceForEachDelta(self):
         lstValues = []
@@ -343,7 +354,7 @@ class TJAndGBData(object):
             arrRows = np.where(self.__Values[:, 0].astype('int') == j)[0]
             arrCurrentValues = arrTJExcess[arrRows]
             lstValues.append(arrCurrentValues)
-            lstDMinPosition.append(self.__Values[arrRows,1])
+            lstDMinPosition.append(self.__Values[arrRows, 1])
         return lstValues
 
     def GetTJForEachDMin(self):
@@ -385,47 +396,106 @@ class TJAndGBData(object):
                 lstPositions.append(np.array(lstRows))
                 lstUsedDMins.append(i)
         return lstPositions, lstUsedDMins
+
     def GetPositionsByDelta(self):
         lstPositions = []
         lstDMinsPositions = []
-        lstUniqueDMins = list(np.sort(np.unique(self.__Values[:,1])))
+        lstUniqueDMins = list(np.sort(np.unique(self.__Values[:, 1])))
         for i in range(self.__DeltaRange):
-            arrRows = np.where((self.__Values[:,0] == i))[0]
+            arrRows = np.where((self.__Values[:, 0] == i))[0]
             if len(arrRows) > 0:
                 lstPositions.append(arrRows)
-            arrDMins = self.__Values[arrRows,1]
+            arrDMins = self.__Values[arrRows, 1]
             lstIndex = list(map(lambda x: lstUniqueDMins.index(x), arrDMins))
             lstDMinsPositions.append(lstIndex)
         return lstPositions, lstDMinsPositions
+
     def SetDisplacements(self, inArray):
         self.__Displacments = inArray[:-1]
+
     def GetDisplacements(self):
         return self.__Displacments
+
     def FindExcessStrainEnergy(self):
-        return (self.__Values[:,5]/self.__Values[:,9]-self.__Values[:,5]/self.__Values[:,9])
+        return (self.__Values[:, 5]/self.__Values[:, 9]-self.__Values[:, 5]/self.__Values[:, 9])
+
     def GetAtomMergeDifferences(self):
-        lstPos1 = []
-        lstPos2 = []
-        lstNGB = []
-        lstNTJ = []
-        for j in range(self.__DeltaRange):
-            arrRows = np.where(self.__Values[:,0] ==j)[0]
-            arrDMins = np.unique(self.__Values[arrRows,1])
-            if len(arrDMins) > 1: #need at least two values 
-                for k in range(1,len(arrDMins)):
-                    intRow2 = np.where((self.__Values[:,0] == j) & (self.__Values[:,1] == arrDMins[k]))[0][0]
-                    intRow1 = np.where((self.__Values[:,0] == j) & (self.__Values[:,1] == arrDMins[k-1]))[0][0]
-                    lstNGB.append(self.__Values[intRow1,6]-self.__Values[intRow2,6])
-                    lstNTJ.append(self.__Values[intRow1,7]-self.__Values[intRow2,7])
-                    lstPos2.append(intRow2)
-                    lstPos1.append(intRow1)
-        return lstNGB, lstNTJ, lstPos1, lstPos2
-                    
+        lstAllRows = []
+        for j in range(1,len(self.__DMinValues)):
+            lstTemp = []
+            intRows2 = np.where(self.__OriginalValues[:,1] == self.__DMinValues[j])[0]
+            intRows1 = np.where(self.__OriginalValues[:,1] == self.__DMinValues[j]-1)[0]
+            arrDifference = self.__OriginalValues[intRows2] - self.__OriginalValues[intRows1]
+            arrDelete = np.where(np.all(arrDifference[:,2:] == 0, axis=1))[0]
+            intRows1 = np.delete(intRows1, arrDelete)
+            intRows2 = np.delete(intRows2, arrDelete)
+            if len(intRows1) > 0:
+                lstTemp.append(intRows1)
+                lstTemp.append(intRows2)
+                lstAllRows.append(np.vstack(lstTemp)) 
+        lstValueRows = [] #row numbers for self.__Values from self.__OriginalValues
+        for l in lstAllRows:
+            lstTemp = []
+            lstRows1 = []
+            for j in l[0]:
+                arrRows1 = np.where(np.all(self.__Values[:,2:]==self.__OriginalValues[j,2:],axis=1))[0]
+                if len(arrRows1) > 0:
+                    lstRows1.append(arrRows1[0])
+            lstRows2 = []
+            for k in l[1]:
+                arrRows2 = np.where(np.all(self.__Values[:,2:]==self.__OriginalValues[k,2:],axis=1))[0]
+                if len(arrRows2) > 0 and len(arrRows1) > 0:
+                    lstRows2.append(arrRows2[0])
+            if len(lstRows1) > 0 and len(lstRows2) > 0:
+                lstTemp.append(np.array(lstRows1))
+                lstTemp.append(np.array(lstRows2))
+                arrValues = np.vstack(lstTemp)
+                lstValueRows.append(arrValues)
+        return lstValueRows   
+        # lstAllPositions = []
+        # lstAllDMins = []
+        # for j in range(self.__DeltaRange):
+        #     arrDMins = np.unique(self.__Values[:, 1])    
+        #     if len(arrDMins) > 1:  # need at least two values
+        #         lstPos1 = []
+        #         lstPos2 = []
+        #         lstNGB = []
+        #         lstNTJ = []
+        #         for k in range(1, len(arrDMins)):
+        #             intRow2 = np.where((self.__Values[:, 0] == j) & (
+        #                 self.__Values[:, 1] == arrDMins[k]))[0][0]
+        #             intRow1 = np.where((self.__Values[:, 0] == j) & (
+        #                 self.__Values[:, 1] == arrDMins[k-1]))[0][0]
+        #             lstPos2.append(intRow2)
+        #             lstPos1.append(intRow1)
+        # return lstNGB, lstNTJ, lstPos1, lstPos2
+
+        
+        
+        # lstAllPositions = []
+        # lstAllDMins = []
+        # for j in range(self.__DeltaRange):
+        #     arrDMins = np.unique(self.__Values[:, 1])    
+        #     if len(arrDMins) > 1:  # need at least two values
+        #         lstPos1 = []
+        #         lstPos2 = []
+        #         lstNGB = []
+        #         lstNTJ = []
+        #         for k in range(1, len(arrDMins)):
+        #             intRow2 = np.where((self.__Values[:, 0] == j) & (
+        #                 self.__Values[:, 1] == arrDMins[k]))[0][0]
+        #             intRow1 = np.where((self.__Values[:, 0] == j) & (
+        #                 self.__Values[:, 1] == arrDMins[k-1]))[0][0]
+        #             lstPos2.append(intRow2)
+        #             lstPos1.append(intRow1)
+        # return lstNGB, lstNTJ, lstPos1, lstPos2
+
         # for i in arrDMins:
         #     arrRows = np.where(self.__Values[:,1] == i)[0]
         #     lstValues.append(arrDifferences[arrRows])
         #     lstDMins.append(i)
         # return lstValues, lstDMins
+
 
 def FitLine(x, a, b):
     return a*x + b
@@ -460,19 +530,48 @@ arrAxes = np.array(
     [np.array([0, 0, 1]), np.array([1, 0, 1]), np.array([1, 1, 1])])
 lstAxisNames = ['Axis [001]', 'Axis [101]', 'Axis [111]']
 #%%
-###TJ energy gradient
+
+# %%
+# TJ std (or change to mean) for against disorientation angle
+lstAngles = []
+lstStd = []
+for a in dctAllTJ.keys():
+    i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
+    arrTJ = dctAllTJ[a].GetTJExcessPerLength()
+    arrPositions = dctAllTJ[a].GetMinimumTJForEachDMin()
+    #fltStd = np.mean(arrTJ[arrPositions])
+    fltStd = np.std(arrTJ)
+    objCSL = gl.SigmaCell(dctAllTJ[a].GetAxis(), ld.FCCCell)
+    objCSL.MakeCSLCell(dctAllTJ[a].GetSigma())
+    fltAngle = 180*objCSL.GetLatticeRotation()/np.pi
+    if fltAngle < 40:
+        lstAngles.append(fltAngle)
+        lstStd.append(fltStd)
+        plt.scatter(fltAngle, fltStd,
+                    color=lstColours[i], marker=lstMarkers[i])
+        plt.annotate(
+            '$\Sigma$' + str(dctAllTJ[a].GetSigma()), (fltAngle, fltStd))
+pop, popt = curve_fit(FitLine, lstAngles, lstStd)
+plt.plot(lstAngles, FitLine(np.array(lstAngles), pop[0], pop[1]))
+print(np.corrcoef(lstAngles, lstStd))
+plt.show()
+# %%
+# TJ energy gradient
 fig, axs = plt.subplots(1, 3, sharey=True)
 lstValues = []
 lstAllValues = []
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    lstValues= dctAllTJ[a].GetTJEnergyGradient(4.05)
+    lstValues = dctAllTJ[a].GetTJEnergyGradient(4.05)
     arrRows = np.where(np.array(lstValues) < 0.3)[0]
     arrValues = np.array(lstValues)[arrRows]
     lstAllValues.append(arrValues)
-    arrSigma = np.ones(len(arrValues))*lstSigmas[i].index(dctAllTJ[a].GetSigma())
-    axs[i].scatter(arrSigma, arrValues, c=lstColours[i], marker=lstMarkers[i], label='Small')
-    axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrValues), 1.96*np.std(arrValues), c=lstColours[i], linestyle='', capsize=5, marker='+')
+    arrSigma = np.ones(len(arrValues)) * \
+        lstSigmas[i].index(dctAllTJ[a].GetSigma())
+    axs[i].scatter(arrSigma, arrValues, c=lstColours[i],
+                   marker=lstMarkers[i], label='Small')
+    axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrValues), 1.96 *
+                    np.std(arrValues), c=lstColours[i], linestyle='', capsize=5, marker='+')
 for i in range(3):
     axs[i].set_xticks(list(range(len(lstSigmas[i]))))
     axs[i].set_xticklabels(lstSigmas[i])
@@ -562,40 +661,66 @@ plt.xticks(np.linspace(0.02, 0.1, 9))
 plt.yticks(np.linspace(0.02, 0.1, 9))
 plt.show()
 #%%
-## excess TJ energy against difference in merged atoms from SGB to STJ
+##Eich calcuation
+lstValues = []
+arrTJ = dctAllTJ['Axis001,5'].GetTJExcessPerLength()
+arrPos = dctAllTJ['Axis001,5'].GetMinimumTJForEachDMin()
+lstValues.append(arrTJ[arrPos])
+arrTJ = dctAllTJ['Axis001,13'].GetTJExcessPerLength()
+arrPos = dctAllTJ['Axis001,13'].GetMinimumTJForEachDMin()
+lstValues.append(arrTJ[arrPos])
+arrTJ = dctAllTJ['Axis001,17'].GetTJExcessPerLength()
+arrPos = dctAllTJ['Axis001,17'].GetMinimumTJForEachDMin()
+lstValues.append(arrTJ[arrPos])
+arrValues = np.concatenate(lstValues)
+print(np.mean(arrValues), np.std(arrValues))
+#%%
+for a in dctAllTJ.keys():
+        if np.all(dctAllTJ[a].GetAxis() == arrAxes[0]):
+            arrTJ = dctAllTJ[a].GetTJExcessPerLength()
+            print(np.mean(arrTJ),np.std(arrTJ),dctAllTJ[a].GetSigma())
+# %%
+# excess TJ energy against difference in merged atoms from SGB to STJ
 for a in dctAllTJ.keys():
     arrTJ = dctAllTJ[a].GetTJExcessPerLength()
-    lstGB, lstTJ, lstPos1, lstPos2 =dctAllTJ[a].GetAtomMergeDifferences()
-    if len(lstPos1) > 0:
-        arrD = np.array(lstGB)-np.array(lstTJ)
-        plt.title(str(dctAllTJ[a].GetSigma()))
-        plt.scatter(arrD, arrTJ[np.array(lstPos2)]-arrTJ[np.array(lstPos1)])
+    arrValues = dctAllTJ[a].GetValues()
+    lstRows = dctAllTJ[a].GetAtomMergeDifferences()
+    lstlegend = []
+    if len(lstRows) > 0:
+        for k in lstRows:
+            arrD = arrValues[k[1]] - arrValues[k[0]]
+            arrD = arrD[:,6] - arrD[:,7]
+            print(np.mean(abs(arrD)),np.std(arrD))
+            lstlegend.append([np.unique(arrValues[k[1],1])[0],np.unique(arrValues[k[0],1])[0]])
+            plt.title(str(dctAllTJ[a].GetSigma()))
+            plt.scatter(arrD, arrTJ[k[1]]-arrTJ[k[0]])
+        plt.legend(lstlegend)
         plt.show()
-#%%
-## TJ excess energy against atom merge differences SGB to STJ on one scatter plot
+# %%
+# TJ excess energy against atom merge differences SGB to STJ on one scatter plot
 lstTJs = []
 lstNs = []
 for a in dctAllTJ.keys():
     arrTJ = dctAllTJ[a].GetTJExcessPerLength()
-    lstGB, lstTJ, lstPos1, lstPos2 =dctAllTJ[a].GetAtomMergeDifferences()
+    lstGB, lstTJ, lstPos1, lstPos2 = dctAllTJ[a].GetAtomMergeDifferences()
     if len(lstPos1) > 0:
         arrD = np.array(lstGB)-np.array(lstTJ)
         lstNs.append(arrD)
         lstTJs.append(arrTJ[np.array(lstPos2)]-arrTJ[np.array(lstPos1)])
-        #plt.title(str(dctAllTJ[a].GetSigma()))
+        # plt.title(str(dctAllTJ[a].GetSigma()))
 arrTJs = np.concatenate(lstTJs)
-arrNs = np.concatenate(lstNs)        
-plt.scatter(arrNs,arrTJs)
-plt.show()    
-#%%
-###original atom merge check
+arrNs = np.concatenate(lstNs)
+plt.scatter(arrNs, arrTJs)
+plt.show()
+# %%
+# original atom merge check
 for a in dctAllTJ.keys():
-    arr, arrDMin,arrC =dctAllTJ[a].GetAtomMergeDifferences()
+    arr, arrDMin, arrC = dctAllTJ[a].GetAtomMergeDifferences()
     for k in range(len(arrDMin)):
-        plt.title(str(dctAllTJ[a].GetSigma())+ ',' + str(arrDMin[k]))
+        plt.title(str(dctAllTJ[a].GetSigma()) + ',' + str(arrDMin[k]))
         intRange = np.max(arr[k])-np.min(arr[k])
-        intRange = np.max([1,intRange]).astype('int')
-        plt.hist(arr[k],bins=intRange)
+        intRange = np.max([1, intRange]).astype('int')
+        plt.hist(arr[k], bins=intRange)
         plt.show()
         print(np.mean(arr[k]))
 
@@ -608,9 +733,10 @@ fig, axs = plt.subplots(1, 3, sharey=True)
 
 for a in dctAllGB.keys():
     i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    arrDMin,arrGB = dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])
+    arrDMin, arrGB = dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])
     #arrSigma = dctAllGB[a].GetSigmaArrays(lstSigmas[i])
-    arrSigma = np.ones(len(arrGB))*lstSigmas[i].index(dctAllGB[a].GetSigmaValue())
+    arrSigma = np.ones(len(arrGB)) * \
+        lstSigmas[i].index(dctAllGB[a].GetSigmaValue())
     axs[i].scatter(arrSigma, arrGB, c=lstColours[i],
                    marker=lstMarkers[i], label='Small')
 
@@ -620,9 +746,9 @@ for i in range(3):
     axs[i].set_xlabel(strSigmaAxis)
     axs[i].legend([lstLegendAxes[i]])
 axs[0].set_ylabel(strCSLAxis)
-axs[0].set_ylim([0,0.06])
+axs[0].set_ylim([0, 0.06])
 plt.show()
-#%%
+# %%
 # excess cylindrical GB energies with a scatter plot for each axis
 fig, axs = plt.subplots(1, 3, sharey=True)
 lstTJ = []
@@ -633,7 +759,8 @@ for a in dctAllTJ.keys():
     lstTJ.append(arrGB)
     axs[i].scatter(arrSigma, arrGB, c=lstColours[i],
                    marker=lstMarkers[i], label='Small')
-    axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrGB), 1.96*np.std(arrGB), c=lstColours[i], linestyle='', capsize=5, marker='+')
+    axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrGB), 1.96 *
+                    np.std(arrGB), c=lstColours[i], linestyle='', capsize=5, marker='+')
 for i in range(3):
     axs[i].set_xticks(list(range(len(lstSigmas[i]))))
     axs[i].set_xticklabels(lstSigmas[i])
@@ -644,8 +771,7 @@ fig.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
-#%%
-#%%
+# %%
 # excess mean GB energies with a scatter plot for each axis
 fig, axs = plt.subplots(1, 3, sharey=True)
 lstTJ = []
@@ -656,15 +782,16 @@ for a in dctAllTJ.keys():
     lstTJ.append(arrGB)
     axs[i].scatter(arrSigma, arrGB, c=lstColours[i],
                    marker=lstMarkers[i], label='Small')
-    axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrGB), 1.96*np.std(arrGB), c=lstColours[i], linestyle='', capsize=5, marker='+')
+    axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrGB), 1.96 *
+                    np.std(arrGB), c=lstColours[i], linestyle='', capsize=5, marker='+')
 for i in range(3):
     axs[i].set_xticks(list(range(len(lstSigmas[i]))))
     axs[i].set_xticklabels(lstSigmas[i])
     axs[i].legend([lstAxes[i]], loc='lower left')
     axs[i].set_xlabel(strSigmaAxis)
 axs[0].set_ylabel(strGBAxis)
-axs[0].set_ylim([0,0.2])
-axs[0].set_yticks([0.0,0.05,0.1,0.15,0.2])
+axs[0].set_ylim([0, 0.2])
+axs[0].set_yticks([0.0, 0.05, 0.1, 0.15, 0.2])
 fig.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
@@ -694,15 +821,15 @@ fig.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
-#%%
-### TJ energies split by delta
+# %%
+# TJ energies split by delta
 lstTJ = []
 axsI = 0
 lstWidths = []
 intAxis = 2
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
-lstWidths = [10,10,10,10,10]
+lstWidths = [10, 10, 10, 10, 10]
 fig, axs = plt.subplots(
     1, 5, gridspec_kw={'width_ratios': lstWidths}, sharey=True)
 for a in dctAllTJ.keys():
@@ -711,8 +838,10 @@ for a in dctAllTJ.keys():
         arrTJ = dctAllTJ[a].GetTJForEachDelta()
         dCount = 1
         for x in arrTJ:
-            axs[axsI].scatter(dCount*np.ones(len(x)), x,                             c=lstColours[i], marker=lstMarkers[i],s=16)
-            axs[axsI].plot(dCount*np.ones(len(x)), x,                             c=lstColours[i])
+            axs[axsI].scatter(dCount*np.ones(len(x)), x,
+                              c=lstColours[i], marker=lstMarkers[i], s=16)
+            axs[axsI].plot(dCount*np.ones(len(x)), x,
+                           c=lstColours[i])
             axs[axsI].set_xticks(list(range(11)))
             axs[axsI].set_xticklabels('')
             # axs[axsI].xaxis.set_major_locator(plt.ticker.MultipleLocator(5))
@@ -729,11 +858,11 @@ plt.show()
 #print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
 
 # %%
-#excess TJ split by sigma and dmin for one axis at a time
+# excess TJ split by sigma and dmin for one axis at a time
 lstTJ = []
 axsI = 0
 lstWidths = []
-intAxis = 2
+intAxis = 0
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
     if i == intAxis:
@@ -765,8 +894,8 @@ for a in dctAllTJ.keys():
             lstMins.append(np.min(arrTJ[d]))
         lstPositions2, lstDMin2 = dctAllTJ[a].GetPositionsByDelta()
         # for p in range(len(lstPositions2)):
-        #     axs[axsI].plot(lstDMin2[p], arrTJ[lstPositions2[p]],linestyle=':', c= lstColours[i])
-        # #axs[axsI].annotate('$\Sigma$' +str(dctAllTJ[a].GetSigma()), ((dCount-1)/2,0.1))
+        #      axs[axsI].plot(lstDMin2[p], arrTJ[lstPositions2[p]],linestyle=':', c= lstColours[i])
+        # axs[axsI].annotate('$\Sigma$' +str(dctAllTJ[a].GetSigma()), ((dCount-1)/2,0.1))
         axs[axsI].axhline(y=np.median(lstMins), c='black', linestyle=':')
         axs[axsI].set_title('$\Sigma$' + str(dctAllTJ[a].GetSigma()))
         axs[axsI].set_xlabel(strDMinAxis)
@@ -779,7 +908,14 @@ plt.tight_layout()
 plt.show()
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
 # %%
-#%%
+lstTJs = []
+for a in dctAllTJ.keys():
+    if np.all(dctAllTJ[a].GetAxis() == arrAxes[0]):
+        if dctAllTJ[a].GetSigma() != 7:
+            lstTJs.append(dctAllTJ[a].GetTJExcessPerLength())
+arrTJs = np.concatenate(lstTJs)
+print(np.mean(arrTJs), np.std(arrTJs))
+# %%
 # CSL grain boundaries all metastable states
 #lstHLines = []
 #lstXValues = []
@@ -812,7 +948,7 @@ for a in dctAllGB.keys():
 axs[0].set_ylabel(strGBAxis)
 plt.tight_layout()
 plt.show()
-#%%
+# %%
 # CSL grain boundary excess energy only valid dmins
 axsI = 0
 lstWidths = []
@@ -828,10 +964,11 @@ fig, axs = plt.subplots(
 for a in dctAllGB.keys():
     i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
     if i == intAxis:
-        arrDMins,arrGB = dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])
+        arrDMins, arrGB = dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])
         arrDMins = arrDMins.astype('int')
         arrD = list(range(len(arrDMins)))
-        axs[axsI].scatter(arrD, arrGB, c=lstColours[i],                      marker=lstMarkers[i], label='Small')
+        axs[axsI].scatter(arrD, arrGB, c=lstColours[i],
+                          marker=lstMarkers[i], label='Small')
         axs[axsI].set_xticks(arrD)
         axs[axsI].set_xticklabels(arrDMins.tolist())
         # axs[axsI].axhline(y=0,c='black',linestyle='--')
@@ -896,8 +1033,8 @@ plt.show()
 lst001 = []
 lst101 = []
 lst111 = []
-lstGB001 =[]
-lstGB101 =[]
+lstGB001 = []
+lstGB101 = []
 lstGB111 = []
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
@@ -952,14 +1089,14 @@ lstGBValues.append(arrGB111)
 arrGBValues = np.concatenate(lstGBValues)
 for i in range(3):
     arrGB = lstGBValues[i]
-    axs[i].hist(arrGB, color=lstColours[i], bins=np.linspace(np.min(arrGBValues),np.max(arrGBValues),15), density=False, stacked=True)
+    axs[i].hist(arrGB, color=lstColours[i], bins=np.linspace(
+        np.min(arrGBValues), np.max(arrGBValues), 15), density=False, stacked=True)
     axs[i].legend([lstAxisNames[i]])
     axs[i].set_xlabel(strGBAxis)
     axs[i].set_xlim([np.min(arrGBValues), np.max(arrGBValues)])
     #axs[i].set_xticks([-0.4, -0.2, 0, 0.2])
 fig.tight_layout()
 plt.show()
-
 
 
 lstAllValues = []
@@ -1118,7 +1255,7 @@ plt.xlabel(strGBAxis)
 # plt.xticks(list(range(len(lstAllSigma))),lstAllSigma)
 plt.tight_layout()
 plt.show()
-#%%
+# %%
 
 lstAllTJ = []
 lstAllGB = []
@@ -1127,7 +1264,8 @@ for a in dctAllTJ.keys():
     #arrPositions = np.argmin(dctAllTJ[a].GetTJExcessPerLength())
     arrAllTJs = dctAllTJ[a].GetTJExcessPerLength()
     arrTJ = dctAllTJ[a].GetTJForEachDelta()
-    arrPositions = np.array(list(map(lambda x: np.where(np.min(x)==arrAllTJs)[0][0],arrTJ)))
+    arrPositions = np.array(
+        list(map(lambda x: np.where(np.min(x) == arrAllTJs)[0][0], arrTJ)))
     lstAllTJ.append(np.median(arrAllTJs[arrPositions]))
     #arrPositions = np.argmin(dctAllTJ[a].GetExcessEnergy())
     lstAllGB.append(

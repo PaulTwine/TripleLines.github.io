@@ -550,7 +550,10 @@ def FindReflectionMatrix(inPlaneNormal: np.array):
         return np.identity(len(inPlaneNormal)) - 2*np.matmul(np.transpose(arrNormal), arrNormal)/fltDot
 def FindMediod(inPoints: np.array):
         arrMean = np.mean(inPoints, axis=0)
-        arrDistances = np.linalg.norm(inPoints-arrMean, axis=1)
+        if len(np.shape(inPoints)) > 1:
+                arrDistances = np.linalg.norm(inPoints-arrMean, axis=1)
+        elif len(np.shape(inPoints)) == 1:
+                arrDistances = np.linalg.norm(inPoints-arrMean)
         return inPoints[np.argmin(arrDistances)]
 def FindGeometricMediod(inPoints: np.array,bln2D = False, blnSquaring = True)-> np.array:
         if bln2D:
