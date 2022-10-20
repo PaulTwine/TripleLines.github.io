@@ -44,13 +44,7 @@ def VolumeRateChange(strDirectory,strType, intLow,intHigh,intStep,blnReverse = F
         lstSpeed.append(fltVolume/fltCrossSection)
         lstVolume.append(fltVolume)
         lstTime.append(t)
-    return lstTime, lstVolume, lstPE
-strFilename = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp550/u'
-lstUValues = [0.005,0.01, 0.015,0.02,0.025,0.03]
-strUValues = list(map(lambda s: str(s).split('.')[1], lstUValues))
-for u in strUValues:
-    lstFilenames = ['TJ', '12BV','13BV']
-    for k in lstFilenames:
-        lstTime,lstVolume,lstPE = VolumeRateChange(strFilename + u + '/'  + str(k) + '/',k, 1000, 50000, 1000,True)
-        np.savetxt(strFilename + u + '/' + str(k) + '/Volume' + str(k) + '.txt', np.array([np.array(lstTime),np.array(lstVolume),np.array(lstSpeed)]))
+    np.savetxt(strDirectory + '/Volume' + strType + '.txt', np.array([np.array(lstTime),np.array(lstVolume),np.array(lstSpeed)]))
+
+
 
