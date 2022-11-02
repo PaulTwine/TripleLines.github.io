@@ -21,9 +21,6 @@ intReverse = int(sys.argv[6])
 lstVolume = []
 lstTime = []
 lstSpeed = []
-lstPoints12 = []
-lstPoints13 = []
-lstPoints23 = []
 objData = LT.LAMMPSData(strDirectory + '1Min.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
 objAnalysis = objData.GetTimeStepByIndex(-1)
 intVColumn = objAnalysis.GetColumnIndex('c_v[1]')
@@ -48,10 +45,9 @@ for t in range(intLow,intHigh+intStep,intStep):
             arrVolumeIDs = arrIDs1
     else:
         arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-1)
-        arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',10)
         objAnalysis.SetPeriodicGrain('2',arrIDs2, 10)
+        arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',10)
         arrVolumeIDs = arrIDs2
-
     if len(arrVolumeIDs) > 0:
         arrPoints = objAnalysis.GetAtomsByID(arrVolumeIDs)
     else:
@@ -61,11 +57,14 @@ for t in range(intLow,intHigh+intStep,intStep):
     else: 
         fltVolume = 0
     if len(arrPoints12) > 0:
+        arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
         np.savetxt(strDirectory + '/Mesh12' + strType + str(t) + '.txt', arrPoints12)
     if strType == 'TJ':
         if len(arrPoints13) > 0:
+            arrPoints13 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints13)
             np.savetxt(strDirectory + '/Mesh13' + strType + str(t) + '.txt', arrPoints13)
         if len(arrPoints23) > 0:
+            arrPoints23 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints23)
             np.savetxt(strDirectory + '/Mesh23' + strType + str(t) + '.txt', arrPoints23)
     lstSpeed.append(fltVolume/fltCrossSection)
     lstVolume.append(fltVolume)
