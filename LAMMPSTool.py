@@ -703,6 +703,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         for k in self.__GrainLabels:
             if k >= 1:
                 self.__PeriodicGrains[k] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(self.GetGrainAtomIDs(k))[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
+    def SetPeriodicGrain(self, strName: str, arrIDs: np.array, fltWrapperWidth: float):
+        self.__PeriodicGrains[strName] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(arrIDs)[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
+        self.__GrainLabels = np.unique(self.__GrainLabels.append(strName)).tolist()  
     def MergePeriodicGrains(self, fltWrapperWidth = None, intCloseAtoms = 25):
         if fltWrapperWidth is None:
             fltWrapperWidth = 2*self.__LatticeParameter
@@ -780,8 +783,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             arrRows = np.where(np.all(arrAllDistances < fltWidth,axis=1))[0]
             arrReturn = arrIDs[arrRows] 
         return arrReturn            
-    def FindDefectiveMesh(self,intGrain1, intGrain2):
-        fltWidth = 2*self.EstimateLocalGrainBoundaryWidth()
+    def FindDefectiveMesh(self,intGrain1, intGrain2, fltWidth = None):
+        if fltWidth is None:
+            fltWidth = 2*self.EstimateLocalGrainBoundaryWidth()
         arrDistances1, arrIndices1 = self.__PeriodicGrains[intGrain1].Pquery(self.__PeriodicGrains[intGrain2].GetOriginalPoints(),k=1) 
         arrDistances1 = np.array([x[0] for x in arrDistances1])
         arrRows1 = np.where(arrDistances1 < fltWidth)[0]
