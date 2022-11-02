@@ -11,12 +11,12 @@ import copy as cp
 from scipy import spatial
 from scipy import optimize
 
-strDirectory = strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp450/u02/TJ/' #str(sys.argv[1])
-strType = 'TJ' #str(sys.argv[2])
-intLow = 45000 # int(sys.argv[3])
-intHigh = 50000 #int(sys.argv[4])
-intStep = 500 #int(sys.argv[5])
-intReverse = 0 #int(sys.argv[6])
+strDirectory = str(sys.argv[1])
+strType = str(sys.argv[2])
+intLow = int(sys.argv[3])
+intHigh = int(sys.argv[4])
+intStep = int(sys.argv[5])
+intReverse = int(sys.argv[6])
 
 lstVolume = []
 lstTime = []
@@ -61,14 +61,14 @@ while t <= intHigh and not(blnStop):
         if len(arrIDs2) > 0:
             objAnalysis.SetPeriodicGrain('2',arrIDs2, 10)
             arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',10)
-            arrVolumeIDs = arrIDs2
+            arrVolumeIDs = arrIDs1
         else:
             blnStop = True
     if not(blnStop):
         arrPoints = objAnalysis.GetAtomsByID(arrVolumeIDs)
         fltVolume = np.sum(objAnalysis.GetAtomsByID(arrVolumeIDs)[:,intVColumn])
     else: 
-        fltVolume = 0
+        blnStop = True
     if len(arrPoints12) > 0 and not(blnStop):
         arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
         np.savetxt(strDirectory + '/Mesh12' + strType + str(t) + '.txt', arrPoints12)
@@ -81,10 +81,11 @@ while t <= intHigh and not(blnStop):
         if len(arrPoints23) > 0:
             arrPoints23 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints23)
             np.savetxt(strDirectory + '/Mesh23' + strType + str(t) + '.txt', arrPoints23)
-    lstSpeed.append(fltVolume/fltCrossSection)
-    lstVolume.append(fltVolume)
-    lstTime.append(t)
-    t += intStep
+    if not(blnStop):
+        lstSpeed.append(fltVolume/fltCrossSection)
+        lstVolume.append(fltVolume)
+        lstTime.append(t)
+        t += intStep
 np.savetxt(strDirectory + '/Volume' + strType + '.txt', np.array([np.array(lstTime),np.array(lstVolume),np.array(lstSpeed)]))
 
 
