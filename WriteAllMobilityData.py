@@ -61,7 +61,10 @@ while t <= intHigh and not(blnStop):
         if len(arrIDs2) > 0:
             objAnalysis.SetPeriodicGrain('2',arrIDs2, 10)
             arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',10)
-            arrVolumeIDs = arrIDs1
+            if intReverse == 0:
+                arrVolumeIDs = arrIDs1
+            else:
+                arrVolumeIDs = arrIDs2
         else:
             blnStop = True
     if not(blnStop):
