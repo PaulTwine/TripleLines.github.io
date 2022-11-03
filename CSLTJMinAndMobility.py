@@ -14,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 strRoot = str(sys.argv[1])
-intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
@@ -22,7 +22,7 @@ u0 = float(sys.argv[5])
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
-intRuns = 5*10**4
+intRuns = 10**5
 fltTolerance = 0.5
 a = 4.05
 lstOrientGB = [u0,0.25,a]
@@ -34,19 +34,23 @@ objCSL.GetTJBasisVectors(intIndex,True)
 arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
+intRatio = np.round(np.linalg.norm(arrBasis[0])/np.linalg.norm(arrBasis[1]))
 
-intNumberOfAtoms = 4*10**5 #choose approximate numbers of atoms here
-intAtomsPerCell = 4 # 4 for FCC and 2 for BCC
-s = np.round(np.sqrt(intNumberOfAtoms/(intAtomsPerCell*intTJSigma))/4) #
+intNumberOfAtoms = 5*10**5 #choose approximate numbers of atoms here
+intAtomsPerVolume = 4 # 4 for FCC and 2 for BCC
+#s = np.round(np.sqrt(intNumberOfAtoms/(intAtomsPerCell*intTJSigma))/4) #
+y = np.round(np.sqrt(intNumberOfAtoms/(4*intRatio*intTJSigma*intAtomsPerVolume)))
+
+x = np.round(y/intRatio)
 
 arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(1),10)
 arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(0),10)
 arrGrainBasis3 = np.round(objCSL.GetLatticeBasis(2),10)
 
-arrFullCell = np.array([[2*s,0,0],[0,2*s,0],[0,0,intHeight]])
-arrSmallCell = np.array([[s,0,0],[0,s,0],[0,0,intHeight]])
-arrHorizontalCell = np.array([[2*s,0,0],[0,s,0],[0,0,intHeight]])
-arrVerticalCell = np.array([[s,0,0],[0,2*s,0],[0,0,intHeight]])
+arrFullCell = np.array([[2*x,0,0],[0,2*y,0],[0,0,intHeight]])
+arrSmallCell = np.array([[x,0,0],[0,y,0],[0,0,intHeight]])
+arrHorizontalCell = np.array([[2*x,0,0],[0,y,0],[0,0,intHeight]])
+arrVerticalCell = np.array([[x,0,0],[0,2*y,0],[0,0,intHeight]])
 
 arrFullBox = np.round(np.matmul(arrFullCell,arrBasis),10)
 arrSmallBox = np.round(np.matmul(arrSmallCell,arrBasis),10)
