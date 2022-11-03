@@ -11,12 +11,12 @@ import copy as cp
 from scipy import spatial
 from scipy import optimize
 
-strDirectory = str(sys.argv[1])
-strType = str(sys.argv[2])
-intLow = int(sys.argv[3])
-intHigh = int(sys.argv[4])
-intStep = int(sys.argv[5])
-intReverse = int(sys.argv[6])
+strDirectory = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp450/u01/TJ/' #str(sys.argv[1])
+strType = '12BV' #str(sys.argv[2])
+intLow = 0 # int(sys.argv[3])
+intHigh = 1000 #int(sys.argv[4])
+intStep = 500 # int(sys.argv[5])
+intReverse = 1 #int(sys.argv[6])
 
 lstVolume = []
 lstTime = []
@@ -31,7 +31,6 @@ blnStop = False
 intEco = 1
 if intReverse == 1:
     intEco = -intEco
-
 while t <= intHigh and not(blnStop): 
     objData = LT.LAMMPSData(strDirectory + '1Sim' + str(t) + '.dmp', 1, 4.05, LT.LAMMPSAnalysis3D)
     objAnalysis = objData.GetTimeStepByIndex(-1)
@@ -56,24 +55,18 @@ while t <= intHigh and not(blnStop):
             arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',25)
             arrPoints13 = objAnalysis.FindDefectiveMesh('1','3',25)
             arrPoints23 = objAnalysis.FindDefectiveMesh('2','3',25)
-            if intReverse == 1:
-                arrVolumeIDs = np.append(arrIDs1, arrIDs2, axis=0)
-            else: 
-                arrVolumeIDs = arrIDs1
     elif not(blnStop):
-        arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-1)
+        arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-intEco)
         if len(arrIDs2) > 0:
             objAnalysis.SetPeriodicGrain('2',arrIDs2, 10)
             arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',10)
-            if intReverse == 0:
-                arrVolumeIDs = arrIDs1
-            else:
-                arrVolumeIDs = arrIDs2
         else:
             blnStop = True
     if not(blnStop):
-        arrPoints = objAnalysis.GetAtomsByID(arrVolumeIDs)
-        fltVolume = np.sum(objAnalysis.GetAtomsByID(arrVolumeIDs)[:,intVColumn])
+        arrPoints = objAnalysis.GetAtomsByID(arrIDs1)
+        fltVolume = np.sum(objAnalysis.GetAtomsByID(arrIDs1)[:,intVColumn])
+        if intReverse == 1:
+            fltVolume = np.linalg.det(objAnalysis.GetCellVectors()) - fltVolume
     else: 
         blnStop = True
     if len(arrPoints12) > 0 and not(blnStop):
