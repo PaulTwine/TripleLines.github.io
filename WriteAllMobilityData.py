@@ -28,22 +28,26 @@ arrCellVectors = objAnalysis.GetCellVectors()
 fltCrossSection = np.linalg.norm(np.cross(arrCellVectors[0],arrCellVectors[2]))
 t = intLow
 blnStop = False
+intEco = 1
+if intReverse == 1:
+    intEco = -intEco
+
 while t <= intHigh and not(blnStop): 
     objData = LT.LAMMPSData(strDirectory + '1Sim' + str(t) + '.dmp', 1, 4.05, LT.LAMMPSAnalysis3D)
     objAnalysis = objData.GetTimeStepByIndex(-1)
-    arrIDs1 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',1)
+    arrIDs1 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',intEco)
     if len(arrIDs1) > 0:
         objAnalysis.SetPeriodicGrain('1',arrIDs1, 25)
     else:
         blnStop = True
     if strType == 'TJ' and not(blnStop):
-        arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-1)
+        arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-intEco)
         if len(arrIDs2) > 0:
             objAnalysis.SetPeriodicGrain('2',arrIDs2, 25)
         else: 
             blnStop = True
         if not(blnStop):
-            arrIDs3 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_2[2]',-1)
+            arrIDs3 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_2[2]',-intEco)
             if len(arrIDs3) > 0:
                 objAnalysis.SetPeriodicGrain('3',arrIDs3, 25)
             else:
