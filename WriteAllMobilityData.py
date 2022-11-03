@@ -11,12 +11,12 @@ import copy as cp
 from scipy import spatial
 from scipy import optimize
 
-strDirectory = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp450/u01/TJ/' #str(sys.argv[1])
-strType = '12BV' #str(sys.argv[2])
-intLow = 0 # int(sys.argv[3])
-intHigh = 1000 #int(sys.argv[4])
-intStep = 500 # int(sys.argv[5])
-intReverse = 1 #int(sys.argv[6])
+strDirectory =str(sys.argv[1])
+strType = str(sys.argv[2])
+intLow = int(sys.argv[3])
+intHigh = int(sys.argv[4])
+intStep = int(sys.argv[5])
+intReverse = int(sys.argv[6])
 
 lstVolume = []
 lstTime = []
