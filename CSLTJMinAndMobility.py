@@ -14,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 strRoot = str(sys.argv[1])
-intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
@@ -29,7 +29,6 @@ lstOrientGB = [u0,0.25,a]
 lstOrientTJ = [np.round(2*u0/3,5),0.25,a] 
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
 arrCSL = arrCell[intIndex]
-objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex,True)
 arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
@@ -39,7 +38,8 @@ intRatio = np.round(np.linalg.norm(arrBasis[0])/np.linalg.norm(arrBasis[1]))
 intNumberOfAtoms = 5*10**5 #choose approximate numbers of atoms here
 intAtomsPerVolume = 4 # 4 for FCC and 2 for BCC
 #s = np.round(np.sqrt(intNumberOfAtoms/(intAtomsPerCell*intTJSigma))/4) #
-y = np.round(np.sqrt(intNumberOfAtoms/(4*intRatio*intTJSigma*intAtomsPerVolume)))
+fltVolumeScale = np.linalg.det(arrBasis)*4.05**(-3)
+y = np.round(np.sqrt(intNumberOfAtoms/(4*intRatio*fltVolumeScale*intAtomsPerVolume)))
 
 x = np.round(y/intRatio)
 
