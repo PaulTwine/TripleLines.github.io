@@ -1359,7 +1359,7 @@ class CSLTripleLine(object):
         lstOriginalBases.append(arrBasis2)
         lstOriginalBases.append(arrBasis3)
         self.__OriginalBases = lstOriginalBases
-        arrPrimitiveVectors = self.FindCoincidentLattice(lstOriginalBases, l)
+        arrPrimitiveVectors = self.FindCoincidentLattice(lstOriginalBases,l/np.linalg.norm(self.__RotationAxis))
         self.__CSLPrimitiveVectors = arrPrimitiveVectors
         if blnUnitCell:
             arrReturn = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)
@@ -1379,87 +1379,7 @@ class CSLTripleLine(object):
         arrCSL = self.FindCoincidentLattice(lstDSCBases, self.__CurrentTJSigmaValue)
         arrDSC = gf.FindReciprocalVectors(arrCSL)
         return arrDSC
-        #return  np.matmul(arrDSC,self.__RotationMatrix)
-        # lstAllPoints = []
-        # l = self.__CurrentTJSigmaValue
-        # arrEdgeVectors = gf.ConvertToLAMMPSBasis(self.__CSLPrimitiveVectors)[0]
-        # for j in self.__OriginalBases:
-        #     objLattice = ParallelopiedGrain(arrEdgeVectors,gf.FindReciprocalVectors(j), self.__CellType, np.ones(3),np.zeros(3))
-        #     lstAllPoints.append(objLattice.GetRealPoints())
-        # arrPoints = np.unique(np.vstack(lstAllPoints),axis=0)
-        # arrDistanceMatrix = np.round(sc.spatial.distance_matrix(arrPoints, arrPoints),5)
-        # arrDistances = np.unique(arrDistanceMatrix)
-        # fltDistance = arrDistances[gf.FindNthSmallestPosition(arrDistances,1)[0]]
-        # arrRows,arrCols = np.where(arrDistanceMatrix ==fltDistance)
-        # lstVectors = []
-        # for i in range(len(arrRows)):
-        #     lstVectors.append(arrPoints[arrRows[i]]-arrPoints[arrCols[i]])
-        # arrVectors = np.unique(np.vstack(lstVectors),axis=0)
-        # objTree = KDTree(arrPoints)
-        # arrDistances, arrIndices = objTree.query(arrPoints, 2)
-        # arrDistances = arrDistances[:,1]
-        # arrSorted = np.argsort(arrDistances)
-        # arrDistances = arrDistances[arrSorted]
-        # arrPoints2 = arrPoints[arrIndices[arrSorted]]
-        # arrReturnVectors = np.zeros([3,3])
-        # i = 0
-        # arrIndices = objTree.query_radius(arrPoints2[i],arrDistances[i])[1]
-        # arrIndices = np.unique(arrIndices)
-        # lstVectors = []
-        # for a in arrPoints2[i]:
-        #     lstVectors.append(arrPoints[arrIndices] - a)
-        # arrVectors = np.vstack(lstVectors)
-        # arrVectors = np.delete(arrVectors, np.where(np.all(arrVectors==np.zeros(3),axis=1))[0],axis=0)
-        # arrVectors = arrVectors[np.argsort(np.linalg.norm(arrVectors, axis=1))]
-        # arrVector1 = arrVectors[0]
-        # arrReturnVectors[0] = arrVector1
-        # blnFound2 = False
-        # if len(arrVectors) > 1:
-        #     k = 0
-        #     while k < len(arrVectors):
-        #         arrVector2 = arrVectors[k]
-        #         if np.any(np.abs(np.cross(arrVector1,arrVector2)) > 1e-5):
-        #             blnFound2 = True
-        #         k +=1
-        # i = 1
-        # while i < len(arrPoints) and not(blnFound2): 
-        #     arrIndices = objTree.query_radius(arrPoints2[i],arrDistances[i])[0]
-        #     arrIndices = np.unique(arrIndices)
-        #     lstVectors = []
-        #     for a in arrPoints2[i]:
-        #         lstVectors.append(arrPoints[arrIndices]-a)   
-        #     arrVectors = np.vstack(lstVectors)
-        #     arrVectors = np.delete(arrVectors, np.where(np.all(arrVectors==np.zeros(3),axis=1))[0],axis=0)
-        #     arrVectors = arrVectors[np.argsort(np.linalg.norm(arrVectors, axis=1))]
-        #     if len(arrVectors) > 0:
-        #         k = 0
-        #         while k < len(arrVectors) and not(blnFound2):
-        #             arrVector2 = arrVectors[k]
-        #             if np.any(np.abs(np.cross(arrVector1,arrVector2)) > 1e-5):
-        #                 blnFound2 = True
-        #             k +=1
-        #     i += 1
-        # blnFound3 = False
-        # while i < len(arrPoints) and not(blnFound3): 
-        #     arrIndices = objTree.query_radius(arrPoints2[i],arrDistances[i])[0]
-        #     arrIndices = np.unique(arrIndices)
-        #     lstVectors = []
-        #     for a in arrPoints2[i]:
-        #         lstVectors.append(arrPoints[arrIndices]-a)   
-        #     arrVectors = np.vstack(lstVectors)
-        #     arrVectors = np.delete(arrVectors, np.where(np.all(arrVectors==np.zeros(3),axis=1))[0],axis=0)
-        #     arrVectors = arrVectors[np.argsort(np.linalg.norm(arrVectors, axis=1))]
-        #     if len(arrVectors) > 0:
-        #         k = 0
-        #         while k < len(arrVectors) and not(blnFound3):
-        #             arrVector3 = arrVectors[k]
-        #             if np.abs(np.linalg.det(np.array([arrVector1,arrVector2,arrVector3]))) > 1e-5:
-        #                 blnFound2 = True
-        #             k +=1
-        #     i += 1
-        # arrReturn = np.array([arrVector1, arrVector2, arrVector3])
-        self.__DSCBasisVectors = arrReturn
-        return arrReturn
+        
         
     def GetCSLBasisVectors(self):
         return self.__CSLBasisVectors                 
