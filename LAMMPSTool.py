@@ -795,7 +795,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrIndices2 = np.array([x[0] for x in arrIndices2])
         arrPoints2 = self.__PeriodicGrains[intGrain2].GetExtendedPoints()[arrIndices2]
         #return self.WrapVectorIntoSimulationBox(np.unique((arrPoints1+arrPoints2)/2,axis=0))
-        return (arrPoints1+arrPoints2)/2  
+        return np.unique((arrPoints1+arrPoints2)/2,axis=0)  
     def LabelAtomsByGrain(self, fltTolerance = 3.14, fltRadius = None):
         if fltRadius is None:
             fltRadius = 2*self.__LatticeParameter
