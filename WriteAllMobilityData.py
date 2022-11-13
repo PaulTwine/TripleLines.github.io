@@ -70,16 +70,16 @@ while t <= intHigh and not(blnStop):
     else: 
         blnStop = True
     if len(arrPoints12) > 0 and not(blnStop):
-        arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
+        #arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
         np.savetxt(strDirectory + '/Mesh12' + strType + str(t) + '.txt', arrPoints12)
     else:
         blnStop = True
     if strType == 'TJ' and not(blnStop):
         if len(arrPoints13) > 0:
-            arrPoints13 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints13)
+            #arrPoints13 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints13)
             np.savetxt(strDirectory + '/Mesh13' + strType + str(t) + '.txt', arrPoints13)
         if len(arrPoints23) > 0:
-            arrPoints23 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints23)
+            #arrPoints23 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints23)
             np.savetxt(strDirectory + '/Mesh23' + strType + str(t) + '.txt', arrPoints23)
     if not(blnStop):
         lstSpeed.append(fltVolume/fltCrossSection)
