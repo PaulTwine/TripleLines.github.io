@@ -1,0 +1,71 @@
+from pydoc import stripid
+import numpy as np
+import matplotlib.pyplot as plt
+import LatticeDefinitions as ld
+import GeometryFunctions as gf
+import GeneralLattice as gl
+import LAMMPSTool as LT
+import sys
+from mpl_toolkits.mplot3d import Axes3D 
+import copy as cp
+from scipy import spatial
+from scipy import optimize
+
+strDirectory = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp450/u005/TJ/' #str(sys.argv[1])
+strType = 'TJ' #str(sys.argv[2])
+intLow = 0 #int(sys.argv[3])
+intHigh = 2000 #int(sys.argv[4])
+intStep = 500# int(sys.argv[5])
+intReverse = 0# int(sys.argv[6])
+
+lstVolume = []
+lstTime = []
+lstSpeed = []
+objData = LT.LAMMPSData(strDirectory + '1Min.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
+objAnalysis = objData.GetTimeStepByIndex(-1)
+intVColumn = objAnalysis.GetColumnIndex('c_v[1]')
+arrCellVectors = objAnalysis.GetCellVectors()
+fltCrossSection = np.linalg.norm(np.cross(arrCellVectors[0],arrCellVectors[2]))
+t = intLow
+blnStop = False
+intEco = 1
+blnWrap = False
+if intReverse == 1:
+    intEco = -intEco
+while t <= intHigh and not(blnStop): 
+    objData = LT.LAMMPSData(strDirectory + '1Sim' + str(t) + '.dmp', 1, 4.05, LT.LAMMPSAnalysis3D)
+    objAnalysis = objData.GetTimeStepByIndex(-1)
+    arrIDs1 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',intEco)
+    arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-intEco)
+    arrIDs3 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_2[2]',-intEco)
+    if (len(arrIDs1) > 0) and (len(arrIDs2) > 0) and (len(arrIDs2) > 0):
+        objAnalysis.SetPeriodicGrain('1',arrIDs1, 25)
+        objAnalysis.SetPeriodicGrain('2',arrIDs2, 25)
+        objAnalysis.SetPeriodicGrain('3',arrIDs3, 25)
+        arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',25)
+        arrPoints13 = objAnalysis.FindDefectiveMesh('1','3',25)
+        arrPoints23 = objAnalysis.FindDefectiveMesh('2','3',25)
+        #arrPoints = objAnalysis.GetAtomsByID(arrIDs1)
+        fltVolume = np.sum(objAnalysis.GetAtomsByID(arrIDs1)[:,intVColumn])
+        if intReverse == 1:
+            fltVolume = np.linalg.det(objAnalysis.GetCellVectors()) - fltVolume
+        if (len(arrPoints12) > 0) and (len(arrPoints13) > 0) and (len(arrPoints23) > 0):
+            if blnWrap:
+                arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
+                arrPoints13 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints13)
+                arrPoints23 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints23)
+            np.savetxt(strDirectory + '/Mesh12' + strType + str(t) + '.txt', arrPoints12)
+            np.savetxt(strDirectory + '/Mesh13' + strType + str(t) + '.txt', arrPoints13)
+            np.savetxt(strDirectory + '/Mesh23' + strType + str(t) + '.txt', arrPoints23)
+            lstSpeed.append(fltVolume/fltCrossSection)
+            lstVolume.append(fltVolume)
+            lstTime.append(t)
+            t += intStep
+        else:
+            blnStop = True
+    else:
+        blnStop = True
+np.savetxt(strDirectory + '/Volume' + strType + '.txt', np.array([np.array(lstTime),np.array(lstVolume),np.array(lstSpeed)]))
+
+
+

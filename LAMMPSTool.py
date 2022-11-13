@@ -786,7 +786,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def FindDefectiveMesh(self,intGrain1, intGrain2, fltWidth = None):
         if fltWidth is None:
             fltWidth = 2*self.EstimateLocalGrainBoundaryWidth()
-        arrDistances1, arrIndices1 = self.__PeriodicGrains[intGrain1].Pquery(self.__PeriodicGrains[intGrain2].GetOriginalPoints(),k=1) 
+        arrDistances1, arrIndices1 = self.__PeriodicGrains[intGrain1].Pquery(self.__PeriodicGrains[intGrain2].GetExtendedPoints(),k=1) 
         arrDistances1 = np.array([x[0] for x in arrDistances1])
         arrRows1 = np.where(arrDistances1 < fltWidth)[0]
         arrIndices1 = np.array([x[0] for x in arrIndices1[arrRows1]])

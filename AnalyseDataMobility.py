@@ -13,6 +13,7 @@ from scipy import spatial
 from scipy import optimize
 from scipy.interpolate import UnivariateSpline
 from matplotlib import animation
+import MiscFunctions as mf
 
 
 # %%
@@ -20,7 +21,7 @@ def FitCurve(x, a,b,c):
     return a*x +b*np.sqrt(x)+c 
 #%%
 def DiffFitCurve(x,a,b):
-    return a -0.5*b*(1/np.sqrt(x))
+    return a -1/2*b*x**(-1/2)
 #%%
 def FitProportional(x,a):
     return a*x
@@ -118,11 +119,10 @@ class CSLMobility(object):
         self.SetMobility(-popt2[0]/popt[0])
         return intStart, intFinish
 
-
 # %%
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 lstTemp = [450, 500, 550, 600, 650]
-lstU = [0.005, 0.01, 0.015, 0.02, 0.025, 0.03]
+lstU = [0.005, 0.01, 0.015, 0.02]
 dctTJ = dict()
 strType = 'TJ'
 for T in lstTemp:
@@ -195,7 +195,9 @@ arrPoints1 = np.loadtxt(strRoot + '450/u005/TJ/Mesh23TJ0.txt')
 plt.scatter(*tuple(zip(*arrPoints1)))
 plt.show()
 # %%
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strRoot21_21_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
+
 strRootR = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp'
 
 lstTemp = [450,475, 500,525, 550, 575,600,625, 650]
@@ -203,81 +205,98 @@ lstTemp = [450,475, 500,525, 550, 575,600,625, 650]
 lstU = [0.005, 0.01, 0.015, 0.02]
 strType = 'TJ'
 #dctTJR = PopulateTJDictionary(strRootR, lstTemp, lstU, 'TJ')
-dctTJ = PopulateTJDictionary(strRoot, lstTemp, lstU, 'TJ')
-dct12BV = PopulateTJDictionary(strRoot, lstTemp, lstU, '12BV') 
-dct13BV = PopulateTJDictionary(strRoot, lstTemp, lstU, '13BV') 
+dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
+dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
+dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
 
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+#dctTJ21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, 'TJ')
+#dct12BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '12BV') 
+#dct13BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '13BV') 
+
+
+
 strType = 'TJ'
 
-dctGB = PopulateGBDictionary(strRoot, lstTemp, lstU, '12BV','13BV',dctTJ['450,005'].GetCellVectors())
+#dctGB7 = PopulateGBDictionary(strRoot, lstTemp, lstU, '12BV','13BV',dctTJ7['450,005'].GetCellVectors())
 #%%
 lstU = [0.005, 0.01, 0.015, 0.02]
 dctGBR = PopulateGBDictionary(strRootR, lstTemp, lstU, '12BV','13BV', dctTJ['450,005'].GetCellVectors())
 dctTJR = PopulateTJDictionary(strRootR, lstTemp, lstU, 'TJ')
 #%%
 def PartitionByTemperature(dctAny: dict(),intTemp):
-    lstTempVn = []
-    lstTempU = []
+    lstVn = []
+    lstU = []
     for a in dctAny.keys():
-        if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() < 0.02):
+        if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() <= 0.02) and (dctAny[a].GetPEParameter() >= 0.005):
             intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
-            #dctAny[a].SetLinearRange(int(intFinish/2),intFinish)
-            dctAny[a].SetLinearRange(int(intFinish/3),int(2*intFinish/3))
+            dctAny[a].SetLinearRange(int(intFinish/2),intFinish)
             objRange = dctAny[a].GetLinearRange()
             arrVolumeSpeed = dctAny[a].GetVolumeSpeed()[:,objRange]
             popt,pop = optimize.curve_fit(FitLine,arrVolumeSpeed[0,:],arrVolumeSpeed[2,:])
-            lstTempVn.append(-popt[0])
+            lstVn.append(-popt[0])
             arrLogValues =  dctAny[a].GetLogValues()
             arrRows = dctAny[a].GetOverlapRows(1)
             arrLogValues = arrLogValues[arrRows]
             popt2,pop2 = optimize.curve_fit(FitLine,arrLogValues[objRange,0],arrLogValues[objRange,2])
-            lstTempU.append(-popt2[0])
-    return lstTempU,lstTempVn
+            # objSpline2 = UnivariateSpline(arrLogValues[objRange,0],arrLogValues[objRange,2])
+            # objDiffSpline2 = objSpline2.derivative()
+            # arrDiffSpline2 = objDiffSpline2(arrLogValues[:,0])
+            # rtnFloat2 = np.mean(arrDiffSpline2[-50:])
+            #rtnFloat2 = DiffFitCurve(arrLogValues[-1,0], popt[0],popt[1])
+            lstU.append(-popt2[0])
+            #lstU.append(dctAny[a].GetPEParameter())
+            #lstU.append(-rtnFloat2)
+    return lstU,lstVn
 #%%
-lstMobility = []
-lstMobilityLim = []
-for j in lstTemp:
-    tupValues = PartitionByTemperature(dctTJ,j)
-    plt.title(str(j))
-    plt.scatter(tupValues[0], tupValues[1])
-    plt.show()
-    popt,pop = optimize.curve_fit(FitLine,tupValues[0],tupValues[1])
-    lstMobility.append(popt[0])
-    lstMobilityLim.append(popt[1])
-    plt.show()
-
-plt.scatter(lstTemp, lstMobility)
+def WriteMobilityValues(lstInTemp, dctAny: dict):
+    lstMobility = []
+    lstMobilityLim = []
+    for j in lstInTemp:
+        tupValues = PartitionByTemperature(dctAny,j)
+        plt.title(str(j))
+        plt.scatter(tupValues[0], tupValues[1])
+        plt.show()
+        popt,pop = optimize.curve_fit(FitLine,tupValues[0],tupValues[1])
+        #plt.plot(np.array(tupValues[0]),FitLine(np.array(tupValues[0]),popt[0],popt[1]))
+        lstMobility.append(popt[0])
+        lstMobilityLim.append(popt[1])
+    return lstMobility
+#%%
+lstNewTemp = [450,475,500,525,550,575,600,625,650]
+lstMobTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7)
+lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
+lstMob12BV = WriteMobilityValues(lstNewTemp, dct12BV7)
+lstMob13BV = WriteMobilityValues(lstNewTemp, dct13BV7)
+#lstMobGB = WriteMobilityValues(lstNewTemp, dctGB7)
+lstMobBVs = []
+lstMobBVs.append(lstMob12BV)
+lstMobBVs.append(lstMob13BV)
+arrBV = np.vstack(lstMobBVs)
+arrMins = np.min(arrBV, axis=0) 
+plt.scatter(lstNewTemp, lstMobTJ7)
+#plt.scatter(lstNewTemp,lstMobGB)
+plt.scatter(lstNewTemp,lstMobTJ21)
+#plt.scatter(lstNewTemp, lstMob12BV)
+#plt.scatter(lstNewTemp, lstMob13BV)
+#plt.scatter(lstNewTemp,arrMins)
+#plt.legend(['TJ','12BV','13BV'])
+plt.legend(['TJ 7-7-49', 'TJ 21-21-49'])
+#plt.legend(['TJ','Min of 12BV 13BV'])
 #plt.ylim([3,4])
 plt.show()
 
-plt.scatter(1/np.array(lstTemp), np.log(lstMobility))
-popt,pop = optimize.curve_fit(FitLine,1/np.array(lstTemp)[1:-1],np.log(np.abs(lstMobility)[1:-1]))
-plt.plot(1/np.array(lstTemp), FitLine(1/np.array(lstTemp),*popt))
-plt.show()
-print(popt)
+# plt.scatter(arrMins,lstMobTJ)
+# plt.show()
+# print(np.corrcoef(arrMins[1:-1],lstMobTJ[1:-1]))
+
+# plt.scatter(1/np.array(lstNewTemp), np.log(lstMob))
+# popt,pop = optimize.curve_fit(FitLine,1/np.array(lstNewTemp),np.log(np.abs(lstMob)))
+# plt.plot(1/np.array(lstNewTemp), FitLine(1/np.array(lstNewTemp),*popt))
+# plt.show()
+# print(popt)
+#%
 #%%
-strDirAnim = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp650/u015/'
-fig,ax = plt.subplots() 
-def AnimateTJ(i, strDir,):
-    ax.clear()
-    intStep = 500*i
-    strDir = strDirAnim + 'TJ/'
-    arrPoints12 = np.loadtxt(strDir + 'Mesh12TJ' + str(intStep) + '.txt')
-    arrPoints13 = np.loadtxt(strDir + 'Mesh13TJ' + str(intStep) + '.txt')
-    arrPoints23 = np.loadtxt(strDir + 'Mesh23TJ' + str(intStep) + '.txt')
-    ax.scatter(*tuple(zip(*arrPoints12)),c='b')
-    ax.scatter(*tuple(zip(*arrPoints13)),c='b')
-    ax.scatter(*tuple(zip(*arrPoints23)),c='b')
-    strDir = strDirAnim + '12BV/'
-    arrPoints12 = np.loadtxt(strDir + 'Mesh1212BV' + str(intStep) + '.txt')
-    arrPoints12 = arrPoints12 + arrX
-    strDir = strDirAnim + '13BV/'
-    arrPoints13 = np.loadtxt(strDir + 'Mesh1213BV' + str(intStep) + '.txt')
-    ax.scatter(*tuple(zip(*arrPoints12)),c='r')
-    ax.scatter(*tuple(zip(*arrPoints13)),c='g')
-#%%
-class AnimateTJ(object):
+class AnimateGBs(object):
     def __init__(self, strDir: str, arrCellVectors: np.array):
         self.__strRoot = strDir
         self.__CellVectors = arrCellVectors
@@ -288,61 +307,204 @@ class AnimateTJ(object):
     def Animate(self,i):
         self.__ax.clear()
         intStep = 500*i
+        objPeriodicTree1 = gf.PeriodicWrapperKDTree(arrPoints12, self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),4*4.05,['p','p','p'])
         if self.__blnTJ:
             strDir = self.__strRoot + 'TJ/'
             arrPoints12 = np.loadtxt(strDir + 'Mesh12TJ' + str(intStep) + '.txt')
+            objPeriodicTree12 = gf.PeriodicWrapperKDTree(arrPoints12, self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),4*4.05,['p','p','p'])
             arrPoints13 = np.loadtxt(strDir + 'Mesh13TJ' + str(intStep) + '.txt')
+            objPeriodicTree13 = gf.PeriodicWrapperKDTree(arrPoints13, self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),4*4.05,['p','p','p'])
             arrPoints23 = np.loadtxt(strDir + 'Mesh23TJ' + str(intStep) + '.txt')
-            self.__ax.scatter(*tuple(zip(*arrPoints12)),c='b',s=self.__ScatterSize)
-            self.__ax.scatter(*tuple(zip(*arrPoints13)),c='b',s=self.__ScatterSize)
-            self.__ax.scatter(*tuple(zip(*arrPoints23)),c='b',s=self.__ScatterSize)
+            objPeriodicTree23 = gf.PeriodicWrapperKDTree(arrPoints23, self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),4*4.05,['p','p','p'])
+            # self.__ax.scatter(*tuple(zip(*arrPoints12)),c='b')
+            # self.__ax.scatter(*tuple(zip(*arrPoints13)),c='b')
+            # self.__ax.scatter(*tuple(zip(*arrPoints23)),c='b')
+            self.__ax.scatter(*tuple(zip(*objPeriodicTree12.GetExtendedPoints())),c='b')
+            self.__ax.scatter(*tuple(zip(*objPeriodicTree13.GetExtendedPoints())),c='b')
+            self.__ax.scatter(*tuple(zip(*objPeriodicTree23.GetExtendedPoints())),c='b')
         if self.__bln12:
             strDir = self.__strRoot + '12BV/'
             arrPoints12 = np.loadtxt(strDir + 'Mesh1212BV' + str(intStep) + '.txt')
-            arrPoints12 = arrPoints12 + self.__CellVectors[0]
-            self.__ax.scatter(*tuple(zip(*arrPoints12)),c='r',s=self.__ScatterSize)
+            arrPoints12 = arrPoints12 + self.__CellVectors[0]/2
+            self.__ax.scatter(*tuple(zip(*arrPoints12)),c='r')
         if self.__bln13:
-            strDir = strDirAnim + '13BV/'
+            strDir = self.__strRoot + '13BV/'
             arrPoints13 = np.loadtxt(strDir + 'Mesh1213BV' + str(intStep) + '.txt')
-            
-            self.__ax.scatter(*tuple(zip(*arrPoints13)),c='g',s=self.__ScatterSize)
-    def WriteFile(self,strFilename: str, blnTJ: bool, bln12: bool, bln13: bool):
+            self.__ax.scatter(*tuple(zip(*arrPoints13)),c='g')
+    def WriteFile(self,strFilename: str, blnTJ: bool, bln12: bool, bln13: bool,intFrames):
         self.__blnTJ = blnTJ
         self.__bln12 = bln12
         self.__bln13 = bln13
         fig,ax = plt.subplots()
         self.__ax = ax
-        ani = animation.FuncAnimation(fig, self.Animate,interval=500, frames=100) 
+        ani = animation.FuncAnimation(fig, self.Animate,interval=500, frames=intFrames) 
+        writergif = animation.PillowWriter(fps=10)
+        ani.save(strFilename,writer=writergif)
+
+#%%
+class AnimateTJs(object):
+    def __init__(self, strDir: str, arrCellVectors: np.array):
+        self.__strRoot = strDir
+        self.__CellVectors = arrCellVectors
+        self.__blnTJ = True
+        self.__bln12 = True
+        self.__bln13 = True
+        self.__ScatterSize = 0.5
+        self.__bln3d = False
+    def FindTripleLines(self, intStep):
+        strDir = self.__strRoot + 'TJ/'
+        arrPoints12 = np.loadtxt(strDir + 'Mesh12TJ' + str(intStep) + '.txt')
+        arrPoints13 = np.loadtxt(strDir + 'Mesh13TJ' + str(intStep) + '.txt')
+        arrPoints23 = np.loadtxt(strDir + 'Mesh23TJ' + str(intStep) + '.txt')
+        lstAllMeshPoints = []
+        lstAllMeshPoints.append(arrPoints12)
+        lstAllMeshPoints.append(arrPoints13)
+        lstAllMeshPoints.append(arrPoints23)
+        intTJs = len(lstAllMeshPoints)
+        lstAllTJMesh = []
+        for i in range(intTJs):
+            lstOverlapIndices = []
+            intCount = 0
+            for j in range(intTJs):
+                if i !=j:
+                    objTreei = gf.PeriodicWrapperKDTree(lstAllMeshPoints[i],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),2*4.05,['p','p','p'])
+                    objTreej = gf.PeriodicWrapperKDTree(lstAllMeshPoints[j],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),4*4.05,['p','p','p'])
+                    arrIndices,arrDistances= objTreei.Pquery_radius(objTreej.GetExtendedPoints(),2*4.05)
+                    lstIndices = mf.FlattenList(arrIndices)
+                    if len(lstIndices) > 0:
+                        if len(lstOverlapIndices) > 0:
+                            lstOverlapIndices =list(set(lstOverlapIndices).intersection(set(lstIndices)))
+                            intCount += 1
+                        else:
+                            lstOverlapIndices = lstIndices
+                    else:
+                        print("Missing mesh points")
+            if intCount == 1:
+                #arrIndices = objTree.GetPeriodicIndices(lstOverlapIndices)
+                #arrIndices = mf.FlattenList(arrIndices)
+                arrPoints = objTreei.GetExtendedPoints()[lstOverlapIndices,:]
+                lstAllTJMesh.append(arrPoints)
+        lstTripleLines = self.GroupTripleLines(np.vstack(lstAllTJMesh))
+        return lstTripleLines
+    def GroupTripleLines(self, arrPoints: np.array):
+        lstTripleLines = []
+        objTreePositions = gf.PeriodicWrapperKDTree(self.__OriginalPositions,self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),4*4.05,['p','p','p'])
+        arrDistances,arrIndices = objTreePositions.Pquery(arrPoints, k =1)
+        arrIndices = np.array(mf.FlattenList(arrIndices))
+        lstIndices = objTreePositions.GetPeriodicIndices(arrIndices)
+        arrPeriodicIndices = np.array(lstIndices)
+        arrExtendedPoints = objTreePositions.GetExtendedPoints()
+        arrOriginalPoints = objTreePositions.GetOriginalPoints() 
+        arrOriginalIndices = objTreePositions.Pquery(arrOriginalPoints)
+        arrOriginalIndices = np.unique(mf.FlattenList(arrOriginalIndices))
+        #for j in range(len(self.__OriginalPositions)):
+        for j in arrOriginalIndices.astype('int'):
+            arrRows = np.where(arrPeriodicIndices == j)[0]
+            if len(arrRows):
+                arrNewIndices = arrIndices[arrRows]
+                arrNewPoints = arrPoints[arrRows]
+                arrNewExtendedPoints = arrExtendedPoints[arrNewIndices,:]
+                #lstTripleLines.append(arrNewExtendedPoints)
+                arrTranslations = arrNewExtendedPoints - arrOriginalPoints[j] #from the original point to the extended point
+                arrTranslations[:,2] = np.zeros(len(arrTranslations))
+                lstTripleLines.append(arrNewPoints-arrTranslations) #move points back to the position closest to the original triple line positions
+            else:
+                print('error frame ' + str(self.__strRoot))
+        return lstTripleLines
+    def Animate(self,i):
+        self.__ax.clear()
+        intStep = 500*i
+        lstAllPoints = self.FindTripleLines(intStep)
+        lstColours = ['b','g','r','k']
+        k = 0
+        if len(lstAllPoints) == 4:
+            lstNewPositions = list(map(lambda x: np.mean(x,axis=0),lstAllPoints))
+           # self.__OriginalPositions = np.array(lstNewPositions)
+            for j in lstAllPoints:
+                if len(j) > 1:
+                    self.__ax.set_aspect('auto')
+                    if self.__bln3d:
+                        self.__ax.scatter(*tuple(zip(*j)),c=lstColours[k])
+                    else:
+                        self.__ax.scatter(*tuple(zip(*j[:,:2])),c=lstColours[k])
+                    self.__ax.set_xbound([-100,self.__CellVectors[0][0]+100])
+                    self.__ax.set_ybound([-100,self.__CellVectors[1][1]+100])
+                k +=1
+        else:
+            print("error missing junction lines only " + str(len(lstAllPoints)) + ' frame ' + str(i))
+    def WriteFile(self,strFilename: str,arrOriginalPositions: np.array, intFrames: int, bln3d= False):
+        self.__OriginalPositions = arrOriginalPositions
+        if bln3d:
+            fig = plt.figure()
+            ax = fig.add_subplot(projection='3d')
+            self.__bln3d = True
+        else:
+            fig,ax = plt.subplots()
+        self.__ax = ax
+        ani = animation.FuncAnimation(fig, self.Animate,interval=2000, frames=intFrames) 
         writergif = animation.PillowWriter(fps=10)
         ani.save(strFilename,writer=writergif) 
 #%%
-strDirAnim = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp475/u01/'        
-objTJ = AnimateTJ(strDirAnim,dct12BV['475,01'].GetCellVectors())
-objTJ.WriteFile(r'/home/p17992pt/BothtestTJ475u01.gif',True, True, True)    
+def WriteTJAnimations(indctTJ: dict(), indct12BV: dict(), indct13BV: dict(), inRootDir: str, inSaveDir: str):
+    for a in indctTJ:
+        lstVolumeCutOff = []
+        lstVolumeCutOff.append(indctTJ[a].GetLowVolumeCutOff(1,4*4.05))
+        lstVolumeCutOff.append(indct12BV[a].GetLowVolumeCutOff(1,4*4.05))
+        lstVolumeCutOff.append(indct13BV[a].GetLowVolumeCutOff(1,4*4.05))
+        intFrames = np.min(lstVolumeCutOff)
+        strTemp = str(indctTJ[a].GetTemp())
+        strU = str(indctTJ[a].GetPEString())    
+        strDirAnim = inRootDir + strTemp + '/u' + strU +'/'
+        arrCellVectors = indctTJ[a].GetCellVectors()        
+        objTJ = AnimateTJs(strDirAnim,arrCellVectors)
+        objTJ.WriteFile(inSaveDir + strTemp + 'u' + strU + '.gif',np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[0]+arrCellVectors[2]),0.5*(arrCellVectors[1]+arrCellVectors[2]),0.5*(arrCellVectors[0]+arrCellVectors[1]+arrCellVectors[2])]),intFrames,False)
+#%%
+strRootDir = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strFileDir = r'/home/p17992pt/MobilityImages/Sigma7_7_49/TJAll'
+WriteTJAnimations(dctTJ7,dct12BV7,dct13BV7,strRootDir,strFileDir)
+#%%
+def WriteGBAnimations(indctTJ: dict(), indct12BV: dict(), indct13BV: dict(), inRootDir: str, inSaveDir: str):
+    for a in indctTJ:
+        lstVolumeCutOff = []
+        lstVolumeCutOff.append(indctTJ[a].GetLowVolumeCutOff(1,4*4.05))
+        lstVolumeCutOff.append(indct12BV[a].GetLowVolumeCutOff(1,4*4.05))
+        lstVolumeCutOff.append(indct13BV[a].GetLowVolumeCutOff(1,4*4.05))
+        intFrames = np.min(lstVolumeCutOff)
+        strTemp = str(indctTJ[a].GetTemp())
+        strU = str(indctTJ[a].GetPEString())    
+        strDirAnim = inRootDir + strTemp + '/u' + strU +'/'
+        arrCellVectors = indctTJ[a].GetCellVectors()        
+        objGB = AnimateGBs(strDirAnim,arrCellVectors)
+        objGB.WriteFile(inSaveDir + strTemp + 'u' + strU + '.gif',True,True,True,intFrames) 
+#%%
+strRootDir = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strFileDir = r'/home/p17992pt/MobilityImages/Sigma7_7_49/GBAll'
+WriteGBAnimations(dctTJ7,dct12BV7,dct13BV7,strRootDir,strFileDir)
 
 #%%
-ani = animation.FuncAnimation(fig, AnimateTJ,interval=500, frames=100) 
-writergif = animation.PillowWriter(fps=10)
-ani.save(r'/home/p17992pt/BothtestTJ450u02.gif',writer=writergif)  
-#%%
-strType = '12BV'
-
-if strType == '12BV' or strType =='TJ':
-    arrPoints12 = np.loadtxt(strRoot + '450/u005/12BV/Mesh1212BV50000.txt')
-    plt.scatter(*tuple(zip(*arrPoints12)))
-if strType == '13BV' or strType =='TJ':
-    arrPoints13 = np.loadtxt(strRoot + '450/u005/12BV/Mesh13TJ50000.txt')
-    plt.scatter(*tuple(zip(*arrPoints13)))
-if strType == '23BH' or strType =='TJ':
-    arrPoints23 = np.loadtxt(strRoot + '450/u005/12BV/Mesh23TJ50000.txt')
-    plt.scatter(*tuple(zip(*arrPoints23)))
+###Checks mesh points 
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strType = 'TJ'
+objData = LT.LAMMPSData(strRoot7_7_49 + '450/u005/TJ/1Min.lst',1,4.05,LT.LAMMPSAnalysis3D)
+objAnalysis = objData.GetTimeStepByIndex(-1)
+arrCellVectors = objAnalysis.GetCellVectors()
+arrPoints12 = np.loadtxt(strRoot7_7_49 + '450/u005/TJ/Mesh12TJ46500.txt')
+objTree12 = gf.PeriodicWrapperKDTree(arrPoints12,arrCellVectors,gf.FindConstraintsFromBasisVectors(arrCellVectors),20,['p','p','p'])
+ax.scatter(*tuple(zip(*objTree12.GetExtendedPoints())))
+arrPoints13 = np.loadtxt(strRoot7_7_49 + '450/u005/TJ/Mesh13TJ46500.txt')
+objTree13 = gf.PeriodicWrapperKDTree(arrPoints13,arrCellVectors,gf.FindConstraintsFromBasisVectors(arrCellVectors),20,['p','p','p'])
+ax.scatter(*tuple(zip(*objTree13.GetExtendedPoints())))
+arrPoints23 = np.loadtxt(strRoot7_7_49 + '450/u005/TJ/Mesh23TJ46500.txt')
+objTree23 = gf.PeriodicWrapperKDTree(arrPoints23,arrCellVectors,gf.FindConstraintsFromBasisVectors(arrCellVectors),20,['p','p','p'])
+ax.scatter(*tuple(zip(*objTree23.GetExtendedPoints())))
 plt.show()
-#%%
+#%%P
 ##Checking linear trends
-from scipy.interpolate import UnivariateSpline
-dctAny = dctTJ
+dctAny = dct12BV
 for a in dctAny.keys():
-    if dctAny[a].GetTemp() == 450 and dctAny[a].GetPEParameter() < 0.02:
+    if dctAny[a].GetTemp() == 550 and dctAny[a].GetPEParameter() <= 0.02:
         plt.title(str(a))
         arrValues = dctAny[a].GetLogValues()
         arrVolumeSpeed = dctAny[a].GetVolumeSpeed()
@@ -359,9 +521,9 @@ for a in dctAny.keys():
         plt.plot(arrValues[5*5:5*intFinish,0], FitCurve(arrValues[5*5:5*intFinish,0],*popt2),c='black')
         plt.show()
 #%%
-dctAny = dctTJ
+dctAny = dctTJ7
 for a in dctAny.keys():
-    if dctAny[a].GetPEParameter() < 0.02 and dctAny[a].GetTemp() == 525:
+    if dctAny[a].GetPEParameter() >= 0.005 and dctAny[a].GetTemp() == 550:
         arrRows = dctAny[a].GetOverlapRows(1)
         arrLogValues = dctAny[a].GetLogValues()
         arrVolumeSpeed = dctAny[a].GetVolumeSpeed()
@@ -370,8 +532,8 @@ for a in dctAny.keys():
         arrVolume = arrVolumeSpeed[1,:]
         intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
         plt.title(str(dctAny[a].GetPEParameter()) + ' V against t')
-        popt1C,pop1C = optimize.curve_fit(FitCurve,arrTime[10:intFinish], arrVolume[10:intFinish])
-        plt.plot(arrTime[10:intFinish],FitCurve(arrTime[10:intFinish],*popt1C),c='black')
+        popt1C,pop1C = optimize.curve_fit(FitCurve,arrTime[5:intFinish], arrVolume[5:intFinish])
+        plt.plot(arrTime[5:intFinish],FitCurve(arrTime[5:intFinish],*popt1C),c='black')
         plt.scatter(arrTime[10:intFinish],arrVolume[10:intFinish])
         plt.show()
         plt.title('PE against V')
@@ -456,99 +618,3 @@ fig.colorbar(surf)
 
 fig.tight_layout()
 plt.show()  # or:
-# %%
-strType = '13BV'
-strFilename = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp450/u03/' + strType + '/'
-objLog = LT.LAMMPSLog(strFilename + strType + '.log')
-objData = LT.LAMMPSData(strFilename + '1Min.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
-objAnalysis = objData.GetTimeStepByIndex(-1)
-arrCellVectors = objAnalysis.GetCellVectors()
-fltVolume = np.linalg.det(arrCellVectors)
-fltArea = np.linalg.norm(np.cross(arrCellVectors[0], arrCellVectors[2]))
-print(objLog.GetColumnNames(0), fltVolume)
-arrLogFile = objLog.GetValues(1)
-intStart = 50
-intFinish = 200
-plt.scatter(arrLogFile[intStart:-intFinish, 0],
-            arrLogFile[intStart:-intFinish, 2])
-popt, pcov = optimize.curve_fit(
-    FitLine, arrLogFile[intStart:-intFinish, 0], arrLogFile[intStart:-intFinish, 2])
-plt.plot(arrLogFile[intStart:-intFinish, 0],
-         FitLine(arrLogFile[intStart:-intFinish, 0], popt[0], popt[1]), c='black')
-plt.show()
-fltPEdt = popt[0]
-print(popt, -fltPEdt/fltArea)
-print(np.corrcoef(arrLogFile[intStart:-intFinish,
-                             0], arrLogFile[intStart:-intFinish, 2]))
-# %%
-fltU = 0.03
-intStart = np.round(intStart/5, 0).astype('int')
-intFinish = np.round(intFinish/5).astype('int')
-arrVolumeSpeed = np.loadtxt(strFilename + 'Volume' + strType + '.txt')
-popt, pcov = optimize.curve_fit(
-    FitLine, arrVolumeSpeed[0, intStart:-intFinish], arrVolumeSpeed[1, intStart:-intFinish])
-fltVolumedt = popt[0]
-plt.plot(arrVolumeSpeed[0, intStart:-intFinish], FitLine(
-    arrVolumeSpeed[0, intStart:-intFinish], popt[0], popt[1]), c='black')
-plt.scatter(arrVolumeSpeed[0, intStart:-intFinish],
-            arrVolumeSpeed[1, intStart:-intFinish])
-plt.show()
-fltPEPerVolume = fltPEdt/fltVolumedt
-fltUParameter = 4*fltU*4.05**(-3)
-print(fltPEPerVolume, fltUParameter, (fltPEPerVolume-fltUParameter)/fltUParameter,
-      np.corrcoef(arrVolumeSpeed[0, intStart:-intFinish], arrVolumeSpeed[1, intStart:-intFinish]))
-print(len(arrVolumeSpeed[0, :])/len(arrLogFile[:, 0]))
-# %%
-# mobility
-m = -fltVolumedt/(fltArea*fltPEPerVolume)
-print(m)
-lstMobility.append(m)
-lstUPerV.append(fltPEPerVolume)
-# %%
-lstU = [0.005, 0.01, 0.015, 0.02, 0.025, 0.03]
-arrU = 4*4.05**(-3)*np.array(lstU)
-plt.scatter(lstUPerV, lstMobility)
-plt.scatter(arrU, lstMobility)
-plt.show()
-# %%
-# def VolumeRateChange(strDirectory,strType, intLow,intHigh,intStep,blnReverse = False):
-#     lstVolume = []
-#     lstTime = []
-#     lstPE = []
-#     objData = LT.LAMMPSData(strDirectory + '1Min.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
-#     objAnalysis = objData.GetTimeStepByIndex(-1)
-#     intVColumn = objAnalysis.GetColumnIndex('c_v[1]')
-#     intPEColumn = objAnalysis.GetColumnIndex('c_pe1')
-#     arrCellVectors = objAnalysis.GetCellVectors()
-#     fltCrossSection = np.linalg.norm(np.cross(arrCellVectors[0],arrCellVectors[2]))
-#     for t in range(intLow,intHigh+intStep,intStep):
-#         objData = LT.LAMMPSData(strDirectory + '1Sim' + str(t) + '.dmp', 1, 4.05, LT.LAMMPSAnalysis3D)
-#         objAnalysis = objData.GetTimeStepByIndex(-1)
-#         if blnReverse:
-#             if strType == 'TJ':
-#                 arrIDs1 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',1)
-#                 arrIDs2 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_2[2]',1)
-#                 arrIDs = np.append(arrIDs1, arrIDs2, axis=0)
-#             else:
-#                 arrIDs = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',1)
-#         else:
-#             arrIDs = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',1)
-#         if len(arrIDs) > 0:
-#             fltVolume = np.sum(objAnalysis.GetAtomsByID(arrIDs)[:,intVColumn])
-#             fltPE = np.sum(objAnalysis.GetAtomsByID(arrIDs)[:,intPEColumn])
-#         else:
-#             fltVolume = 0
-#         lstVolume.append(fltVolume/fltCrossSection)
-#         lstPE.append(fltPE)
-#         lstTime.append(t)
-#     return lstTime, lstVolume, lstPE
-# strFilename = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp550/u'
-# lstUValues = [0.005,0.01, 0.015,0.02,0.025,0.03]
-# strUValues = list(map(lambda s: str(s).split('.')[1], lstUValues))
-# for u in strUValues:
-#     lstFilenames = ['TJ', '12BV','13BV']
-#     for k in lstFilenames:
-#         lstTime,lstVolume,lstPE = VolumeRateChange(strFilename + u + '/'  + str(k) + '/',k, 1000, 50000, 1000,True)
-#         np.savetxt(strFilename + u + '/' + str(k) + '/Volume' + str(k) + '.txt', np.array([np.array(lstTime),np.array(lstVolume),np.array(lstPE)]))
-
-# %%
