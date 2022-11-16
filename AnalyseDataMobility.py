@@ -118,11 +118,13 @@ class CSLMobility(object):
         self.SetPEPerVolume(popt[0])
         self.SetMobility(-popt2[0]/popt[0])
         return intStart, intFinish
+    def GetPlanarArea(self):
+        return self.__Area
 
 # %%
 strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
-lstTemp = [450, 500, 550, 600, 650]
-lstU = [0.005, 0.01, 0.015, 0.02]
+lstTemp = [450,475, 500,525, 550, 600,625, 650]
+lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
 dctTJ = dict()
 strType = 'TJ'
 for T in lstTemp:
@@ -200,18 +202,18 @@ strRoot21_21_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_
 
 strRootR = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp'
 
-lstTemp = [450,475, 500,525, 550, 575,600,625, 650]
+lstTemp = [450,475, 500,525, 550,575,600,625, 650]
 
-lstU = [0.005, 0.01, 0.015, 0.02]
+lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
 strType = 'TJ'
 #dctTJR = PopulateTJDictionary(strRootR, lstTemp, lstU, 'TJ')
 dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
 dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
 dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
 
-#dctTJ21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, 'TJ')
-#dct12BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '12BV') 
-#dct13BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '13BV') 
+dctTJ21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, 'TJ')
+dct12BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '12BV') 
+dct13BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '13BV') 
 
 
 
@@ -223,50 +225,81 @@ lstU = [0.005, 0.01, 0.015, 0.02]
 dctGBR = PopulateGBDictionary(strRootR, lstTemp, lstU, '12BV','13BV', dctTJ['450,005'].GetCellVectors())
 dctTJR = PopulateTJDictionary(strRootR, lstTemp, lstU, 'TJ')
 #%%
+
+def QuickMobilityEstimate(strRoot: str, lstTemp: list, lstU: list, strType1: str) -> dict():
+    dctReturn = dict()
+    for T in lstTemp:
+        for u in lstU:
+            strU = str(u).split('.')[1]
+            strDir1 = strRoot + str(T) + '/u' + strU + '/' + strType1 + '/'
+            strLogFile1 = strDir1 + strType1 + '.log'
+            strVolumeFile1 = strDir1 + 'Volume' + strType1 + '.txt'
+            arrLog1 = LT.LAMMPSLog(strLogFile1).GetValues(1)
+            arrVolume1 = np.loadtxt(strVolumeFile1)
+            fltArea = arrVolume[0,1]/arrVolume[0,2]
+            objRange = slice(100,200,1)
+            lstVnOut,lstdUBydTOut = DoubleBootstrapEstimate(arrVolumeSpeed[0,objRange],-arrVolumeSpeed[2,objRange],arrLogValues[objRange,0],-arrLogValues[objRange,2],1000)
+            #objLog = objCSLMobility.GetLogObject()
+            # print(objLog.GetColumnNames(1),strU,str(T))
+    return dctReturn
+
+#%%
 def PartitionByTemperature(dctAny: dict(),intTemp):
     lstVn = []
     lstU = []
     for a in dctAny.keys():
-        if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() <= 0.02) and (dctAny[a].GetPEParameter() >= 0.005):
+        if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() < 0.02) and (dctAny[a].GetPEParameter() >= 0.005):
             intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
-            dctAny[a].SetLinearRange(int(intFinish/2),intFinish)
+            intStart = int(intFinish/2)
+            dctAny[a].SetLinearRange(intStart,intFinish)
             objRange = dctAny[a].GetLinearRange()
-            arrVolumeSpeed = dctAny[a].GetVolumeSpeed()[:,objRange]
-            popt,pop = optimize.curve_fit(FitLine,arrVolumeSpeed[0,:],arrVolumeSpeed[2,:])
-            lstVn.append(-popt[0])
+            arrVolumeSpeed = dctAny[a].GetVolumeSpeed()
+            # lstVnOut = BootstrapEstimate(arrVolumeSpeed[0,:],-arrVolumeSpeed[2,:],intFinish - intStart)
             arrLogValues =  dctAny[a].GetLogValues()
-            arrRows = dctAny[a].GetOverlapRows(1)
-            arrLogValues = arrLogValues[arrRows]
-            popt2,pop2 = optimize.curve_fit(FitLine,arrLogValues[objRange,0],arrLogValues[objRange,2])
-            # objSpline2 = UnivariateSpline(arrLogValues[objRange,0],arrLogValues[objRange,2])
-            # objDiffSpline2 = objSpline2.derivative()
-            # arrDiffSpline2 = objDiffSpline2(arrLogValues[:,0])
-            # rtnFloat2 = np.mean(arrDiffSpline2[-50:])
-            #rtnFloat2 = DiffFitCurve(arrLogValues[-1,0], popt[0],popt[1])
+            #arrLogValues = arrLogValues[intStart:intFinish]
+            # lstValuesU = BootstrapEstimate(arrLogValues[:,0],-arrLogValues[:,2], 1000)
+            # lstValuesVn = BootstrapEstimate(arrVolumeSpeed[0,objRange],arrVolumeSpeed[2,objRange],1000)
+            # lstVn.append(np.mean(lstValuesVn))
+            # lstU.append(np.mean(lstValuesU)/np.mean(lstValuesVn))
+            # #arrRows = dctAny[a].GetOverlapRows(1)
+            #arrLogValues = arrLogValues[arrRows]
+            #lstVnOut,lstUOut = DoubleBootstrapEstimate(arrVolumeSpeed[0,objRange],-arrVolumeSpeed[2,objRange],arrVolumeSpeed[1,objRange],arrLogValues[objRange,2],10**6)
+            #intFinish - intStart)
+            popt,pop = optimize.curve_fit(FitLine,arrVolumeSpeed[0,objRange],arrVolumeSpeed[2,objRange])
+            lstVn.append(-popt[0])
+            # #lstVn.append(lstVnOut)
+            #lstUOut = BootstrapEstimate(arrVolumeSpeed[2,objRange],-arrLogValues[objRange,2],intFinish - intStart)
+            popt2,pop2 = optimize.curve_fit(FitLine,arrVolumeSpeed[1,objRange],arrLogValues[objRange,2])
             lstU.append(-popt2[0])
-            #lstU.append(dctAny[a].GetPEParameter())
-            #lstU.append(-rtnFloat2)
+            #lstU.append(lstUOut)
+            #lstU.append(lstUOut)
+            #lstVn.append(lstVnOut)
     return lstU,lstVn
 #%%
 def WriteMobilityValues(lstInTemp, dctAny: dict):
     lstMobility = []
-    lstMobilityLim = []
+    lstMobilityStd = []
     for j in lstInTemp:
         tupValues = PartitionByTemperature(dctAny,j)
         plt.title(str(j))
-        plt.scatter(tupValues[0], tupValues[1])
+        # for i in range(len(tupValues[0])):
+        #      plt.scatter(tupValues[0][i], tupValues[1][i])
+        plt.scatter(tupValues[0],tupValues[1])
         plt.show()
-        popt,pop = optimize.curve_fit(FitLine,tupValues[0],tupValues[1])
+        #popt,pop = optimize.curve_fit(FitLine,tupValues[0],tupValues[1])
         #plt.plot(np.array(tupValues[0]),FitLine(np.array(tupValues[0]),popt[0],popt[1]))
-        lstMobility.append(popt[0])
-        lstMobilityLim.append(popt[1])
-    return lstMobility
+        #lstMobility.append(popt[0])
+        #lstValues = BlockBootstrapEstimate(tupValues[0],tupValues[1])
+        lstValues = BootstrapEstimate(tupValues[0],tupValues[1],10000)
+        lstMobility.append(np.mean(lstValues[0]))
+        lstMobilityStd.append(1.96*np.std(lstValues[0]))
+    return lstMobility, lstMobilityStd
 #%%
 lstNewTemp = [450,475,500,525,550,575,600,625,650]
-lstMobTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7)
-lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
-lstMob12BV = WriteMobilityValues(lstNewTemp, dct12BV7)
-lstMob13BV = WriteMobilityValues(lstNewTemp, dct13BV7)
+lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7)
+#lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
+lstMob12BV,lstError12BV = WriteMobilityValues(lstNewTemp, dct12BV7)
+lstMob13BV,lstError13BV = WriteMobilityValues(lstNewTemp, dct13BV7)
 #lstMobGB = WriteMobilityValues(lstNewTemp, dctGB7)
 lstMobBVs = []
 lstMobBVs.append(lstMob12BV)
@@ -274,27 +307,66 @@ lstMobBVs.append(lstMob13BV)
 arrBV = np.vstack(lstMobBVs)
 arrMins = np.min(arrBV, axis=0) 
 plt.scatter(lstNewTemp, lstMobTJ7)
+plt.errorbar(lstNewTemp,lstMobTJ7,lstErrorTJ7)
 #plt.scatter(lstNewTemp,lstMobGB)
-plt.scatter(lstNewTemp,lstMobTJ21)
-#plt.scatter(lstNewTemp, lstMob12BV)
-#plt.scatter(lstNewTemp, lstMob13BV)
+#plt.scatter(lstNewTemp,lstMobTJ21)
+plt.scatter(lstNewTemp, lstMob12BV)
+plt.errorbar(lstNewTemp,lstMob12BV,lstError12BV)
+plt.scatter(lstNewTemp, lstMob13BV)
+plt.errorbar(lstNewTemp,lstMob13BV,lstError13BV)
 #plt.scatter(lstNewTemp,arrMins)
-#plt.legend(['TJ','12BV','13BV'])
-plt.legend(['TJ 7-7-49', 'TJ 21-21-49'])
+plt.legend(['TJ','12BV','13BV'])
+#plt.legend(['TJ 7-7-49', 'TJ 21-21-49'])
 #plt.legend(['TJ','Min of 12BV 13BV'])
-#plt.ylim([3,4])
+#plt.ylim([0.1,0.5])
 plt.show()
 
 # plt.scatter(arrMins,lstMobTJ)
 # plt.show()
 # print(np.corrcoef(arrMins[1:-1],lstMobTJ[1:-1]))
 
-# plt.scatter(1/np.array(lstNewTemp), np.log(lstMob))
-# popt,pop = optimize.curve_fit(FitLine,1/np.array(lstNewTemp),np.log(np.abs(lstMob)))
-# plt.plot(1/np.array(lstNewTemp), FitLine(1/np.array(lstNewTemp),*popt))
-# plt.show()
-# print(popt)
+plt.scatter(1/np.array(lstNewTemp), np.log(lstMob12BV))
+popt,pop = optimize.curve_fit(FitLine,1/np.array(lstNewTemp),np.log(np.abs(lstMob12BV)))
+plt.plot(1/np.array(lstNewTemp), FitLine(1/np.array(lstNewTemp),*popt))
+plt.show()
+print(popt)
+#%%
+#%%
+def BlockBootstrapEstimate(lstX,lstY):
+    lstValues = []
+    lstAllX = []
+    lstAllY = []
+    intN =  min(list(map(lambda x: len(x),lstX)))
+    for i in range(len(lstX)):
+        inX = lstX[i]
+        inY = lstY[i]
+        arrPositions = mf.BootStrapRows(intN,1)[0]
+        arrX = np.array(inX)[arrPositions]
+        arrY = np.array(inY)[arrPositions]
+        lstAllX.append(arrX)
+        lstAllY.append(arrY)
+    arrAllX = np.vstack(lstAllX)
+    arrAllY = np.vstack(lstAllY)
+    lstValues.append(list(map(lambda k:optimize.curve_fit(FitLine,arrAllX[:,k],arrAllY[:,k])[0][0],list(range(intN)))))
+    return lstValues
+#%%
+def BootstrapEstimate(inX,inY, intN):
+    lstValues = []
+    arrPositions = mf.BootStrapRows(len(inX),intN)
+    lstValues = list(map(lambda k:optimize.curve_fit(FitLine,np.array(inX)[k],np.array(inY)[k])[0][0],arrPositions))
+    # for k in arrPositions:
+        # popt,pop = optimize.curve_fit(FitLine,np.array(inX)[k],np.array(inY)[k])
+        # lstValues.append(popt[0])
+    return lstValues
+#%%
+def DoubleBootstrapEstimate(inX1,inY1,inX2,inY2, intN):
+    arrPositions = mf.BootStrapRows(len(inX1),intN)
+    lstValues1 = list(map(lambda k:optimize.curve_fit(FitLine,np.array(inX1)[k],np.array(inY1)[k])[0][0],arrPositions))
+    lstValues2 = list(map(lambda k:optimize.curve_fit(FitLine,np.array(inX2)[k],np.array(inY2)[k])[0][0],arrPositions))
+    return lstValues1,lstValues2
 #%
+#%%
+
 #%%
 class AnimateGBs(object):
     def __init__(self, strDir: str, arrCellVectors: np.array):
@@ -351,6 +423,11 @@ class AnimateTJs(object):
         self.__bln13 = True
         self.__ScatterSize = 0.5
         self.__bln3d = False
+        self.__TimeStep = 500
+    def SetTimeStep(self, inTimeStep):
+        self.__TimeStep = inTimeStep
+    def GetTimeStep(self):
+        return self.__TimeStep
     def FindTripleLines(self, intStep):
         strDir = self.__strRoot + 'TJ/'
         arrPoints12 = np.loadtxt(strDir + 'Mesh12TJ' + str(intStep) + '.txt')
@@ -368,8 +445,8 @@ class AnimateTJs(object):
             for j in range(intTJs):
                 if i !=j:
                     objTreei = gf.PeriodicWrapperKDTree(lstAllMeshPoints[i],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),2*4.05,['p','p','p'])
-                    objTreej = gf.PeriodicWrapperKDTree(lstAllMeshPoints[j],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),4*4.05,['p','p','p'])
-                    arrIndices,arrDistances= objTreei.Pquery_radius(objTreej.GetExtendedPoints(),2*4.05)
+                    objTreej = gf.PeriodicWrapperKDTree(lstAllMeshPoints[j],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),2*4.05,['p','p','p'])
+                    arrIndices,arrDistances= objTreei.Pquery_radius(objTreej.GetExtendedPoints(),4*4.05)
                     lstIndices = mf.FlattenList(arrIndices)
                     if len(lstIndices) > 0:
                         if len(lstOverlapIndices) > 0:
@@ -383,6 +460,7 @@ class AnimateTJs(object):
                 #arrIndices = objTree.GetPeriodicIndices(lstOverlapIndices)
                 #arrIndices = mf.FlattenList(arrIndices)
                 arrPoints = objTreei.GetExtendedPoints()[lstOverlapIndices,:]
+                arrPoints = np.unique(arrPoints, axis=0)
                 lstAllTJMesh.append(arrPoints)
         lstTripleLines = self.GroupTripleLines(np.vstack(lstAllTJMesh))
         return lstTripleLines
@@ -407,10 +485,22 @@ class AnimateTJs(object):
                 #lstTripleLines.append(arrNewExtendedPoints)
                 arrTranslations = arrNewExtendedPoints - arrOriginalPoints[j] #from the original point to the extended point
                 arrTranslations[:,2] = np.zeros(len(arrTranslations))
-                lstTripleLines.append(arrNewPoints-arrTranslations) #move points back to the position closest to the original triple line positions
+                arrReturn = np.unique(arrNewPoints-arrTranslations,axis=0)
+                lstTripleLines.append(arrReturn) #move points back to the position closest to the original triple line positions
             else:
                 print('error frame ' + str(self.__strRoot))
         return lstTripleLines
+    def FindMeanTripleLinePositions(self, intSteps: int):
+        lstReturnPoints = []
+        lstMissingSteps = []
+        for i in range(intSteps):
+            lstTripleLines = self.FindTripleLines(500*i)
+            if len(lstTripleLines) == 4:
+                lstNewPositions = list(map(lambda x: np.mean(x,axis=0),lstTripleLines))
+                lstReturnPoints.append(lstNewPositions)
+            else:
+                lstMissingSteps.append(i)
+        return lstReturnPoints,lstMissingSteps 
     def Animate(self,i):
         self.__ax.clear()
         intStep = 500*i
@@ -432,6 +522,9 @@ class AnimateTJs(object):
                 k +=1
         else:
             print("error missing junction lines only " + str(len(lstAllPoints)) + ' frame ' + str(i))
+        print(str(i))
+    def SetOriginalPositions(self, inPositions):
+        self.__OriginalPositions = inPositions
     def WriteFile(self,strFilename: str,arrOriginalPositions: np.array, intFrames: int, bln3d= False):
         self.__OriginalPositions = arrOriginalPositions
         if bln3d:
@@ -444,6 +537,20 @@ class AnimateTJs(object):
         ani = animation.FuncAnimation(fig, self.Animate,interval=2000, frames=intFrames) 
         writergif = animation.PillowWriter(fps=10)
         ani.save(strFilename,writer=writergif) 
+#%%
+arrCellVectors = dctTJ21['550,015'].GetCellVectors()
+objTJAnimate = AnimateTJs(strRoot7_7_49 +'550/u015/',arrCellVectors)
+objTJAnimate.SetOriginalPositions(np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[0]+arrCellVectors[2]),0.5*(arrCellVectors[1]+arrCellVectors[2]),0.5*(arrCellVectors[0]+arrCellVectors[1]+arrCellVectors[2])]))
+lstReturnPoints,lstMissingSteps = objTJAnimate.FindMeanTripleLinePositions(200)
+#%%
+lstTime = list(range(0,100000,500))
+intTJ = 3
+arrPoints = np.vstack(lstReturnPoints)
+for j in range(len(lstReturnPoints)):
+    plt.scatter(lstReturnPoints[j][intTJ][0],lstReturnPoints[j][intTJ][1], c='black')
+plt.axis('equal')
+plt.plot(arrPoints[intTJ:800:4,0],arrPoints[intTJ:800:4,1])
+plt.show()
 #%%
 def WriteTJAnimations(indctTJ: dict(), indct12BV: dict(), indct13BV: dict(), inRootDir: str, inSaveDir: str):
     for a in indctTJ:
@@ -480,6 +587,7 @@ def WriteGBAnimations(indctTJ: dict(), indct12BV: dict(), indct13BV: dict(), inR
 strRootDir = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 strFileDir = r'/home/p17992pt/MobilityImages/Sigma7_7_49/GBAll'
 WriteGBAnimations(dctTJ7,dct12BV7,dct13BV7,strRootDir,strFileDir)
+#%%
 
 #%%
 ###Checks mesh points 
