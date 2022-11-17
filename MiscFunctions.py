@@ -283,6 +283,15 @@ def MatchPairsOfIDs(lstOldIDs: list, lstNewIDs: list):
 def FlattenList(t):
     return [item for sublist in t for item in sublist]
 
+def BootStrapRows(intLength: int,intSamples: int): #n is the number of repetitions
+    #arrPositions = np.random.randint(0,intLength,size=(intSamples,intLength))
+    arrPositions = np.random.randint(intLength,size=(intSamples,intLength))
+    arrRows = np.where(np.all(arrPositions == np.transpose(np.tile(arrPositions[:,0],[intLength,1])),axis=1))[0]
+    if len(arrRows) > 0:
+        arrPositions = np.delete(arrPositions,arrRows,axis= 0)
+    return arrPositions.astype('int')
+
+
 
 
         
