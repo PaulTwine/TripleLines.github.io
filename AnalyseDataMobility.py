@@ -14,6 +14,7 @@ from scipy import optimize
 from scipy.interpolate import UnivariateSpline
 from matplotlib import animation
 import MiscFunctions as mf
+from sklearn.cluster import DBSCAN
 
 
 # %%
@@ -123,6 +124,7 @@ class CSLMobility(object):
 
 # %%
 strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
+strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 lstTemp = [450,475, 500,525, 550, 600,625, 650]
 lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
 dctTJ = dict()
@@ -198,7 +200,9 @@ plt.scatter(*tuple(zip(*arrPoints1)))
 plt.show()
 # %%
 strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strRoot7_7_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 strRoot21_21_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
+strRoot21_21_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 
 strRootR = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp'
 
@@ -263,17 +267,25 @@ def PartitionByTemperature(dctAny: dict(),intTemp):
             # lstU.append(np.mean(lstValuesU)/np.mean(lstValuesVn))
             # #arrRows = dctAny[a].GetOverlapRows(1)
             #arrLogValues = arrLogValues[arrRows]
-            #lstVnOut,lstUOut = DoubleBootstrapEstimate(arrVolumeSpeed[0,objRange],-arrVolumeSpeed[2,objRange],arrVolumeSpeed[1,objRange],arrLogValues[objRange,2],10**6)
+            lstVnOut,lstUOut = DoubleBootstrapEstimate(arrVolumeSpeed[0,objRange],-arrVolumeSpeed[2,objRange],
+            arrVolumeSpeed[1,objRange],arrLogValues[objRange,2],10**4)
             #intFinish - intStart)
             popt,pop = optimize.curve_fit(FitLine,arrVolumeSpeed[0,objRange],arrVolumeSpeed[2,objRange])
-            lstVn.append(-popt[0])
+            plt.scatter(arrVolumeSpeed[0,objRange],arrVolumeSpeed[2,objRange])
+            plt.plot(arrVolumeSpeed[0,objRange], FitLine(arrVolumeSpeed[0,objRange],*popt),c='black')
+            plt.title('Distance vs Time' + str(intTemp))
+            plt.show()
+          #  lstVn.append(-popt[0])
             # #lstVn.append(lstVnOut)
             #lstUOut = BootstrapEstimate(arrVolumeSpeed[2,objRange],-arrLogValues[objRange,2],intFinish - intStart)
             popt2,pop2 = optimize.curve_fit(FitLine,arrVolumeSpeed[1,objRange],arrLogValues[objRange,2])
-            lstU.append(-popt2[0])
+            plt.scatter(arrVolumeSpeed[1,objRange],arrLogValues[objRange,2])
+            plt.title('PE vs Volume' + str(intTemp))
+            plt.show()
+          #  lstU.append(popt2[0])
             #lstU.append(lstUOut)
-            #lstU.append(lstUOut)
-            #lstVn.append(lstVnOut)
+            lstU.append(lstUOut)
+            lstVn.append(lstVnOut)
     return lstU,lstVn
 #%%
 def WriteMobilityValues(lstInTemp, dctAny: dict):
@@ -282,15 +294,17 @@ def WriteMobilityValues(lstInTemp, dctAny: dict):
     for j in lstInTemp:
         tupValues = PartitionByTemperature(dctAny,j)
         plt.title(str(j))
-        # for i in range(len(tupValues[0])):
-        #      plt.scatter(tupValues[0][i], tupValues[1][i])
-        plt.scatter(tupValues[0],tupValues[1])
+        for i in range(len(tupValues[0])):
+              plt.scatter(tupValues[0][i], tupValues[1][i])
+        #plt.scatter(tupValues[0],tupValues[1])
+        plt.ylim([0,0.005])
+        plt.xlim([0,0.08*4.05**(-3)])
         plt.show()
         #popt,pop = optimize.curve_fit(FitLine,tupValues[0],tupValues[1])
         #plt.plot(np.array(tupValues[0]),FitLine(np.array(tupValues[0]),popt[0],popt[1]))
         #lstMobility.append(popt[0])
-        #lstValues = BlockBootstrapEstimate(tupValues[0],tupValues[1])
-        lstValues = BootstrapEstimate(tupValues[0],tupValues[1],10000)
+        lstValues = BlockBootstrapEstimate(tupValues[0],tupValues[1])
+        #lstValues = BootstrapEstimate(tupValues[0],tupValues[1],100)
         lstMobility.append(np.mean(lstValues[0]))
         lstMobilityStd.append(1.96*np.std(lstValues[0]))
     return lstMobility, lstMobilityStd
@@ -437,14 +451,23 @@ class AnimateTJs(object):
         lstAllMeshPoints.append(arrPoints12)
         lstAllMeshPoints.append(arrPoints13)
         lstAllMeshPoints.append(arrPoints23)
+        intPos = 0
+        for k in lstAllMeshPoints:
+            clustering = DBSCAN(2*4.05).fit(k)
+            arrLabels = clustering.labels_
+            arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
+            arrRows1 = np.where(arrCounts > 10)[0]
+            arrRows2 = np.where(np.isin(arrLabels, arrUniqueLabels[arrRows1]))[0]
+            lstAllMeshPoints[intPos] = k[arrRows2]
+            intPos +=1
         intTJs = len(lstAllMeshPoints)
         lstAllTJMesh = []
         for i in range(intTJs):
             lstOverlapIndices = []
             intCount = 0
+            objTreei = gf.PeriodicWrapperKDTree(lstAllMeshPoints[i],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),2*4.05,['p','p','p'])                    
             for j in range(intTJs):
                 if i !=j:
-                    objTreei = gf.PeriodicWrapperKDTree(lstAllMeshPoints[i],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),2*4.05,['p','p','p'])
                     objTreej = gf.PeriodicWrapperKDTree(lstAllMeshPoints[j],self.__CellVectors, gf.FindConstraintsFromBasisVectors(self.__CellVectors),2*4.05,['p','p','p'])
                     arrIndices,arrDistances= objTreei.Pquery_radius(objTreej.GetExtendedPoints(),4*4.05)
                     lstIndices = mf.FlattenList(arrIndices)
@@ -457,9 +480,10 @@ class AnimateTJs(object):
                     else:
                         print("Missing mesh points")
             if intCount == 1:
-                #arrIndices = objTree.GetPeriodicIndices(lstOverlapIndices)
+                arrIndices = objTreei.GetPeriodicIndices(lstOverlapIndices)
                 #arrIndices = mf.FlattenList(arrIndices)
-                arrPoints = objTreei.GetExtendedPoints()[lstOverlapIndices,:]
+                #arrPoints = objTreei.GetExtendedPoints()[lstOverlapIndices,:]
+                arrPoints = objTreei.GetOriginalPoints()[arrIndices,:]
                 arrPoints = np.unique(arrPoints, axis=0)
                 lstAllTJMesh.append(arrPoints)
         lstTripleLines = self.GroupTripleLines(np.vstack(lstAllTJMesh))
@@ -490,11 +514,11 @@ class AnimateTJs(object):
             else:
                 print('error frame ' + str(self.__strRoot))
         return lstTripleLines
-    def FindMeanTripleLinePositions(self, intSteps: int):
+    def FindMeanTripleLinePositions(self, intSteps: int, intStepSize: int):
         lstReturnPoints = []
         lstMissingSteps = []
         for i in range(intSteps):
-            lstTripleLines = self.FindTripleLines(500*i)
+            lstTripleLines = self.FindTripleLines(intStepSize*i)
             if len(lstTripleLines) == 4:
                 lstNewPositions = list(map(lambda x: np.mean(x,axis=0),lstTripleLines))
                 lstReturnPoints.append(lstNewPositions)
@@ -538,19 +562,22 @@ class AnimateTJs(object):
         writergif = animation.PillowWriter(fps=10)
         ani.save(strFilename,writer=writergif) 
 #%%
-arrCellVectors = dctTJ21['550,015'].GetCellVectors()
+arrCellVectors = dctTJ7['550,015'].GetCellVectors()
 objTJAnimate = AnimateTJs(strRoot7_7_49 +'550/u015/',arrCellVectors)
 objTJAnimate.SetOriginalPositions(np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[0]+arrCellVectors[2]),0.5*(arrCellVectors[1]+arrCellVectors[2]),0.5*(arrCellVectors[0]+arrCellVectors[1]+arrCellVectors[2])]))
-lstReturnPoints,lstMissingSteps = objTJAnimate.FindMeanTripleLinePositions(200)
+lstReturnPoints,lstMissingSteps = objTJAnimate.FindMeanTripleLinePositions(1000,100)
 #%%
-lstTime = list(range(0,100000,500))
+lstTime = list(range(0,100000,100))
 intTJ = 3
 arrPoints = np.vstack(lstReturnPoints)
-for j in range(len(lstReturnPoints)):
-    plt.scatter(lstReturnPoints[j][intTJ][0],lstReturnPoints[j][intTJ][1], c='black')
-plt.axis('equal')
-plt.plot(arrPoints[intTJ:800:4,0],arrPoints[intTJ:800:4,1])
+#for j in range(len(lstReturnPoints)):sbatch 
+#    plt.scatter(lstReturnPoints[j][intTJ][0],lstReturnPoints[j][intTJ][1], c='black')
+plt.plot(arrPoints[intTJ:1000:4,0],arrPoints[intTJ:1000:4,1])
+plt.axis('scaled')
 plt.show()
+#%%
+print(np.where(arrPoints[2:800:4,0] < 1)[0])
+objTJAnimate.FindMeanTripleLinePositions(1000,100)
 #%%
 def WriteTJAnimations(indctTJ: dict(), indct12BV: dict(), indct13BV: dict(), inRootDir: str, inSaveDir: str):
     for a in indctTJ:
