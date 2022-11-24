@@ -198,6 +198,9 @@ def PopulateGBDictionary(strRoot: str, lstTemp: list, lstU: list, strType1: str,
 arrPoints1 = np.loadtxt(strRoot + '450/u005/TJ/Mesh23TJ0.txt')
 plt.scatter(*tuple(zip(*arrPoints1)))
 plt.show()
+plt.clf()
+plt.cla()
+plt.close()
 # %%
 strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 strRoot7_7_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
@@ -248,11 +251,11 @@ def QuickMobilityEstimate(strRoot: str, lstTemp: list, lstU: list, strType1: str
     return dctReturn
 
 #%%
-def PartitionByTemperature(dctAny: dict(),intTemp):
+def PartitionByTemperature(dctAny: dict(),intTemp, uLower: float, uUpper: float):
     lstVn = []
     lstU = []
     for a in dctAny.keys():
-        if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() < 0.02) and (dctAny[a].GetPEParameter() >= 0.005):
+        if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() <= uUpper) and (dctAny[a].GetPEParameter() >= uLower):
             intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
             intStart = int(intFinish/2)
             dctAny[a].SetLinearRange(intStart,intFinish)
@@ -288,11 +291,11 @@ def PartitionByTemperature(dctAny: dict(),intTemp):
             lstVn.append(lstVnOut)
     return lstU,lstVn
 #%%
-def WriteMobilityValues(lstInTemp, dctAny: dict):
+def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
     lstMobility = []
     lstMobilityStd = []
     for j in lstInTemp:
-        tupValues = PartitionByTemperature(dctAny,j)
+        tupValues = PartitionByTemperature(dctAny,j,uLower,uUpper)
         plt.title(str(j))
         for i in range(len(tupValues[0])):
               plt.scatter(tupValues[0][i], tupValues[1][i])
@@ -310,16 +313,17 @@ def WriteMobilityValues(lstInTemp, dctAny: dict):
     return lstMobility, lstMobilityStd
 #%%
 lstNewTemp = [450,475,500,525,550,575,600,625,650]
-lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7)
+lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7,lstU[0],lstU[3])
 #lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
-lstMob12BV,lstError12BV = WriteMobilityValues(lstNewTemp, dct12BV7)
-lstMob13BV,lstError13BV = WriteMobilityValues(lstNewTemp, dct13BV7)
+lstMob12BV,lstError12BV = WriteMobilityValues(lstNewTemp, dct12BV7,lstU[0],lstU[3])
+lstMob13BV,lstError13BV = WriteMobilityValues(lstNewTemp, dct13BV7,lstU[0],lstU[3])
 #lstMobGB = WriteMobilityValues(lstNewTemp, dctGB7)
 lstMobBVs = []
 lstMobBVs.append(lstMob12BV)
 lstMobBVs.append(lstMob13BV)
 arrBV = np.vstack(lstMobBVs)
 arrMins = np.min(arrBV, axis=0) 
+#%%
 plt.scatter(lstNewTemp, lstMobTJ7)
 plt.errorbar(lstNewTemp,lstMobTJ7,lstErrorTJ7)
 #plt.scatter(lstNewTemp,lstMobGB)
@@ -329,19 +333,28 @@ plt.errorbar(lstNewTemp,lstMob12BV,lstError12BV)
 plt.scatter(lstNewTemp, lstMob13BV)
 plt.errorbar(lstNewTemp,lstMob13BV,lstError13BV)
 #plt.scatter(lstNewTemp,arrMins)
-plt.legend(['TJ','12BV','13BV'])
+plt.legend(['TJ','1,2 BC','1,3 BC'])
+plt.xlabel('Temperature in K')
+plt.ylabel('Mobility in $\AA^4$ eV$^{-1}$ fs$^{-1}$')
 #plt.legend(['TJ 7-7-49', 'TJ 21-21-49'])
 #plt.legend(['TJ','Min of 12BV 13BV'])
 #plt.ylim([0.1,0.5])
 plt.show()
+plt.clf()
+plt.cla()
+plt.close()
 
 # plt.scatter(arrMins,lstMobTJ)
 # plt.show()
 # print(np.corrcoef(arrMins[1:-1],lstMobTJ[1:-1]))
-
-plt.scatter(1/np.array(lstNewTemp), np.log(lstMob12BV))
-popt,pop = optimize.curve_fit(FitLine,1/np.array(lstNewTemp),np.log(np.abs(lstMob12BV)))
-plt.plot(1/np.array(lstNewTemp), FitLine(1/np.array(lstNewTemp),*popt))
+#%%
+arrITemp = 1/np.array(lstNewTemp)
+arrLogMobTJ7 = np.array(np.log(lstMobTJ7))
+plt.scatter(arrITemp, arrLogMobTJ7)
+popt,pop = optimize.curve_fit(FitLine,arrITemp,arrLogMobTJ7)
+plt.plot(arrITemp, FitLine(arrITemp,*popt))
+plt.xlim([np.min(arrITemp)-0.0001,np.max(arrITemp)+0.0001])
+plt.tight_layout()
 plt.show()
 print(popt)
 #%%
@@ -575,6 +588,9 @@ arrPoints = np.vstack(lstReturnPoints)
 plt.plot(arrPoints[intTJ:1000:4,0],arrPoints[intTJ:1000:4,1])
 plt.axis('scaled')
 plt.show()
+plt.clf()
+plt.cla()
+plt.close()
 #%%
 print(np.where(arrPoints[2:800:4,0] < 1)[0])
 objTJAnimate.FindMeanTripleLinePositions(1000,100)
