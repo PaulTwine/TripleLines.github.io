@@ -36,7 +36,6 @@ class CSLConjugateBases(object):
                     arrBasis[:,arrCols] = arrStandardBasis[:,arrCols[::-1]]
                     arrLastCol = list(set(range(3)).difference(arrCols))[0]
                     arrVector = np.matmul(arrBasis,inCSLBasis[:, arrLastCol])
-                   # if np.all(arrVector == inCSLBasis[:,arrLastCol]) or np.all(arrVector == -inCSLBasis[:,arrLastCol]):
                     arrBasis[:,arrLastCol] = -arrBasis[:,arrLastCol]
                     lstSwapMatrices.append(arrBasis)
                     arrBisector = gf.NormaliseVector(inCSLBasis[:,arrCols[0]] + inCSLBasis[:,arrCols[1]])
@@ -106,36 +105,10 @@ class CSLConjugateBases(object):
         lstUnitMatrices,lstTranslations = self.DiagonalUnitEigenMatrices(inCSLBasis)
         lstConjugateBases = []
         lstAllMatrices = []
-        # lstRows = list(itertools.permutations(list(range(3))))
-        # for k in lstRows:
-        #     lstSwapMatrices.append(arrStandardBasis[list(k)])
-        # for a in lstSwapMatrices:
-        #     for b in lstUnitMatrices:
-        #         lstAllMatrices.append(np.matmul(a,b))
-        #         #lstAllMatrices.append(np.matmul(b,a))
-        #arrConjugateBases = lstUnitMatrices #first time then this is update
         lstSwapCSLMatrices = self.FindSwapTransformations(inCSLBasis)
         lstSwapCSLMatrices.append(arrStandardBasis)
-        #lstSwapCSLMatrices.append(gf.StandardBasisVectors(3))
         lstAllMatrices = [] #np.unique(lstAllMatrices, axis=0)
-        # lstCSLBasis = list(map(lambda x: np.matmul(inCSLBasis,x), lstSwapCSLMatrices))
-        # for c in lstSwapCSLMatrices:
-        #     lstAllMatrices.extend(list(map(lambda x: np.matmul(x,c),lstUnitMatrices)))
-        # lstAllMatrices = np.unique(lstAllMatrices, axis=0) 
-        # #for i in lstAllMatrices:
-       # lstConjugateBases = list(map(lambda x: np.transpose(np.matmul(np.matmul(inTBasis, x),np.linalg.inv(inTBasis))),lstUnitMatrices))
         lstConjugateBases = list(map(lambda x: np.matmul(np.matmul(np.linalg.inv(inCSLBasis), x),inCSLBasis),lstUnitMatrices))
-        # for i in lstUnitMatrices:
-        #    # for j in lstCSLBasis:
-        #     arrMatrix1 = np.round(np.matmul(np.matmul(inTBasis, i),np.linalg.inv(inTBasis)),10)
-        #     if np.all(arrMatrix1 == np.transpose(arrMatrix1)): 
-        #         lstConjugateBases.append(np.transpose(arrMatrix1))
-        # arrStandardBasis = gf.StandardBasisVectors(3)
-        # lstRows = list(itertools.permutations(list(range(3))))
-        # lstPermutations = []
-        # for k in lstRows:
-        #     lstPermutations.append(arrStandardBasis[list(k)])
-        #lstPermutations = [np.array([[1,0,0],[0,1,0],[0,0,1]]), np.array([[0,1,0],[1,0,0],[0,0,1]])]
         for j in lstSwapCSLMatrices:
             lstAllMatrices.extend(list(map(lambda x: np.matmul(j,x),lstConjugateBases)))
         arrAllMatrices = np.round(np.unique(lstAllMatrices,axis = 0),10)
@@ -146,28 +119,17 @@ class CSLConjugateBases(object):
         else:
             print('error no conjugates found')
             return []
-objCSL = gl.CSLTripleLine(np.array([2,2,1]), ld.FCCCell)
+objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(75)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[9,9,9],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[21,21,49],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex)
 arrCellBasis = objCSL.GetCSLBasisVectors()
 
-#arrCellBasis = arrCellBasis[[2,0,1]]
-#arrCellBasis = np.array([[1,0,1],[1,1,-1],[-1,2,1]])
-#arrCellBasis = np.array([[2,2,0],[1,1,-1],[-1,2,1]])
-#objCSLConjugate = CSLConjugateBases(gf.StandardBasisVectors(3))
-# arrCellBasis = objCSL.GetCSLPrimitiveVectors() #np.array([[-3,0,-3],[1,1,-4],[0,-3,-3]])/2
-# #arrCellBasis = np.array([[2,-1,0],[1,2,0],[0,0,1]])
-# arrPBasis = np.matmul(arrCellBasis[[0,2,1]], np.linalg.inv(ld.FCCPrimitive))
-#arrCellBasis = np.array([[2,1.5,-0.5],[-1.5,2,-0.5],[0,0,1]])
-
-#arrCellBasis = objCSL.GetSimulationCellBasis()
 objCSLConjugate = CSLConjugateBases(gf.StandardBasisVectors(3))
 arrOut = objCSLConjugate.FindConjugates(arrCellBasis)
 arrEdgeVectors, arrTransform = gf.ConvertToLAMMPSBasis(arrCellBasis)
-#arrTransform = gf.ConvertToLAMMPSBasis(gf.NormaliseMatrixAlongRows(arrCellBasis))[1]
 objSimulationCell = gl.SimulationCell(2*arrEdgeVectors)
 arrGrain1 = gl.ParallelopiedGrain(2*arrEdgeVectors,np.matmul(arrTransform,gf.NormaliseMatrixAlongRows(arrCellBasis)),ld.FCCCell,np.ones(3), np.zeros(3))
 fig = plt.figure()
