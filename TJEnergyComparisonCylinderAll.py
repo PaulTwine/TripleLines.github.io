@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import LatticeDefinitions as ld
 import GeometryFunctions as gf
 import GeneralLattice as gl
@@ -8,8 +8,8 @@ import sys
 from mpl_toolkits.mplot3d import Axes3D 
 import copy as cp
 from scipy import spatial
-fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
-ax = fig.gca(projection='3d')
+#fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
+#ax = fig.gca(projection='3d')
 
 strDirectory = str(sys.argv[1])
 intSigma = int(sys.argv[2])
@@ -17,8 +17,9 @@ lstAxis = eval(str(sys.argv[3]))
 intIncrements =  10 #int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
-objSigma.MakeCSLCell(intSigma)
+objSigma.MakeCSLCell(intSigma, True)
 arrSigmaBasis = objSigma.GetBasisVectors()
+print(arrSigmaBasis, np.linalg.det(arrSigmaBasis), gf.FindReciprocalVectors(arrSigmaBasis))
 s0 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[1]
 s2 = np.linalg.norm(arrSigmaBasis, axis=1)[2]
@@ -52,9 +53,7 @@ z = h*arrSigmaBasis[2]
 objCylinder = gl.ExtrudedCylinder(r,h*s2,arrMedianLattice,ld.FCCCell,arrLatticeParameters,np.zeros(3))
 objCylinder.SetPeriodicity(['n','n','p'])
 
-#arrRandom = (a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2])
 
-#np.savetxt(strDirectory + 'RandomDisplacement.txt',arrRandom)
 arrRandom = np.loadtxt(strDirectory + 'RandomDisplacement.txt')
 objSimulationCellGB = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 arrCellCentreGB = objSimulationCellGB.GetCentre()
@@ -84,7 +83,7 @@ objSimulationCellGB.AddGrain(objLeftChoppedGB)
 objSimulationCellGB.AddGrain(objRightChoppedGB)
 objSimulationCellGB.AddGrain(objCylinderLeftGB)
 objSimulationCellGB.AddGrain(objCylinderRightGB)
-objSimulationCellGB.RemoveGrainPeriodicDuplicates()
+#objSimulationCellGB.RemoveGrainPeriodicDuplicates()
 
 
 ##Second part with triple lines
@@ -133,7 +132,7 @@ objSimulationCellTJ.AddGrain(objLeftHalfChoppedTJ)
 objSimulationCellTJ.AddGrain(objRightHalfChoppedTJ)
 objSimulationCellTJ.AddGrain(objCylinderLeftTJ)
 objSimulationCellTJ.AddGrain(objCylinderMiddleTJ)
-objSimulationCellTJ.RemoveGrainPeriodicDuplicates()
+#objSimulationCellTJ.RemoveGrainPeriodicDuplicates()
 
 
 for j in range(intIncrements):
