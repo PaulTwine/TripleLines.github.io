@@ -1,17 +1,17 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import LatticeDefinitions as ld
 import GeometryFunctions as gf
 import GeneralLattice as gl
 import LAMMPSTool as LT
 import copy as cp
 import sys
-fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
-ax = fig.gca(projection='3d')
+#fig = plt.figure(figsize=plt.figaspect(1)) #Adjusts the aspect ratio and enlarges the figure (text does not enlarge)
+#ax = fig.gca(projection='3d')
 a  = 4.05
-strDirectory = ''# str(sys.argv[1])
-intSigma = 37 # int(sys.argv[2])
-lstAxis = [0,0,1] #eval(str(sys.argv[3]))
+strDirectory = str(sys.argv[1])
+intSigma = int(sys.argv[2])
+lstAxis = eval(str(sys.argv[3]))
 intIncrements = 10# int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
@@ -52,9 +52,9 @@ while (blnStop == False and i < 100000):
         else:
             objPeriodicTree = gf.PeriodicWrapperKDTree(arrPoints, arrBasis,arrConstraints,fltDistance)
     i +=1
-ax.scatter(*tuple(zip(*objPeriodicTree.GetOriginalPoints())))
-gf.EqualAxis3D(ax)
-plt.show()
+#ax.scatter(*tuple(zip(*objPeriodicTree.GetOriginalPoints())))
+#gf.EqualAxis3D(ax)
+#plt.show()
 arrPoints = arrPoints - 0.5*(arrBasis[1] + arrBasis[2])
 np.savetxt(strDirectory + 'AllRandomPoints',arrPoints,fmt='%f')
 
