@@ -90,12 +90,34 @@ class CSLConjugateBases(object):
                     fltAngle,arrAxis = gf.FindRotationVectorAndAngle(inCSLBasis[arrRows[0]],inCSLBasis[arrRows[1]])
                     arrRotation = gf.GetMatrixFromAxisAngle(arrAxis,fltAngle)
                     lstSwapMatrices.append(arrRotation)
-        elif len(arrUniqueLengths) == 1:
+                    arrPerpendicular = gf.NormaliseVector(np.cross(arrBisector, inCSLBasis[arrLastRow]))
+                    arrRotation = gf.GetMatrixFromAxisAngle(arrPerpendicular,np.pi)
+                    lstSwapMatrices.append(arrRotation)
+       # elif len(arrUniqueLengths) == 1:
+      #      lstRows = list(itertools.permutations(list(range(3))))
+      #      for k in lstRows:
+      #          lstSwapMatrices.append(arrStandardBasis[list(k)])
+        else:
+            lstSwapMatrices.append(arrStandardBasis)
+        lstRows = list(itertools.permutations(list(range(3))))
+        for k in lstRows:
+            lstSwapMatrices.append(arrStandardBasis[list(k)])
+        return lstSwapMatrices
+    def SwapRows(self, inCSLBasis):
+        arrLengths = np.linal.norm(inCSLBasis,axis=1)
+        arrUniqueLengths = np.unique(arrLengths)
+        arrStandardBasis = gf.StandardBasisVectors(3)
+        lstSwapMatrices = []
+        if len(arrUniqueLengths) == 2:
+            for i in arrUniqueLengths:
+                arrRows = np.where(arrUniqueLengths == i)[0]
+                if len(arrRows) == 2:
+                   arrStandardBasis[arrRows] = arrStandardBasis[arrRows[::-1]]
+                   lstSwapMatrices.append(arrStandardBasis)
+        elif len(arrUniqueLengths) ==1:
             lstRows = list(itertools.permutations(list(range(3))))
             for k in lstRows:
                 lstSwapMatrices.append(arrStandardBasis[list(k)])
-        else:
-            lstSwapMatrices.append(arrStandardBasis)
         return lstSwapMatrices
     def FindConjugates(self, inCSLBasis):
         inPBasis = np.matmul(inCSLBasis,np.linalg.inv(ld.FCCPrimitive))
@@ -103,25 +125,26 @@ class CSLConjugateBases(object):
         arrStandardBasis = gf.StandardBasisVectors(3)
         #lstSwapMatrices.append(arrStandardBasis)
         lstUnitMatrices,lstTranslations = self.DiagonalUnitEigenMatrices(inCSLBasis)
+        lstSwapMatrices = self.SwapRows(inCSLBasis)
         lstConjugateBases = []
         lstAllMatrices = []
         lstSwapCSLMatrices = self.FindSwapTransformations(inCSLBasis)
         lstSwapCSLMatrices.append(arrStandardBasis)
         lstAllMatrices = [] #np.unique(lstAllMatrices, axis=0)
-        lstConjugateBases = list(map(lambda x: np.matmul(np.matmul(np.linalg.inv(inCSLBasis), x),inCSLBasis),lstUnitMatrices))
+        lstConjugateBases = list(map(lambda x: np.matmul(np.matmul(np.transpose(inCSLBasis), x),np.transpose(np.linalg.inv(inCSLBasis))),lstUnitMatrices))
         for j in lstSwapCSLMatrices:
             lstAllMatrices.extend(list(map(lambda x: np.matmul(j,x),lstConjugateBases)))
         arrAllMatrices = np.round(np.unique(lstAllMatrices,axis = 0),10)
-        arrRows = np.where(np.all(arrAllMatrices == np.transpose(arrAllMatrices, [0,2,1]),axis=1))[0]
+        arrRows = np.where(np.all(np.linalg.inv(arrAllMatrices) == np.transpose(arrAllMatrices, [0,2,1]),axis=1))[0]
         if len(arrRows) > 0:
             arrRows = np.unique(arrRows)
             return arrAllMatrices[arrRows]
         else:
             print('error no conjugates found')
             return []
-objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
+objCSL = gl.CSLTripleLine(np.array([0,0,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(75)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[21,21,49],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[5,5,25],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex)
@@ -130,32 +153,43 @@ arrCellBasis = objCSL.GetCSLBasisVectors()
 objCSLConjugate = CSLConjugateBases(gf.StandardBasisVectors(3))
 arrOut = objCSLConjugate.FindConjugates(arrCellBasis)
 arrEdgeVectors, arrTransform = gf.ConvertToLAMMPSBasis(arrCellBasis)
-objSimulationCell = gl.SimulationCell(2*arrEdgeVectors)
-arrGrain1 = gl.ParallelopiedGrain(2*arrEdgeVectors,np.matmul(arrTransform,gf.NormaliseMatrixAlongRows(arrCellBasis)),ld.FCCCell,np.ones(3), np.zeros(3))
+objSimulationCell = gl.SimulationCell(arrEdgeVectors)
+arrGrain1 = gl.ParallelopiedGrain(arrEdgeVectors,arrTransform,ld.FCCCell,np.ones(3), np.zeros(3))
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 ax.scatter(*tuple(zip(*arrGrain1.GetAtomPositions())))
 lstPoints = []
 objSimulationCell.AddGrain(arrGrain1)
 #objSimulationCell.RemoveAtomsOnOpenBoundaries()
-objSimulationCell.WriteLAMMPSDataFile('/home/p17992pt/' + '20.dmp')
+objSimulationCell.WriteLAMMPSDataFile('/home/p17992pt/' + '0.dmp')
 objSimulationCell.RemoveAllGrains()
-#objPTree = gf.PeriodicWrapperKDTree(arrCellBasis, arrCellBasis, gf.FindConstraintsFromBasisVectors(arrCellBasis),50,['p','p','p'])
-
+arrPoints = arrGrain1.GetAtomPositions()
+lstPoints.append(arrPoints)
+objPTree = gf.PeriodicWrapperKDTree(arrGrain1.GetAtomPositions(), arrCellBasis, gf.FindConstraintsFromBasisVectors(arrCellBasis),50,['p','p','p'])
+intTransform = 0
+lstTransforms = []
 for i in range(len(arrOut)):
     arrBasis = np.matmul(arrOut[i],arrTransform)
-    arrGrain1 = gl.ParallelopiedGrain(2*arrEdgeVectors,arrBasis,ld.FCCCell,np.ones(3),np.zeros(3))
-    objSimulationCell.AddGrain(arrGrain1)
+    arrGrain1 = gl.ParallelopiedGrain(arrEdgeVectors,arrBasis,ld.FCCCell,np.ones(3),np.zeros(3))
     arrPoints = arrGrain1.GetAtomPositions()
-    lstPoints.append(arrGrain1.GetAtomPositions())
-    ax.scatter(*tuple(zip(*lstPoints[-1])))
-    objSimulationCell.WriteLAMMPSDataFile('/home/p17992pt/' + str(i) + '.dmp')
-    objSimulationCell.RemoveAllGrains()
+    arrDistances,arrIndices = objPTree.Pquery(arrPoints)
+    arrDistances = np.array(mf.FlattenList(arrDistances))
+    if not(np.all(arrDistances < 1e-5)):
+        objSimulationCell.AddGrain(arrGrain1)
+        arrPoints = arrGrain1.GetAtomPositions()
+        lstPoints.append(arrGrain1.GetAtomPositions())
+        ax.scatter(*tuple(zip(*lstPoints[-1])))
+        objSimulationCell.WriteLAMMPSDataFile('/home/p17992pt/' + str(intTransform+1) + '.dmp')
+        objSimulationCell.RemoveAllGrains()
+        objPTree = gf.PeriodicWrapperKDTree(np.vstack(lstPoints), arrCellBasis, gf.FindConstraintsFromBasisVectors(arrCellBasis),50,['p','p','p'])
+        lstTransforms.append(arrOut[i])
+        intTransform +=1     
+        
     #print(mf.FlattenList(objPTree.Pquery(lstPoints[-1], k=1)))
 plt.show()
 arrPoints = np.unique(np.vstack(lstPoints),axis=0)
 ### Matrix R is either the change of basis or you need to multiply
 ##the arrCellBasis by all the lstUnitMatrices
 #objSimulationCell.GetCoincidentLatticePoints(['1','2'])
-print(arrOut)
+print(lstTransforms)
 # %%
