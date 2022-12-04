@@ -1,4 +1,3 @@
-#%%
 import re
 #from types import NoneType
 import numpy as np
@@ -577,6 +576,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.intGrainNumber = -1 #set to a dummy value to check 
         self.intGrainBoundary = -1
         self.__objRealCell = gl.RealCell(ld.GetCellNodes(str(intLatticeType)),fltLatticeParameter*np.ones(3))
+    def GetRealCell(self):
+        return self.__objRealCell
     def GetGrainAtomIDsByEcoOrient(self, strColumnName, intValue):
         arrRow = self.GetColumnByName(strColumnName)
         arrPositions = np.where(arrRow == intValue)
