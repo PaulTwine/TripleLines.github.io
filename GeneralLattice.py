@@ -1367,20 +1367,21 @@ class CSLTripleLine(object):
             arrReturn = arrPrimitiveVectors
         self.__CSLBasisVectors = arrReturn
         arrRealBasis, arrTransformationMatrix  = gf.ConvertToLAMMPSBasis(arrReturn)
-        self.__SimulationCellBasis = arrRealBasis
+        self.__SimulationCellBasis = np.round(arrRealBasis,10)
         self.__RotationMatrix = arrTransformationMatrix
         lstLatticeBasis = []
         lstLatticeBasis.append(np.matmul(arrBasis1,arrTransformationMatrix))
         lstLatticeBasis.append(np.matmul(arrBasis2,arrTransformationMatrix))
         lstLatticeBasis.append(np.matmul(arrBasis3,arrTransformationMatrix))
-        self.__LatticeBases = lstLatticeBasis    
+        self.__LatticeBases = lstLatticeBasis
+        return arrReturn
+    def GetCSLPrimitiveVectors(self):
+        return self.__CSLPrimitiveVectors    
     def GetDSCBasisVectors(self):
         lstDSCBases = list(map(lambda x: gf.FindReciprocalVectors(x), self.__LatticeBases))
         arrCSL = self.FindCoincidentLattice(lstDSCBases, self.__CurrentTJSigmaValue)
         arrDSC = gf.FindReciprocalVectors(arrCSL)
         return arrDSC
-        
-        
     def GetCSLBasisVectors(self):
         return self.__CSLBasisVectors                 
     def GetSimulationCellBasis(self):

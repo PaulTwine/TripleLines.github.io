@@ -1173,13 +1173,14 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         #arrRows = np.matmul(arrQuaternions[:,1:5], inQuaternion)
         #lstRows.append(np.where((np.abs(arrRows) > 1- fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0])
         for j in gf.CubicQuaternions():
-            y = gf.QuaternionProduct(j,inQuaternion)
+            y = gf.QuaternionProduct(inQuaternion,j)
+            #y = gf.QuaternionProduct(j,inQuaternion)
             arrRows = np.matmul(arrQuaternions[:,1:5], y)
             lstRows.append(np.where((np.abs(arrRows) > 1-fltTolerance) & (arrQuaternions[:,0].astype('int') == intLatticeType))[0])
-        arrRows = np.unique(np.concatenate(lstRows))
+        arrRows2 = np.unique(np.concatenate(lstRows))
         rtnValue = []
-        if len(arrRows) > 0:
-            arrIDs = self.GetColumnByIndex(0)[arrRows].astype('int')
+        if len(arrRows2) > 0:
+            arrIDs = self.GetColumnByIndex(0)[arrRows2].astype('int')
             rtnValue = arrIDs
             # clustering = DBSCAN(eps=1.05*self.__objRealCell.GetNearestNeighbourDistance()).fit(self.GetAtomsByID(arrIDs)[:,1:4])
             # arrLabels = clustering.labels_

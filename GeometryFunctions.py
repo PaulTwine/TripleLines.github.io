@@ -16,6 +16,7 @@ from sklearn.neighbors import KDTree
 import warnings
 from decimal import Decimal
 import scipy.stats as stats
+import LatticeDefinitions as ld
 
 #import shapely as sp
 #import geopandas as gpd
@@ -120,7 +121,7 @@ def GetQuaternionFromBasisMatrix(inBasis: np.array)-> np.array:
 #                 arrQuaternion[j] = np.sin(fltAngle/2)*vctAxis[j]
 #         return NormaliseVector(arrQuaternion) 
        r = 1/2*np.sqrt(1+np.trace(inBasis))
-       return np.array([1/(4*r)*(inBasis[2,1]-inBasis[1,2]),1/(4*r)*(inBasis[0,2]-inBasis[2,0]),1/(4*r)*(inBasis[1,0]-inBasis[0,1]),r])      
+       return np.array([r,1/(4*r)*(inBasis[2,1]-inBasis[1,2]),1/(4*r)*(inBasis[0,2]-inBasis[2,0]),1/(4*r)*(inBasis[1,0]-inBasis[0,1])])      
 def GetQuaternionFromVector(inVector: np.array, inAngle)->np.array: #angle first then axis
         vctAxis = NormaliseVector(inVector)
         #lstQuarternion  = []
@@ -212,47 +213,7 @@ def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBoundar
         return lstMergedPoints        
         
         
-        
-        # for j in arrUniqueValues:
-        #         arrPoints = inPoints[arrValues == j]
-        #         arrTranslation = np.zeros(3)
-        #         for k in range(len(inConstraints)):
-        #                 arrUnitVector = inConstraints[k,:-1]
-        #                 fltLength = inConstraints[k,-1]
-        #                 arrDots = np.dot(arrPoints,arrUnitVector)
-        #                 if np.all(arrDots > fltMin ) and (np.any(arrDots > fltLength-fltMin)):
-        #                         arrTranslation -= inCellVectors[k]
-        #         lstTranslations.append(arrTranslation)
-        # arrAllTranslations = np.vstack(lstTranslations)
-        # for i in range(len(arrUniqueValues)):
-        #         arrPoints = inPoints[arrValues == arrUniqueValues[i]]
-        #         lstPoints.append(arrPoints + arrAllTranslations[i])
-        # arrAllPoints = np.vstack(lstPoints)
-        # clustering = DBSCAN(fltMin).fit(arrAllPoints)
-        # arrValues = clustering.labels_
-        # arrUniqueValues, arrCounts = np.unique(arrValues, return_counts=True)
-        # return arrAllPoints
-
-                        
-
-        
-
-
-
-# def MergePeriodicClusters(inPoints: np.array, inCellVectors: np.array, inBasisConversion: np.array, inBoundaryList: list, fltMinDistance = 0.5):
-#         lstPoints = []
-#         clustering = DBSCAN(fltMinDistance, min_samples=1).fit(inPoints)
-#         arrValues = clustering.labels_
-#         arrUniqueValues, arrCounts = np.unique(arrValues, return_counts=True)
-#         intMaxClusterValue = arrUniqueValues[np.argmax(arrCounts)] # find the largest cluster
-#         arrFixedPoint = np.mean(inPoints[arrValues ==intMaxClusterValue],axis=0) 
-#         lstPoints.append(inPoints[arrValues ==intMaxClusterValue])
-#         for j in arrValues:
-#                 if j != intMaxClusterValue:
-#                         arrPointsToMove = inPoints[arrValues ==j]
-#                         arrPointsToMove = PeriodicShiftAllCloser(arrFixedPoint, arrPointsToMove, inCellVectors, inBasisConversion, inBoundaryList)
-#                         lstPoints.append(arrPointsToMove)
-#         return np.concatenate(lstPoints)
+   
 def IsVectorOutsideSimulationCell(inMatrix: np.array, invMatrix: np.array, inVector: np.array):
         arrCoefficients = np.matmul(inVector, invMatrix)
         if np.any(arrCoefficients >= 1) or np.any(arrCoefficients < 0):
@@ -726,13 +687,13 @@ def CubicQuaternions():
                                 arrDirection = np.array([lstRows[k],lstRows[j],lstRows[i]])
                                 fltLength = np.round(np.linalg.norm(arrDirection),5)
                                 if  fltLength == 1:
-                                        for a in range(1,4):
+                                        for a in range(0,4):
                                                 lstQuaternions.append(GetQuaternionFromVector(arrDirection,np.pi/4*a))
                                 elif fltLength == np.round(np.sqrt(2),5):
                                         lstQuaternions.append(GetQuaternionFromVector(arrDirection,np.pi))
                                 elif fltLength ==np.round(np.sqrt(3),5):
-                                        for b in range(1,3):
-                                                lstQuaternions.append(GetQuaternionFromVector(arrDirection,2*np.pi/3*a))
+                                        for b in range(0,3):
+                                                lstQuaternions.append(GetQuaternionFromVector(arrDirection,2*np.pi/3*b))
         arrValues = np.vstack(lstQuaternions)
         arrRows = np.unique(np.round(arrValues,3),axis=0, return_index=True)[1]                              
         return arrValues[arrRows]
@@ -986,7 +947,7 @@ def PrimitiveToOrthogonalVectors(inPrimitiveVectors, inAxis): #trys to find orth
                 arrReturnVectors[2] = inAxis
         else:
                 arrPlaneDistances = np.linalg.norm(arrAllPlane, axis=1)
-                lstPositions = FindNthSmallestPosition(arrPlaneDistances)
+                lstPositions = FindNthSmallestPosition(arrPlaneDistances,0)
                 if len(lstPositions) > 1:
                         arrReturnVectors[1] = arrAllPlane[lstPositions[0]]
                         arrReturnVectors[0] = arrAllPlane[lstPositions[1]]
@@ -1109,7 +1070,31 @@ def ConfidenceAndPredictionBands(x,y, fltPercent):
         #objAxis.fill_between(x_line, y_line + pi, y_line - pi, color = 'lightcyan', label = '95% prediction interval')
         #objAxis.fill_between(x_line, y_line + ci, y_line - ci, color = 'skyblue', label = '95% confidence interval')
 
+#def CSLMultipleJunction(self, inAxis: np.array, #intSigmaMax = 300):
 
 
-
-    
+def OrthogonalVectorsFromPrimitiveVectors(inArray: np.array):
+        arrCol = inArray[:,0]
+        arrTemp = np.copy(inArray)
+        intMin = np.argmin(np.abs(arrCol))
+        if intMin != 0:
+                arrTemp[:,[0,intMin]] = arrTemp[:, [intMin,0]]
+        for i in range(len(inArray)):
+                arrRow = arrTemp[i]
+                for k in range(i+1,3):
+                        if arrRow[i] !=0:
+                                fltRatio = arrTemp[k,i]/arrRow[i]
+                                arrTemp[k,i:] = arrTemp[k,i:] -fltRatio*arrRow[i:]
+        arrPrimitive = np.matmul(arrTemp, np.linalg.inv(ld.FCCPrimitive))
+        arrPrimitive = arrPrimitive.astype('int')
+        # for a in range(len(arrPrimitive)):
+        #         arrPrimitive[a] = arrPrimitive[a]/np.gcd.reduce(arrPrimitive[a])
+        arrOut = np.matmul(arrPrimitive, ld.FCCPrimitive)
+                
+                        
+        return arrOut
+# arrExample = 2*np.array([[-1,  -1, -1, ],
+#  [-3.,  -8.5, -5.5],
+#  [ 0. ,  0.5 , 0.5]])
+# arrVectors = OrthogonalVectorsFromPrimitiveVectors(arrExample)
+# print(arrVectors,np.linalg.det(arrVectors), np.matmul(arrVectors,ld.FCCPrimitive))
