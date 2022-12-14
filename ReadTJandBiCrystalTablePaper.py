@@ -81,7 +81,7 @@ dctDMin['Axis101,11'] = [list(range(0, 8))]
 #dctDMin['Axis101,17'] = [list(range(7,8))]
 dctDMin['Axis101,19'] = [list(range(0, 8))]
 # disconnections nucleated in GB simulation cell
-dctDMin['Axis101,27'] = [list(range(6, 9))]
+dctDMin['Axis101,27'] = [list(range(6, 8))]
 
 # disconnections nucleated in GB simulation cell
 dctDMin['Axis111,3'] = [list(range(6, 9))]
@@ -311,7 +311,7 @@ class TJAndGBData(object):
         return np.array(lstValues)
 
     # only looks at nearest triple line
-    def GetTJEnergyGradient(self, fltLattice: float):
+    def GetTJEnergyGradient(self, fltLattice: float,fltCutOff =4.05):
         lstValues = []
         lstPositions = []
         objCSL = gl.SigmaCell(self.__Axis, ld.FCCCell)
@@ -333,7 +333,7 @@ class TJAndGBData(object):
                 arrDistances = arrDistances
                 arrFValues = np.delete(arrFValues, arrMin)
                 arrDistances2 = np.delete(arrDistances, arrMin)
-                arrCutOff = np.where(arrDistances2 < 4.05)[0]
+                arrCutOff = np.where(arrDistances2 < fltCutOff)[0]
                 # if len(arrDistances2) > 0:
                 #     intMin = np.argmin(arrDistances2)
                 if len(arrFValues) > 0:
@@ -559,11 +559,12 @@ fig, axs = plt.subplots(1, 3, sharey=True)
 lstValues = []
 lstAllValues = []
 lstLargerThanFL = []
+lstHerringLargerThanFL = []
 lstNumberOfValues = []
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    lstValues,lstPositions = dctAllTJ[a].GetTJEnergyGradient(4.05)
-    arrRows = np.where(np.array(lstValues) < 0.3)[0]
+    lstValues,lstPositions = dctAllTJ[a].GetTJEnergyGradient(4.05,4.05)
+    arrRows = np.where(np.array(lstValues) < 2.5)[0]
     arrPositions = np.array(lstPositions)
     arrValues = np.array(lstValues)[arrRows]
     arrCurved = dctAllTJ[a].GetCylindricalExcessPerArea(dctAllGB[a])[arrPositions]
@@ -573,20 +574,21 @@ for a in dctAllTJ.keys():
     lstMaxGB.append(arrCSL)
     arrMaxGB = np.concatenate(lstMaxGB,axis=0)
     arrMaxGB = np.max(arrMaxGB)
-    lstMinGB = []
-    for k in arrCSL:
-        lstMinGB.append(np.abs(arrCurved-k))
-    arrMinGB = np.concatenate(lstMinGB)
-    arrMinGB = np.max(arrMinGB)
+    lstHerringGB = []
+    for k in arrCSL:#assumes "Y" shaped 120 degree GBs
+        lstHerringGB.append(np.abs(arrCurved-k))
+    arrHerringGB = np.concatenate(lstHerringGB)
+    arrHerringGB = np.max(arrHerringGB)
     arrSigma = np.ones(len(arrValues))*lstSigmas[i].index(dctAllTJ[a].GetSigma())
     lstLargerThanFL.append(len(np.where(arrValues > arrMaxGB)[0]))
+    lstHerringLargerThanFL.append(len(np.where(arrValues > arrHerringGB)[0]))
     lstNumberOfValues.append(len(arrValues))
     #arrSigma = np.ones(len(arrValues))*arrMaxGB
     axs[i].scatter(arrSigma, arrValues, c=lstColours[i],
                    marker=lstMarkers[i], label='Small')
     axs[i].scatter(arrSigma[0], arrMaxGB, c='black',
                    marker="_", label='Small')
-    axs[i].scatter(arrSigma[0], arrMinGB, c='black',
+    axs[i].scatter(arrSigma[0], arrHerringGB, c='black',
                    marker="1", label='Small')
     axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrValues), 1.96 *
                     np.std(arrValues), c=lstColours[i], linestyle='', capsize=5, marker='+')
@@ -603,7 +605,8 @@ plt.show()
 #%%
 for j in range(len(lstNumberOfValues)):
     print(lstLargerThanFL[j]/lstNumberOfValues[j])
-print('Overall',np.sum(lstLargerThanFL)/np.sum(lstNumberOfValues))   
+print('Overall',np.sum(lstLargerThanFL)/np.sum(lstNumberOfValues))
+print('Overall',np.sum(lstHerringLargerThanFL)/np.sum(lstNumberOfValues))
 #%%
 ##Checking there are no size effects 
 for a in dctAllTJ.keys():
@@ -829,8 +832,8 @@ for i in range(3):
     axs[i].legend([lstAxes[i]], loc='lower left')
     axs[i].set_xlabel(strSigmaAxis)
 axs[0].set_ylabel(strGBAxis)
-axs[0].set_ylim([0, 0.2])
-axs[0].set_yticks([0.0, 0.05, 0.1, 0.15, 0.2])
+#axs[0].set_ylim([0, 0.2])
+#axs[0].set_yticks([0.0, 0.05, 0.1, 0.15, 0.2])
 fig.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
@@ -868,7 +871,7 @@ print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
 lstTJ = []
 axsI = 0
 lstWidths = []
-intAxis = 2
+intAxis = 1
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
 lstWidths = [10, 10, 10, 10, 10]
@@ -880,7 +883,7 @@ for a in dctAllTJ.keys():
         arrTJ = dctAllTJ[a].GetTJForEachDelta()
         dCount = 1
         for x in arrTJ:
-            arrRows = np.where(x < 0.2)[0]
+            arrRows = np.where(x < 0.5)[0]
             x= x[arrRows]
             axs[axsI].scatter(dCount*np.ones(len(x)), x,
                               c=lstColours[i], marker=lstMarkers[i], s=16)
@@ -907,7 +910,7 @@ plt.show()
 lstTJ = []
 axsI = 0
 lstWidths = []
-intAxis = 2
+intAxis = 1
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
     if i == intAxis:
@@ -1116,7 +1119,7 @@ lstValues.append(arr101)
 lstValues.append(arr111)
 for i in range(3):
     arrTJ = lstValues[i]
-    axs[i].hist(arrTJ, color=lstColours[i], bins=np.linspace(-0.4,0.2, 18), density=False, stacked=True)
+    axs[i].hist(arrTJ, color=lstColours[i], bins=np.linspace(-0.4,0.2, 15), density=False, stacked=True)
     axs[i].legend([lstAxisNames[i]])
     axs[i].set_xlabel(strTJAxis)
     axs[i].set_xlim([-0.4, 0.2])
@@ -1414,10 +1417,28 @@ print(arrV[intMin])
 print(dctAllTJ['Axis111,7'].GetTJExcessPerLength()[intMin])
 # %%
 for a in dctAllGB:
-    print(dctAllGB[a].GetSigmaValue(),dctAllGB[a].GetAxis(),len(dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])[0]))
+    print(dctAllGB[a].GetSigmaValue(),dctAllGB[a].GetAxis(),dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])[1])
 
 # %%
+##check how many positive values
 for a in dctAllTJ:
     arrTJ = dctAllTJ[a].GetTJExcessPerLength()
-    print(dctAllTJ[a].GetSigma(),np.argmin(arrTJ), np.max(arrTJ))
+    rows = np.where(arrTJ > 0)[0]
+    if len(rows) > 0:
+        arrTJ2= arrTJ[rows]
+        print(dctAllTJ[a].GetAxis(),dctAllTJ[a].GetSigma(),np.mean(arrTJ2),len(arrTJ2))
+# %%
+arrOut = dctAllTJ['Axis111,7'].GetTJForEachDMin()
+for i in arrOut:
+    print(np.std(i))
+# %%
+dctAllTJ.keys()
+# %%
+for a in dctAllTJ:
+    pts = dctAllTJ[a].GetDisplacements()[:,1:]
+    arrDistances = np.linalg.norm(pts)
+    print(np.max(arrDistances))
+    plt.title(str(dctAllTJ[a].GetAxis())+str(dctAllTJ[a].GetSigma()))
+    plt.scatter(*tuple(zip(*pts)))
+    plt.show()
 # %%
