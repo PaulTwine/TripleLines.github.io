@@ -1191,7 +1191,7 @@ class DefectObject(object):
 
 class SigmaCell(object):
     def __init__(self, arrRotationAxis: np.array, inCellNodes: np.array):
-        intGCD = np.gcd.reduce(arrRotationAxis)
+        intGCD = np.gcd.reduce(arrRotationAxis.astype('int'))
         self.__RotationAxis = (arrRotationAxis/intGCD).astype('int')
         self.__CellHeight = np.linalg.norm(self.__RotationAxis)
         self.__CellType = inCellNodes
@@ -1203,12 +1203,43 @@ class SigmaCell(object):
         self.__TransformationMatrix = []
         self.__LatticeBases = []
         self.__MedianLattice = []
+        self.__OriginalBasis = []
     def GetCSLPoints(self):
         return self.__CSLPoints
     def GetRotationAxis(self):
         return self.__RotationAxis
     def GetSigmaValues(self, intSigmaMax, blnDisorientation = True):
         return  gf.CubicCSLGenerator(self.__RotationAxis, intSigmaMax,blnDisorientation)
+    def GetAllCSLPrimitiveVectors(self,intSigmaValue):
+        blnValidSigma = True
+        arrSigma = self.GetSigmaValues(25, True)
+        arrRows = np.where(arrSigma[:,0].astype('int') == intSigmaValue)[0]
+        lstAllCSLPrimitiveVectors=[]
+        lstAllBases=[]
+        if len(arrRows) == 0:
+            blnValidSigma = False
+        if blnValidSigma:
+            h = self.__CellHeight
+            l = intSigmaValue
+            for i in arrRows:
+                fltSigma = float(arrSigma[i,1])
+                arrBasis1 = gf.StandardBasisVectors(3)
+                arrBasis2 = gf.RotateVectors(fltSigma,self.__RotationAxis,gf.StandardBasisVectors(3))
+                self.__OriginalBasis = arrBasis2
+                objFirstLattice = ExtrudedRectangle(l,l,l,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
+                objSecondLattice = ExtrudedRectangle(l,l,l,arrBasis2,self.__CellType,np.ones(3),np.zeros(3))
+                arrPoints1 = objFirstLattice.GetRealPoints()
+                arrPoints2 = objSecondLattice.GetRealPoints()
+                objTree1 = KDTree(arrPoints1)
+                arrDistancesOne, arrIndicesOne = objTree1.query(arrPoints2, k=1)
+                arrCloseOne = np.where(arrDistancesOne < 1e-5)[0]
+                arrIndicesOne = arrIndicesOne.ravel()
+                arrIndicesOne = arrIndicesOne[arrCloseOne]
+                arrCSLPoints = arrPoints1[arrIndicesOne]
+                arrPrimitiveVectors = gf.FindPrimitiveVectors(arrCSLPoints)
+                lstAllCSLPrimitiveVectors.append(arrPrimitiveVectors)
+                lstAllBases.append(arrBasis2)
+        return lstAllCSLPrimitiveVectors,lstAllBases
     def MakeCSLCell(self, intSigmaValue: int, blnUnitCell = True):
         blnValidSigma = True
         arrSigma = self.GetSigmaValues(25, True)
@@ -1225,6 +1256,7 @@ class SigmaCell(object):
             self.__LatticeRotation = fltSigma
             arrBasis1 = gf.StandardBasisVectors(3)
             arrBasis2 = gf.RotateVectors(fltSigma,self.__RotationAxis,gf.StandardBasisVectors(3))
+            self.__OriginalBasis = arrBasis2
             arrBasisMedian = gf.RotateVectors(fltSigma/2,self.__RotationAxis,gf.StandardBasisVectors(3))
             objFirstLattice = ExtrudedRectangle(l,l,l,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
             objSecondLattice = ExtrudedRectangle(l,l,l,arrBasis2,self.__CellType,np.ones(3),np.zeros(3))
@@ -1254,6 +1286,10 @@ class SigmaCell(object):
             self.__MedianLattice = np.matmul(arrBasisMedian,arrTransformation)   
         else:
             warnings.warn("Invalid sigma value for axis " + str(self.__RotationAxis))
+    def GetOriginalBasis(self):
+        return self.__OriginalBasis
+    def GetCSLPrimitiveVectors(self):
+        return self.__CSLPrimitiveVectors
     def GetLatticeBases(self):
         return self.__LatticeBases
     def GetMedianLattice(self):
@@ -1375,6 +1411,8 @@ class CSLTripleLine(object):
         lstLatticeBasis.append(np.matmul(arrBasis3,arrTransformationMatrix))
         self.__LatticeBases = lstLatticeBasis
         return arrReturn
+    def GetOriginalBasis(self, intBasis):
+        return self.__OriginalBases[intBasis]
     def GetCSLPrimitiveVectors(self):
         return self.__CSLPrimitiveVectors    
     def GetDSCBasisVectors(self):

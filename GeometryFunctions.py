@@ -632,6 +632,40 @@ def CubicCSLGenerator(inAxis: np.array, intIterations=5, blnDisorientation = Fal
                 arrReturn[p,2] = 180*arrReturn[p,1]/np.pi
                 p +=1
         return arrReturn[np.argsort(arrReturn[:,0])]
+def FindAxesFromSigmaValues(intSigma :int, intLimit: int): #cubic only
+        lstAxes = []
+        k=0
+        while k <= intSigma:
+                j = 0
+                while j <= k:
+                        h = 0
+                        while h <= j:
+                                blnNotFound = True
+                                n = 1
+                                m = 1
+                                arrAxis = np.array([h,j,k])
+                                intGCD = np.gcd.reduce(arrAxis)
+                                if intGCD == 0:
+                                        blnNotFound = False
+                                else:
+                                        arrAxis = arrAxis/intGCD
+                                        intSquared = np.sum(arrAxis*arrAxis).astype('int')
+                                while m <= n and blnNotFound:
+                                        while n <= intLimit and blnNotFound:
+                                                i = (np.max([np.gcd(n,m),1]))**2 
+                                                intTest = (n**2 + m**2*(intSquared))/i
+                                                intTest = np.max([intTest,1])
+                                                while np.mod(intTest,2) == 0:
+                                                        intTest = intTest/2
+                                                if intTest == intSigma:
+                                                        blnNotFound =False
+                                                        lstAxes.append(arrAxis)
+                                                n +=1
+                                        m +=1
+                                h +=1
+                        j+=1
+                k +=1                  
+        return np.unique(lstAxes,axis=0)
 def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float, inCellVectors = None):
         intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
         inConstraints = FindConstraintsFromBasisVectors(inCellVectors)
