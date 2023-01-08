@@ -282,6 +282,8 @@ def MatchPairsOfIDs(lstOldIDs: list, lstNewIDs: list):
         return lstMatched
 def FlattenList(t):
     return [item for sublist in t for item in sublist]
+def Factorize(num):
+    return [n for n in range(1, num + 1) if num % n == 0]
 
 def BootStrapRows(intLength: int,intSamples: int): #n is the number of repetitions
     #arrPositions = np.random.randint(0,intLength,size=(intSamples,intLength))

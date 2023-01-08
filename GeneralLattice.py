@@ -1204,13 +1204,14 @@ class SigmaCell(object):
         self.__LatticeBases = []
         self.__MedianLattice = []
         self.__OriginalBasis = []
+        self.__CurrentSigmaValue = 1
     def GetCSLPoints(self):
         return self.__CSLPoints
     def GetRotationAxis(self):
         return self.__RotationAxis
     def GetSigmaValues(self, intSigmaMax, blnDisorientation = True):
         return  gf.CubicCSLGenerator(self.__RotationAxis, intSigmaMax,blnDisorientation)
-    def GetAllCSLPrimitiveVectors(self,intSigmaValue):
+    def GetOnlyCSLPrimitiveVectors(self,intSigmaValue,fltPrimitiveCellSize: float):
         blnValidSigma = True
         arrSigma = self.GetSigmaValues(25, True)
         arrRows = np.where(arrSigma[:,0].astype('int') == intSigmaValue)[0]
@@ -1220,8 +1221,9 @@ class SigmaCell(object):
             blnValidSigma = False
         if blnValidSigma:
             h = self.__CellHeight
-            l = intSigmaValue
+            l = np.round(intSigmaValue*fltPrimitiveCellSize,0)
             for i in arrRows:
+                self.__CurrentSigmaValue = intSigmaValue
                 fltSigma = float(arrSigma[i,1])
                 arrBasis1 = gf.StandardBasisVectors(3)
                 arrBasis2 = gf.RotateVectors(fltSigma,self.__RotationAxis,gf.StandardBasisVectors(3))
@@ -1242,11 +1244,12 @@ class SigmaCell(object):
         return lstAllCSLPrimitiveVectors,lstAllBases
     def MakeCSLCell(self, intSigmaValue: int, blnUnitCell = True):
         blnValidSigma = True
-        arrSigma = self.GetSigmaValues(25, True)
+        arrSigma = self.GetSigmaValues(100, True)
         arrRows = np.where(arrSigma[:,0].astype('int') == intSigmaValue)
         if len(arrRows[0]) == 0:
             blnValidSigma = False
         if blnValidSigma:
+            self.__CurrentSigmaValue = intSigmaValue
             arrSigmas = arrSigma[arrRows]
             intMin = np.argmin(np.abs(arrSigmas[:,1]))
             intSigmaValue = int(arrSigmas[intMin,0])
@@ -1286,6 +1289,14 @@ class SigmaCell(object):
             self.__MedianLattice = np.matmul(arrBasisMedian,arrTransformation)   
         else:
             warnings.warn("Invalid sigma value for axis " + str(self.__RotationAxis))
+    def GetCurrentSigmaValue(self):
+        return self.__CurrentSigmaValue
+    def GetPossibleSigmaFactors(self): 
+        lstSigmaFactors = []
+        for l in range(2,self.__CurrentSigmaValue):
+            if self.__CurrentSigmaValue % l == 0:
+                lstSigmaFactors.append(l)
+        return lstSigmaFactors
     def GetOriginalBasis(self):
         return self.__OriginalBasis
     def GetCSLPrimitiveVectors(self):

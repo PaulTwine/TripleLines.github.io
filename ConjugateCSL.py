@@ -51,66 +51,99 @@ class CSLConjugateBases(object):
                     if np.round(np.linalg.det(arrMatrix),10) !=0:
                         lstMatrices.append(np.vstack(lstTemp))
         return lstMatrices    
-    def FindSigmaFactors(self, inCSLBasis, blnUniqueSigma = True):
-        lstSigmaObjects = []
-        lstDerived = self.DerivedCSL(inCSLBasis)
-        arrDerived = np.vstack(lstDerived)
-        arrVectors = np.unique(arrDerived, axis=0)
-        lstReducedVectors = list(map(lambda x: x/np.gcd.reduce(2*x.astype('int')),arrVectors))
-        lstReducedVectors = np.unique(lstReducedVectors,axis=0)
-        for j in lstReducedVectors:
-            objSigma = gl.SigmaCell(2*j,ld.FCCCell)
-            lstSigmaObjects.append(objSigma)
-        lstFactors = []
-        for f in range(2,self.__SigmaValue+1):
-            if self.__SigmaValue % f == 0:
-                lstFactors.append(f)
+    def FindSigmaFactors(self, inCSLBasis: np.array):
+        # lstDerived = self.DerivedCSL(inCSLBasis)
+        # arrDerived = np.vstack(lstDerived)
+        # arrVectors = np.unique(2*arrDerived, axis=0).astype('int')
+        # lstReducedVectors = list(map(lambda x: x/np.gcd.reduce(x.astype('int')),arrVectors))
+        #lstReducedVectors = np.unique(lstReducedVectors,axis=0)
+        arrReducedVectors = self.FindPossibleAxes(inCSLBasis)
+        lstReducedVectors = list(map(lambda x: x/np.gcd.reduce(x.astype('int')),2*arrReducedVectors))
+        intSigma = int(np.abs(np.round(np.linalg.det(inCSLBasis)/np.linalg.det(ld.FCCPrimitive))))
+        lstFactors = mf.Factorize(intSigma)
+        setFactors = set(lstFactors)
         lstTransforms = []
-        # for f in lstFactors:
-        #     arrAxis = gf.FindAxesFromSigmaValues(f,10)
-        #     #arrAxis = inCSLBasis
-        #     for a in arrAxis:
-        #         objSigma = gl.SigmaCell(2*a,ld.FCCCell)
-        #         objSigma.MakeCSLCell(f,False)
-        #         arrBasis = objSigma.GetOriginalBasis()
-        #         arrCSL = objSigma.GetCSLPrimitiveVectors()
-        #         arrR = np.matmul(inCSLBasis, np.linalg.inv(arrCSL))/f
-        #         if np.all(np.round(arrR,0) == np.round(arrR,10)):
-        #             lstTransforms.append(arrBasis)
-        for obj in lstSigmaObjects:
-            arrSigmaValues = obj.GetSigmaValues(200,True)
-            for f in lstFactors:
-                if f in arrSigmaValues[:,0]:
-                    lstCSLs,lstBases = obj.GetAllCSLPrimitiveVectors(f)
-                    blnFound = False
-                    c = 0
-                    while c < len(lstCSLs) and not(blnFound):
-                    #for c in range(len(lstCSLs)):
-                        arrCSL = lstCSLs[c]
-                        #lstDerviedCSLs = self.DerivedCSL(lstCSLs[c])
-                        #for arrCSL in lstDerviedCSLs:
-                        arrR = np.matmul(inCSLBasis,np.linalg.inv(arrCSL))
-                        if np.all(np.round(2*arrR,0) == np.round(2*arrR,10)):
-                            lstTransforms.append(lstBases[c])
-                            if blnUniqueSigma:
-                                blnFound = True
-                        c += 1
-        return lstTransforms
+        lstR = []
+        for j in lstReducedVectors:
+            objSigma = gl.SigmaCell(j,ld.FCCCell)
+            arrSigmaValues = objSigma.GetSigmaValues(200,False)
+            lstSigmaValues = arrSigmaValues[:,0].astype('int').tolist()
+            setOverlap = setFactors.intersection(lstSigmaValues)
+            for f in setOverlap:
+                arrRows = np.where(arrSigmaValues[:,0] == f)[0]
+                for a in arrRows:
+                    fltAngle = arrSigmaValues[a,1]
+                    arrMatrix = gf.GetMatrixFromAxisAngle(j,fltAngle)
+                    arrR = np.matmul(inCSLBasis, np.linalg.inv(arrMatrix))
+                    if np.all(np.round(2*arrR,0) == np.round(2*arrR,10)):
+                         lstTransforms.append(arrMatrix)
+                         lstR.append(arrR)
+        return lstTransforms, lstR
+    def FindReducedBases(self, inCSLBasis: np.array):
+        lstAllAxes = []
+        for i in inCSLBasis:
+            intGCD = np.gcd.reduce((2*i).astype('int')) ##doubled as primitive cells have 0.5 s for nearest neighbour positions in cubics
+            lstNumbers = mf.Factorize(int(intGCD))
+            lstScaledAxes = []
+            for j in lstNumbers:
+                lstScaledAxes.append(i/j)
+            lstAllAxes.append(np.vstack(lstScaledAxes))
+        lstAllBases = []
+        for i in lstAllAxes[0]:
+            arrMatrix = np.zeros([3,3])
+            arrMatrix[0] = i
+            for j in lstAllAxes[1]:
+                arrMatrix[1] = j 
+                for k in lstAllAxes[2]:
+                    arrMatrix[2] = k
+                    lstAllBases.append(np.copy(arrMatrix))
+        return lstAllBases
+    def FindPossibleAxes(self, inCSLBasis):
+        lstAllAxes = []
+        for i in range(3):
+            lstAllAxes.append(inCSLBasis[i])
+            for j in range(i+1,3):
+                arrVectors = np.vstack(lstAllAxes)
+                lstAllAxes.append(arrVectors + inCSLBasis[j])
+                lstAllAxes.append(arrVectors - inCSLBasis[j])
+                for k in range(i+2,3):
+                    arrVectors = np.vstack(lstAllAxes)
+                    lstAllAxes.append(arrVectors + inCSLBasis[k])
+                    lstAllAxes.append(arrVectors - inCSLBasis[k])
+        return np.unique(np.vstack(lstAllAxes),axis=0)
+                        
     def FindConjugates(self, inCSLBasis):
         self.__SigmaValue = int(np.round(np.abs(np.linalg.det(inCSLBasis)/np.linalg.det(ld.FCCPrimitive))))
         #lstSigmaMatrices = self.FindSigmaFactors(inCSLBasis)
+        #self.FindPossibleAxes(inCSLBasis)
         arrStandardBasis = gf.StandardBasisVectors(3)
-        lstCSLBases = self.DerivedCSL(inCSLBasis)
+        #lstCSLBases = self.DerivedCSL(inCSLBasis)
         #for j in lstCSLBases:
         #    lstSigmaMatrices.extend(self.#FindSigmaFactors(inCSLBasis))
         #lstCSLBases = [arrStandardBasis, arrStandardBasis[[1,0,2]], arrStandardBasis[[0,2,1]], arrStandardBasis[[2,0,1]],arrStandardBasis[[2,0,1]], arrStandardBasis[[1,2,0]]]
         #lstSwapMatrices.append(arrStandardBasis)
         lstUnitMatrices,lstTranslations = self.DiagonalUnitEigenMatrices(inCSLBasis)
         lstConjugateBases = []
-        lstSigmaMatrices = self.FindSigmaFactors(inCSLBasis)
-        # for i in lstCSLBases:
-        #     lstUnitMatrices.extend(self.FindSigmaFactors(i))
-        for j in lstCSLBases:
+        #arrReducedVectors = self.FindPossibleAxes(inCSLBasis)
+        lstBases = self.FindReducedBases(inCSLBasis)
+        lstSigmaMatrices = []
+        lstIntegerMatrix =[]
+        for j in lstBases:
+            lstT,lstR = self.FindSigmaFactors(j)
+            lstSigmaMatrices.extend(lstT)
+            lstIntegerMatrix.extend(lstR)
+        lstExtraTransforms = []
+        for t in lstSigmaMatrices:
+            lstRs = list(map(lambda x: np.matmul(x,np.linalg.inv(t)),lstIntegerMatrix))
+            lstRows = list(map(lambda x: np.all(np.equal(np.mod(np.round(2*x,10),1),0)),lstRs))
+            #arrRs = np.array(lstRs)
+            arrRows = np.where(np.array(lstRows))[0]
+            arrRows = np.unique(arrRows)
+            if len(arrRows) > 0:
+                arrTransforms = np.matmul(t,np.array(lstSigmaMatrices)[arrRows])
+                lstExtraTransforms.extend(arrTransforms)
+        lstSigmaMatrices.extend(lstExtraTransforms)
+        for j in lstBases:
             lstConjugateBases.extend(list(map(lambda x: np.matmul(np.matmul(np.transpose(j), x),np.transpose(np.linalg.inv(j))),lstUnitMatrices)))
         lstAllMatrices = []
         lstAllMatrices.extend(lstConjugateBases)
@@ -126,21 +159,26 @@ class CSLConjugateBases(object):
         else:
             print('error no conjugates found')
             return []
-objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
+#%%            
+objCSL = gl.CSLTripleLine(np.array([4,1,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(200)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[21,21,49],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[9,27,27],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex,False)
 arrCellBasis = objCSL.GetCSLPrimitiveVectors()
-objSigmaCell = gl.SigmaCell(2*arrCellBasis[0],ld.FCCCell)
 objCSLConjugate = CSLConjugateBases(gf.StandardBasisVectors(3))
 arrOut = objCSLConjugate.FindConjugates(arrCellBasis)
-
+a = 4.05
 arrEdgeVectors, arrTransform = gf.ConvertToLAMMPSBasis(arrCellBasis)
 objSimulationCell = gl.SimulationCell(arrEdgeVectors)
 arrGrain1 = gl.ParallelopiedGrain(arrEdgeVectors,arrTransform,ld.FCCCell,np.ones(3), np.zeros(3))
 
+# lstAll = []
+# for i in arrOut:
+#     lstTemp = list(map(lambda x: np.matmul(x,i), arrOut))
+#     lstAll.extend(lstTemp)
+# arrOut = np.array(lstAll)
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 ax.scatter(*tuple(zip(*arrGrain1.GetAtomPositions())))
