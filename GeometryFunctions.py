@@ -17,6 +17,9 @@ import warnings
 from decimal import Decimal
 import scipy.stats as stats
 import LatticeDefinitions as ld
+from scipy import optimize
+import MiscFunctions as mf
+import cmath as cm
 
 #import shapely as sp
 #import geopandas as gpd
@@ -1132,3 +1135,170 @@ def OrthogonalVectorsFromPrimitiveVectors(inArray: np.array):
 #  [ 0. ,  0.5 , 0.5]])
 # arrVectors = OrthogonalVectorsFromPrimitiveVectors(arrExample)
 # print(arrVectors,np.linalg.det(arrVectors), np.matmul(arrVectors,ld.FCCPrimitive))
+class CSLMobility(object):
+    def __init__(self, arrCellVectors: np.array, arrLogValues: np.array, arrVolumeSpeed: np.array, strType: str, fltTemp: float, fltUPerVolume: float):
+        self.__LogValues = arrLogValues
+        self.__CellVectors = arrCellVectors
+        self.__VolumeSpeed = arrVolumeSpeed
+        self.__Temp = fltTemp
+        self.__UValue = fltUPerVolume
+        self.__Type = strType
+        self.__Volume = np.abs(np.linalg.det(arrCellVectors))
+        self.__Area = np.linalg.norm(
+            np.cross(arrCellVectors[0], arrCellVectors[2]))
+        self.__Mobility = 0
+        self.__PEPerVolume = 0
+        self.__Scale = len(arrLogValues[:,1]-1)/len(arrVolumeSpeed[1,:]-1)
+        self.__LinearRange = slice(5, len(arrVolumeSpeed[1,:]),1)
+    def SetLinearRange(self, intStart, intFinish):
+        self.__LinearRange = slice(intStart,intFinish,1)
+    def GetLinearRange(self):
+        return self.__LinearRange
+    def FitLine(self, x, a, b):
+        return a*x + b
+    def GetLogValues(self):
+        return self.__LogValues
+    def GetCellVectors(self):
+        return self.__CellVectors
+    def GetNormalSpeed(self,intStage: int,fltNormalDistance: float):
+        intFinish = self.GetLowVolumeCutOff(intStage, fltNormalDistance)
+        popt,pop = optimize.curve_fit(
+            self.FitLine, self.__VolumeSpeed[0, self.__LinearRange], self.__VolumeSpeed[2,self.__LinearRange])
+        return popt[0]
+    def GetPEPerVolume(self,intStage: int,fltNormalDistance: float):
+        arrRows = self.GetOverlapRows(intStage)
+        arrPEValues = self.__LogValues[arrRows]      
+        popt,pop = optimize.curve_fit(
+            self.FitLine, self.__VolumeSpeed[1, self.__LinearRange], arrPEValues[self.__LinearRange, 2])
+        return popt[0]
+    def GetVolumeSpeed(self, intColumn=None):
+        if intColumn is None:
+            return self.__VolumeSpeed
+        else:
+            return self.__VolumeSpeed[:, intColumn]
+    def GetType(self):
+        return self.__Type
+    def GetTemp(self):
+        return self.__Temp
+    def GetPEParameter(self):
+        return self.__UValue
+    def GetPEString(self):
+        return str(self.__UValue).split('.')[1]
+    def GetOverlapRows(self, intStage: int):
+        arrValues = self.__LogValues
+        arrRows = np.where(np.isin(arrValues[:, 0], self.__VolumeSpeed[0, :]))[0]
+        return arrRows
+    def GetLowVolumeCutOff(self, intStage: int, fltDistance: float):
+        arrCellVectors = self.GetCellVectors()
+        fltArea = np.linalg.norm(
+            np.cross(arrCellVectors[0], arrCellVectors[2]))
+        arrValues = self.__VolumeSpeed[1, :]
+        arrRows = np.where(arrValues < fltDistance*fltArea)[0]
+        if len(arrRows) > 0:
+            intReturn = np.min(arrRows)
+        else:
+            intReturn = len(arrValues)
+        return intReturn
+    def SetMobility(self, inMobility):
+        self.__Mobility = inMobility
+    def GetMobility(self):
+        return self.__Mobility
+    def SetPEPerVolume(self, inPE):
+        self.__PEPerVolume = inPE
+    def FindMobilities(self, intStage: int, fltNormalDistance: float):
+        arrPEValues = self.__LogValues
+        arrVolumeSpeed = self.GetVolumeSpeed()
+        arrRows = self.GetOverlapRows(intStage)
+        arrPEValues = arrPEValues[arrRows]
+        intFinish = self.GetLowVolumeCutOff(1, fltNormalDistance)
+       # intStart = np.round(intFinish/2, 0).astype('int')
+        intStart = np.max([intFinish -25,10]).astype('int')
+        popt, pop = optimize.curve_fit(
+            self.FitLine, arrVolumeSpeed[1, intStart:intFinish], arrPEValues[intStart:intFinish, 2])
+        popt2, pop2 = optimize.curve_fit(
+            self.FitLine, arrVolumeSpeed[0, intStart:intFinish], arrVolumeSpeed[2, intStart:intFinish])
+        arrCorr1= np.corrcoef(arrVolumeSpeed[1, intStart:intFinish], arrPEValues[intStart:intFinish, 2])[1,0]
+        arrCorr2 = np.corrcoef(arrVolumeSpeed[0, intStart:intFinish], arrVolumeSpeed[2, intStart:intFinish])[1,0]
+        if (np.abs(arrCorr1) < 0.95) or (np.abs(arrCorr2) < 0.95):
+            print('Correlation warning rho1 = ' + str(arrCorr1) + ', rho2 = ' + str(arrCorr2) + ' temp ' + str(self.GetTemp()) + ' u parameter ' + str(self.GetPEParameter()))
+        self.SetPEPerVolume(popt[0])
+        self.SetMobility(-popt2[0]/popt[0])
+        return intStart, intFinish
+    def GetPlanarArea(self):
+        return self.__Area
+def FindIntersectionsNPointSets(lstAllMeshPoints: list, inPeriodicCellVectors: np.array, fltWidth: float, intMinIntersections: int):
+        intPos = 0
+        # for k in lstAllMeshPoints:
+        #         clustering = DBSCAN(fltWidth).fit(k)
+        #         arrLabels = clustering.labels_
+        #         arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
+        #         arrRows1 = np.where(arrCounts > 1)[0]
+        #         arrRows2 = np.where(np.isin(arrLabels, arrUniqueLabels[arrRows1]))[0]
+        #         lstAllMeshPoints[intPos] = k[arrRows2]
+        #         intPos +=1
+        intMeshs = len(lstAllMeshPoints)
+        arrAllPoints = np.unique(np.vstack(lstAllMeshPoints),axis=0)
+        objTreeAll = PeriodicWrapperKDTree(arrAllPoints,inPeriodicCellVectors, FindConstraintsFromBasisVectors(inPeriodicCellVectors),2*fltWidth,['p','p','p']) 
+        lstPermutations = list(it.combinations(list(range(intMeshs)),intMinIntersections))
+        lstAllOverlap = []
+        for k in lstPermutations:
+                blnStop = False
+                i = 0
+                lstOverlap = []
+                while not(blnStop) and i < intMinIntersections:
+                        arrIndices = objTreeAll.Pquery_radius(lstAllMeshPoints[k[i]],fltWidth)[0]
+                        lstIndices = mf.FlattenList(arrIndices)
+                        if len(lstOverlap) ==0:
+                                lstOverlap = lstIndices
+                        else:
+                                lstOverlap =list(set(lstOverlap).intersection(set(lstIndices)))
+                        if len(lstOverlap) == 0:
+                                blnStop = True
+                        i += 1
+                if not(blnStop):
+                        lstAllOverlap.extend(lstOverlap)
+        arrIndices = np.unique(lstAllOverlap)
+        arrTrueIndices = objTreeAll.GetPeriodicIndices(arrIndices)
+        arrPoints = objTreeAll.GetOriginalPoints()[arrTrueIndices]        
+        return arrPoints
+
+class EcoOrient(object):
+        def __init__(self,fltCutOff: float,fltTolerance: float):
+                self.__CutOff = fltCutOff
+                self.__Tolerance = fltTolerance
+        def EcoOrientPsiFunction(self,arrTestVector, arrPrimitiveBasis1):#fit of basis2 with respect to basis1
+                arrQ = FindReciprocalVectors(arrPrimitiveBasis1)
+                rtnPsi = np.complex(0)
+                fltN = 0
+                for q in arrQ:
+                        rtnZ = np.complex(0)
+                        fltTemp = 0
+                        for a in arrTestVector:
+                                fltWeight = self.EcoWeight(a,self.__CutOff)
+                                z = np.complex(0,np.dot(a,q))
+                                rtnZ += fltWeight*np.complex(np.exp(2*np.pi*z))
+                                fltTemp += fltWeight
+                        fltN += fltTemp**2
+                        rtnPsi += rtnZ*rtnZ.conjugate()
+                return np.real(np.complex(rtnPsi)/fltN)
+        def EcoWeight(self,inRealVector, fltCutOff):
+                if self.__CutOff == 0:
+                        fltReturn = 1
+                else:
+                        fltLength = np.linalg.norm(inRealVector)/fltCutOff
+                        if fltLength < 1:
+                                fltReturn =  fltLength**4 -2*fltLength**2 + 1
+                        else:
+                                fltReturn = 0
+                return fltReturn 
+        def GetOrderParameter(self,arrTestVectors,arrPrimitive1,arrPrimitive2):
+                flt1 = self.EcoOrientPsiFunction(arrTestVectors,arrPrimitive1)
+                flt2 = self.EcoOrientPsiFunction(arrTestVectors,arrPrimitive2)
+                fltValue = flt1-flt2
+                if fltValue > self.__Tolerance:
+                        fltReturn = 1
+                elif fltValue < -self.__Tolerance:
+                        fltReturn = -1
+                else:
+                        fltReturn = np.sin(fltValue*np.pi/(2*self.__Tolerance))
+                return fltReturn

@@ -716,7 +716,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             j = i+1
             blnMerge = False
             while j < len(lstKeys) and not(blnMerge):
-                arrIndices, arrDistances = self.__PeriodicGrains[lstKeys[i]].Pquery_radius(self.__PeriodicGrains[lstKeys[j]].GetExtendedPoints(),self.__GBSeparation)
+                arrIndices, arrDistances = self.__PeriodicGrains[lstKeys[i]].Pquery_radius(self.__PeriodicGrains[lstKeys[j]].GetExtendedPoints(),1.1*self.__GBSeparation)
                 arrLengths = np.array([len(x) for x in arrIndices])
                 arrRows = np.where(arrLengths > 0)[0]
                 if len(arrRows) > intCloseAtoms:
@@ -767,7 +767,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                     lstAllDistances.append(np.array([x[intNumberOfGrains -1] for x in arrDistances1]))
             arrAllDistances = np.transpose(np.vstack(lstAllDistances))
             arrSorted = np.array([np.sort(x) for x in arrAllDistances])
-            fltMax = 2*np.min(arrSorted[:,-1])
+            fltMax = np.max(arrSorted[:,0])
         return fltMax
     def FindMeshAtomIDs(self, lstGrains):
         arrReturn = []
@@ -778,8 +778,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             arrPoints = arrPoints[:,1:4]
             lstAllDistances = []
             for l in lstGrains:
-                    arrDistances1, arrIndices1 = self.__PeriodicGrains[l].Pquery(arrPoints, k=1)
-                    lstAllDistances.append(np.array([x[0] for x in arrDistances1]))
+                arrDistances1, arrIndices1 = self.__PeriodicGrains[l].Pquery(arrPoints, k=1)
+                lstAllDistances.append(np.array([x[0] for x in arrDistances1]))
             arrAllDistances = np.transpose(np.vstack(lstAllDistances))
             arrRows = np.where(np.all(arrAllDistances < fltWidth,axis=1))[0]
             arrReturn = arrIDs[arrRows] 
@@ -790,13 +790,16 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrDistances1, arrIndices1 = self.__PeriodicGrains[intGrain1].Pquery(self.__PeriodicGrains[intGrain2].GetExtendedPoints(),k=1) 
         arrDistances1 = np.array([x[0] for x in arrDistances1])
         arrRows1 = np.where(arrDistances1 < fltWidth)[0]
-        arrIndices1 = np.array([x[0] for x in arrIndices1[arrRows1]])
-        arrPoints1 = self.__PeriodicGrains[intGrain1].GetExtendedPoints()[arrIndices1]
-        arrDistances2, arrIndices2 = self.__PeriodicGrains[intGrain2].Pquery(arrPoints1,k=1)
-        arrIndices2 = np.array([x[0] for x in arrIndices2])
-        arrPoints2 = self.__PeriodicGrains[intGrain2].GetExtendedPoints()[arrIndices2]
-        #return self.WrapVectorIntoSimulationBox(np.unique((arrPoints1+arrPoints2)/2,axis=0))
-        return np.unique((arrPoints1+arrPoints2)/2,axis=0)  
+        if len(arrRows1) > 0:
+            arrIndices1 = np.array([x[0] for x in arrIndices1[arrRows1]])
+            arrPoints1 = self.__PeriodicGrains[intGrain1].GetExtendedPoints()[arrIndices1]
+            arrDistances2, arrIndices2 = self.__PeriodicGrains[intGrain2].Pquery(arrPoints1,k=1)
+            arrIndices2 = np.array([x[0] for x in arrIndices2])
+            arrPoints2 = self.__PeriodicGrains[intGrain2].GetExtendedPoints()[arrIndices2]
+           # return self.WrapVectorIntoSimulationBox(np.unique((arrPoints1+arrPoints2)/2,axis=0))
+            return np.unique((arrPoints1+arrPoints2)/2,axis=0)
+        else:
+            return []  
     def LabelAtomsByGrain(self, fltTolerance = 3.14, fltRadius = None):
         if fltRadius is None:
             fltRadius = 2*self.__LatticeParameter
