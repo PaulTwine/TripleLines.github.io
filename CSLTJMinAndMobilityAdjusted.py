@@ -35,7 +35,7 @@ arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 intRatio = np.round(np.linalg.norm(arrBasis[0])/np.linalg.norm(arrBasis[1]))
 
-intNumberOfAtoms = 5*10**4 #choose approximate numbers of atoms here
+intNumberOfAtoms = 5*10**5 #choose approximate numbers of atoms here
 intAtomsPerVolume = 4 # 4 for FCC and 2 for BCC
 #s = np.round(np.sqrt(intNumberOfAtoms/(intAtomsPerCell*intTJSigma))/4) #
 fltVolumeScale = np.linalg.det(arrBasis)*4.05**(-3)
