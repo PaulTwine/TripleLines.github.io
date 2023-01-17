@@ -35,7 +35,7 @@ arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 intRatio = np.round(np.linalg.norm(arrBasis[0])/np.linalg.norm(arrBasis[1]))
 
-intNumberOfAtoms = 5*10**2 #choose approximate numbers of atoms here
+intNumberOfAtoms = 5*10**4 #choose approximate numbers of atoms here
 intAtomsPerVolume = 4 # 4 for FCC and 2 for BCC
 #s = np.round(np.sqrt(intNumberOfAtoms/(intAtomsPerCell*intTJSigma))/4) #
 fltVolumeScale = np.linalg.det(arrBasis)*4.05**(-3)
@@ -51,7 +51,7 @@ arrPBasis1 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(0))
 arrPBasis2 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(2))
 arrPBasis3 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(1))
 
-objOrient = gf.EcoOrient(0,0.25)
+objOrient = gf.EcoOrient(4.05,0.25)
 flt1E13 = objOrient.GetOrderParameter(arrPBasis1, arrPBasis1,arrPBasis3)
 flt2E13 = objOrient.GetOrderParameter(arrPBasis2, arrPBasis1,arrPBasis3)
 flt3E13 =  objOrient.GetOrderParameter(arrPBasis3, arrPBasis1,arrPBasis3)
@@ -63,10 +63,8 @@ r = (1+ flt3E12)/(1+flt2E13)
 u1 = u0/(2+r*(1-flt2E13))
 u2 = r*u1
 
-lstOrientTJ1 = [np.round(u1,5),0.25,a] 
-lstOrientTJ2 = [np.round(u2,5),0.25,a] 
-
-
+lstOrientTJ1 = [np.round(u1,10),0.25,a] 
+lstOrientTJ2 = [np.round(u2,10),0.25,a] 
 
 arrFullCell = np.array([[2*x,0,0],[0,2*y,0],[0,0,intHeight]])
 arrSmallCell = np.array([[x,0,0],[0,y,0],[0,0,intHeight]])
