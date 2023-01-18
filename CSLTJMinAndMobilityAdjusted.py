@@ -47,11 +47,12 @@ arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(1),10)
 arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(0),10)
 arrGrainBasis3 = np.round(objCSL.GetLatticeBasis(2),10)
 
-arrPBasis1 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(0))
-arrPBasis2 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(2))
-arrPBasis3 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(1))
+arrPBasis1 = 4.05*np.matmul(ld.FCCPrimitive,arrGrainBasis1)
+arrPBasis2 = 4.05*np.matmul(ld.FCCPrimitive,arrGrainBasis2)
+arrPBasis3 = 4.05*np.matmul(ld.FCCPrimitive,arrGrainBasis3)
 
 objOrient = gf.EcoOrient(4.05,0.25)
+#fltpEqr means grain q is to be penalised, grain r is to be favoured and the test orientation is p
 flt1E13 = objOrient.GetOrderParameter(arrPBasis1, arrPBasis1,arrPBasis3)
 flt2E13 = objOrient.GetOrderParameter(arrPBasis2, arrPBasis1,arrPBasis3)
 flt3E13 =  objOrient.GetOrderParameter(arrPBasis3, arrPBasis1,arrPBasis3)
@@ -59,8 +60,8 @@ flt1E12 = objOrient.GetOrderParameter(arrPBasis1, arrPBasis1,arrPBasis2)
 flt2E12 = objOrient.GetOrderParameter(arrPBasis2, arrPBasis1,arrPBasis2)
 flt3E12 =  objOrient.GetOrderParameter(arrPBasis3, arrPBasis1,arrPBasis2)
 #print(flt1E13,flt2E13,flt3E13,flt1E12,flt2E12,flt3E12)
-r = (1+ flt3E12)/(1+flt2E13)
-u1 = u0/(2+r*(1-flt2E13))
+r = (flt3E12-flt2E12)/(flt2E13-flt3E13) #use exact values rather than assuming +1, -1 values 
+u1 = u0/(flt1E12 -flt2E12 +r*(flt1E13-flt2E13))
 u2 = r*u1
 
 lstOrientTJ1 = [np.round(u1,10),0.25,a] 
