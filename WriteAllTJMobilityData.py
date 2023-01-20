@@ -16,7 +16,7 @@ strType = str(sys.argv[2])
 intLow = int(sys.argv[3])
 intHigh = int(sys.argv[4])
 intStep =  int(sys.argv[5])
-intReverse =  int(sys.argv[6])
+intReverse = int(sys.argv[6])
 
 lstVolume = []
 lstTime = []
