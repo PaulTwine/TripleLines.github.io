@@ -16,7 +16,7 @@ strType = str(sys.argv[2])
 intLow = int(sys.argv[3])
 intHigh = int(sys.argv[4])
 intStep =  int(sys.argv[5])
-intReverse = int(sys.argv[6])
+intReverse =  int(sys.argv[6])
 
 lstVolume = []
 lstTime = []
@@ -37,30 +37,21 @@ while t <= intHigh and not(blnStop):
     objAnalysis = objData.GetTimeStepByIndex(-1)
     arrIDs1 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',intEco)
     arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-intEco)
-    arrIDs3 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_2[2]',-intEco)
-    if (len(arrIDs1) > 0) and (len(arrIDs2) > 0) and (len(arrIDs3) > 0):
+    if (len(arrIDs1) > 0) and (len(arrIDs2) > 0):
         objAnalysis.SetPeriodicGrain('1',arrIDs1, 25)
         objAnalysis.SetPeriodicGrain('2',arrIDs2, 25)
-        objAnalysis.SetPeriodicGrain('3',arrIDs3, 25)
         arrPoints12 = objAnalysis.FindDefectiveMesh('1','2',25)
-        arrPoints13 = objAnalysis.FindDefectiveMesh('1','3',25)
-        arrPoints23 = objAnalysis.FindDefectiveMesh('2','3',25)
-        #arrPoints = objAnalysis.GetAtomsByID(arrIDs1)
         fltVolume = np.sum(objAnalysis.GetAtomsByID(arrIDs1)[:,intVColumn])
         if intReverse == 1:
             fltVolume = np.linalg.det(objAnalysis.GetCellVectors()) - fltVolume
-        lstSpeed.append(fltVolume/fltCrossSection)
-        lstVolume.append(fltVolume)
-        lstTime.append(t)
-        t += intStep
-        if (len(arrPoints12) > 0) and (len(arrPoints13) > 0) and (len(arrPoints23) > 0):
+        if (len(arrPoints12) > 0):
             if blnWrap:
                 arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
-                arrPoints13 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints13)
-                arrPoints23 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints23)
             np.savetxt(strDirectory + '/Mesh12' + strType + str(t) + '.txt', arrPoints12)
-            np.savetxt(strDirectory + '/Mesh13' + strType + str(t) + '.txt', arrPoints13)
-            np.savetxt(strDirectory + '/Mesh23' + strType + str(t) + '.txt', arrPoints23)
+            lstSpeed.append(fltVolume/fltCrossSection)
+            lstVolume.append(fltVolume)
+            lstTime.append(t)
+            t += intStep
         else:
             blnStop = True
     else:
