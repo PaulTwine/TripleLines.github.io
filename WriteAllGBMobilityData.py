@@ -11,12 +11,12 @@ import copy as cp
 from scipy import spatial
 from scipy import optimize
 
-strDirectory = str(sys.argv[1])
-strType = str(sys.argv[2])
-intLow = int(sys.argv[3])
-intHigh = int(sys.argv[4])
-intStep =  int(sys.argv[5])
-intReverse =  int(sys.argv[6])
+strDirectory = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp650/u02/12BV/' #str(sys.argv[1])
+strType = '12BV' # str(sys.argv[2])
+intLow = 26000 # int(sys.argv[3])
+intHigh = 26300 # int(sys.argv[4])
+intStep =  100# int(sys.argv[5])
+intReverse =  0 # int(sys.argv[6])
 
 lstVolume = []
 lstTime = []
@@ -44,16 +44,16 @@ while t <= intHigh and not(blnStop):
         fltVolume = np.sum(objAnalysis.GetAtomsByID(arrIDs1)[:,intVColumn])
         if intReverse == 1:
             fltVolume = np.linalg.det(objAnalysis.GetCellVectors()) - fltVolume
+        lstSpeed.append(fltVolume/fltCrossSection)
+        lstVolume.append(fltVolume)
         if (len(arrPoints12) > 0):
             if blnWrap:
                 arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
             np.savetxt(strDirectory + '/Mesh12' + strType + str(t) + '.txt', arrPoints12)
-            lstSpeed.append(fltVolume/fltCrossSection)
-            lstVolume.append(fltVolume)
-            lstTime.append(t)
-            t += intStep
         else:
             blnStop = True
+        lstTime.append(t)
+        t += intStep
     else:
         blnStop = True
 np.savetxt(strDirectory + '/Volume' + strType + '.txt', np.array([np.array(lstTime),np.array(lstVolume),np.array(lstSpeed)]))
