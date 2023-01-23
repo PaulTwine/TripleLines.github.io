@@ -125,8 +125,11 @@ class CSLMobility(object):
 # %%
 strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
-lstTemp = [450,475, 500,525, 550, 600,625, 650]
-lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
+strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+#lstTemp = [450,475, 500,525, 550, 600,625, 650]
+lstTemp = [450,550,650]
+lstU = [0.02,0.03,0.04,0.05,0.06,0.07,0.08]
+#lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
 dctTJ = dict()
 strType = 'TJ'
 for T in lstTemp:
@@ -209,14 +212,12 @@ strRoot21_21_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/T
 
 strRootR = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp'
 
-lstTemp = [450,475, 500,525, 550,575,600,625, 650]
 
-lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
 strType = 'TJ'
 #dctTJR = PopulateTJDictionary(strRootR, lstTemp, lstU, 'TJ')
-dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
-dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
-dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
+#dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
+#dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
+#dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
 
 dctTJ21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, 'TJ')
 dct12BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '12BV') 
@@ -313,10 +314,10 @@ def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
     return lstMobility, lstMobilityStd
 #%%
 lstNewTemp = [450,475,500,525,550,575,600,625,650]
-lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7,lstU[0],lstU[3])
+lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstNewTemp, dctTJ21,lstU[4],lstU[-1])
 #lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
-lstMob12BV,lstError12BV = WriteMobilityValues(lstNewTemp, dct12BV7,lstU[0],lstU[3])
-lstMob13BV,lstError13BV = WriteMobilityValues(lstNewTemp, dct13BV7,lstU[0],lstU[3])
+lstMob12BV,lstError12BV = WriteMobilityValues(lstNewTemp, dct12BV21,lstU[4],lstU[-1])
+lstMob13BV,lstError13BV = WriteMobilityValues(lstNewTemp, dct13BV21,lstU[4],lstU[-1])
 #lstMobGB = WriteMobilityValues(lstNewTemp, dctGB7)
 lstMobBVs = []
 lstMobBVs.append(lstMob12BV)
@@ -343,17 +344,50 @@ plt.show()
 plt.clf()
 plt.cla()
 plt.close()
-
+#%%
+np.savetxt('/home/paul/S212149U02BV12E',lstError12BV)
 # plt.scatter(arrMins,lstMobTJ)
 # plt.show()
 # print(np.corrcoef(arrMins[1:-1],lstMobTJ[1:-1]))
 #%%
-arrITemp = 1/np.array(lstNewTemp)
-arrLogMobTJ7 = np.array(np.log(lstMobTJ7))
+lstTemp = [450,475,500,525,550,575,600,625,650]
+strPrefix = 'S999UAll'
+lstMTJ = np.loadtxt('/home/paul/' + strPrefix + 'TJ')
+lstMTJE = np.loadtxt('/home/paul/' + strPrefix + 'TJE')
+lstMBV12 = np.loadtxt('/home/paul/' + strPrefix + 'BV12')
+lstMBV12E = np.loadtxt('/home/paul/' + strPrefix + 'BV12E')
+lstMBV13 = np.loadtxt('/home/paul/' + strPrefix + 'BV13')
+lstMBV13E = np.loadtxt('/home/paul/' + strPrefix + 'BV13E')
+plt.scatter(lstTemp, lstMTJ)
+plt.errorbar(lstTemp,lstMTJ,lstMTJE)
+
+plt.scatter(lstTemp, lstMBV12)
+plt.errorbar(lstTemp,lstMBV12,lstMBV12E)
+plt.scatter(lstTemp, lstMBV13)
+plt.errorbar(lstTemp,lstMBV13,lstMBV13E)
+#plt.scatter(lstNewTemp,arrMins)
+plt.legend(['TJ','1,2 BC','1,3 BC'])
+plt.xlabel('Temperature in K')
+plt.ylabel('Mobility in $\AA^4$ eV$^{-1}$ fs$^{-1}$')
+#plt.legend(['TJ 7-7-49', 'TJ 21-21-49'])
+#plt.legend(['TJ','Min of 12BV 13BV'])
+#plt.ylim([0.1,0.5])
+plt.show()
+plt.clf()
+plt.cla()
+plt.close()
+
+
+
+#%%
+arrITemp = 1/np.array(lstTemp[:])
+arrLogMobTJ7 = np.array(np.log(lstMTJ[:]))
 plt.scatter(arrITemp, arrLogMobTJ7)
 popt,pop = optimize.curve_fit(FitLine,arrITemp,arrLogMobTJ7)
 plt.plot(arrITemp, FitLine(arrITemp,*popt))
 plt.xlim([np.min(arrITemp)-0.0001,np.max(arrITemp)+0.0001])
+plt.xlabel('Inverse temperature in K$^{-1}$')
+plt.ylabel('Logarithm of mobility')
 plt.tight_layout()
 plt.show()
 print(popt)
