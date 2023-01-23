@@ -49,6 +49,10 @@ while t <= intHigh and not(blnStop):
         fltVolume = np.sum(objAnalysis.GetAtomsByID(arrIDs1)[:,intVColumn])
         if intReverse == 1:
             fltVolume = np.linalg.det(objAnalysis.GetCellVectors()) - fltVolume
+        lstSpeed.append(fltVolume/fltCrossSection)
+        lstVolume.append(fltVolume)
+        lstTime.append(t)
+        t += intStep
         if (len(arrPoints12) > 0) and (len(arrPoints13) > 0) and (len(arrPoints23) > 0):
             if blnWrap:
                 arrPoints12 = objAnalysis.WrapVectorIntoSimulationBox(arrPoints12)
@@ -57,10 +61,6 @@ while t <= intHigh and not(blnStop):
             np.savetxt(strDirectory + '/Mesh12' + strType + str(t) + '.txt', arrPoints12)
             np.savetxt(strDirectory + '/Mesh13' + strType + str(t) + '.txt', arrPoints13)
             np.savetxt(strDirectory + '/Mesh23' + strType + str(t) + '.txt', arrPoints23)
-            lstSpeed.append(fltVolume/fltCrossSection)
-            lstVolume.append(fltVolume)
-            lstTime.append(t)
-            t += intStep
         else:
             blnStop = True
     else:
