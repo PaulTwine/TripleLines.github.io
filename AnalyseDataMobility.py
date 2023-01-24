@@ -34,8 +34,8 @@ def FitLine(x, a, b):
 # %%
 #strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis221/Sigma9_9_9/Temp'
 #strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
-strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
-#strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+#strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 lstTemp = [450,550, 650]
 lstTemp = [450,550,650]
 lstU = [0.02,0.03,0.04,0.05,0.06,0.07,0.08]
@@ -135,6 +135,7 @@ strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/T
 dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
 dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
 dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
+#%%
 
 dctTJ21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, 'TJ')
 dct12BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '12BV') 
@@ -211,13 +212,27 @@ def PartitionByTemperature(dctAny: dict(),intTemp, uLower: float, uUpper: float)
             lstVn.append(lstVnOut)
     return lstU,lstVn
 #%%
-def PlotDistanceTime(inCSL: gf.CSLMobility):
+def PlotDistanceTime(inCSL: gf.CSLMobility, lstVolume: list, lstLAMMPS: list):
     arrLogValues = inCSL.GetLogValues()
     arrVolumeSpeed = inCSL.GetVolumeSpeed()
     intMax = np.min([len(arrLogValues[:,0]),len(arrVolumeSpeed[0])])
-    x = arrVolumeSpeed[0,100:intMax]
-    #y = arrVolumeSpeed[1,100:intMax]
-    y = arrLogValues[100:intMax,2]
+    if len(lstLAMMPS) == 0:
+        x = arrVolumeSpeed[lstVolume[0],100:intMax]
+        y = arrVolumeSpeed[lstVolume[1],100:intMax]
+    elif len(lstVolume) == 0:
+        x = arrLogValues[100:intMax,lstLAMMPS[0]]
+        y = arrLogValues[100:intMax,lstLAMMPS[1]]
+    else:
+        x = arrVolumeSpeed[lstVolume[0],100:intMax]
+        y = arrLogValues[100:intMax,lstLAMMPS[0]]
+    return x,y
+#%%
+lstLegend = []
+lstpopt = []
+lstpopt2 = []
+for k in lstU:
+    strKey = '450,' + str(k).split('.')[1]
+    x,y = PlotDistanceTime(dctTJ7[strKey], [0,2],[])
     popt,pop = optimize.curve_fit(FitLine,x,y)
     #plt.scatter(x,y)
     plt.plot(x,FitLine(x, *popt))
@@ -230,9 +245,9 @@ plt.legend(lstLegend)
 plt.show()
 plt.scatter(np.array(lstU)*4/(4.05**3),-np.array(lstpopt))
 plt.scatter(np.array(lstpopt2),-np.array(lstpopt))
+plt.legend(['Synthetic','Calculated'])
 plt.show()
-#%%
-PlotDistanceTime(dct13BV21['450,02'])
+
 
 #%%
 def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
