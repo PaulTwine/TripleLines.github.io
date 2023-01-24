@@ -37,7 +37,6 @@ def FitLine(x, a, b):
 strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 #strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 lstTemp = [450,550, 650]
-lstTemp = [450,550,650]
 lstU = [0.02,0.03,0.04,0.05,0.06,0.07,0.08]
 #lstU = [0.02, 0.03,0.04,0.05,0.06,0.07,0.08]
 dctTJ = dict()
@@ -125,12 +124,14 @@ strRootR = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp'
 lstTemp = [450,475, 500,525, 550,575,600,625, 650]
 
 lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
+#%%
 strType = 'TJ'
+strRoot7_7_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 #dctTJR = PopulateTJDictionary(strRootR, lstTemp, lstU, 'TJ')
 dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
 dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
 dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
-
+#%%
 dctTJ21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, 'TJ')
 dct12BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '12BV') 
 dct13BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '13BV') 
@@ -206,20 +207,33 @@ def PartitionByTemperature(dctAny: dict(),intTemp, uLower: float, uUpper: float)
             lstVn.append(lstVnOut)
     return lstU,lstVn
 #%%
-def PlotDistanceTime(inCSL: gf.CSLMobility):
+def PlotDistanceTime(inCSL: gf.CSLMobility,lstVolumeIndices, lstLAMMPsOutIndices):
     arrLogValues = inCSL.GetLogValues()
     arrVolumeSpeed = inCSL.GetVolumeSpeed()
     intMax = np.min([len(arrLogValues[:,0]),len(arrVolumeSpeed[0])])
-    x = arrVolumeSpeed[0,100:intMax]
-    #y = arrVolumeSpeed[1,100:intMax]
-    y = arrLogValues[100:intMax,2]
+    objRange = inCSL.GetLinearRange()
+    if len(lstVolumeIndices) > 1:
+        x = arrVolumeSpeed[lstVolumeIndices[0],objRange]
+        y = arrVolumeSpeed[lstVolumeIndices[1],objRange]
+    elif len(lstLAMMPsOutIndices)> 1:
+        x = arrLogValues[objRange,lstLAMMPsOutIndices[0]]
+        y = arrLogValues[objRange,lstLAMMPsOutIndices[0]]
+    else:
+        x = arrVolumeSpeed[lstVolumeIndices[0],objRange]
+        y = arrLogValues[objRange,lstLAMMPsOutIndices[0]]
     popt,pop = optimize.curve_fit(FitLine,x,y)
     plt.scatter(x,y)
     plt.plot(x,FitLine(x, *popt),c='black')
     plt.show()
     print(popt)
 #%%
-PlotDistanceTime(dct13BV21['450,02'])
+strTemp='550'
+strU='06'
+strKey = strTemp + ',' + strU
+dctTJ7[strKey].SetLinearRange(500,1000)
+PlotDistanceTime(dctTJ7[strKey],[0,2],[])
+PlotDistanceTime(dctTJ7[strKey],[1],[2])
+
 
 #%%
 def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
@@ -232,8 +246,9 @@ def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
                 plt.scatter(tupValues[0][i], tupValues[1][i])
         #plt.scatter(tupValues[0],tupValues[1])
         plt.ylim([0,0.005])
-        plt.xlim([0,0.08*4.05**(-3)])
+        plt.xlim([0,0.08*4*4.05**(-3)])
         plt.show()
+
         #popt,pop = optimize.curve_fit(FitLine,tupValues[0],tupValues[1])
         #plt.plot(np.array(tupValues[0]),FitLine(np.array(tupValues[0]),popt[0],popt[1]))
         #lstMobility.append(popt[0])
@@ -255,12 +270,11 @@ lstMobBVs.append(lstMob13BV)
 arrBV = np.vstack(lstMobBVs)
 arrMins = np.min(arrBV, axis=0) 
 #%%
-lstNewTemp = lstTemp
-lstMobTJ9,lstMobErrorTJ9 = WriteMobilityValues(lstNewTemp,dctTJ21, lstU[0],lstU[-1])
-lstMob12BV,lstMobError12BV = WriteMobilityValues(lstNewTemp,dct12BV21, lstU[0],lstU[-1])
-lstMob13BV,lstMobError13BV = WriteMobilityValues(lstNewTemp,dct13BV21, lstU[0],lstU[-1])
+lstMobTJ,lstMobErrorTJ = WriteMobilityValues(lstTemp,dctTJ7, lstU[0],lstU[3])
+lstMob12BV,lstMobError12BV = WriteMobilityValues(lstTemp,dct12BV7, lstU[0],lstU[3])
+lstMob13BV,lstMobError13BV = WriteMobilityValues(lstTemp,dct13BV7, lstU[0],lstU[3])
 #%%
-PlotMobilities(lstNewTemp, lstMobTJ9,lstMob12BV,lstMob13BV,lstMobErrorTJ9,lstMobError12BV,lstMobError13BV)
+PlotMobilities(lstTemp, lstMobTJ,lstMob12BV,lstMob13BV,lstMobErrorTJ,lstMobError12BV,lstMobError13BV)
 #%%
 #%%
 def PlotMobilities(lstTemp,lstTJ,lst12BV, lst13BV,lstTJE,lst12BVE,lst13BVE):
