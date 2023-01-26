@@ -8,13 +8,15 @@ import sys
 import copy as cp
 from scipy import spatial
 import MiscFunctions as mf
-from mpl_toolkits.mplot3d import Axes3D
+#from mpl_toolkits.mplot3d import Axes3D
+
 
  
 strRoot = str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
+intTemp = int(sys.argv[4])
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
@@ -25,6 +27,8 @@ intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0
 arrCSL = arrCell[intIndex]
 objCSL.GetTJBasisVectors(intIndex,True)
 arrBasis = a*objCSL.GetSimulationCellBasis()
+arrBasis[:,0] =10*arrBasis[:,0]
+arrBasis[:,1] =10*arrBasis[:,1]
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
@@ -39,14 +43,14 @@ objSimulationCell = gl.SimulationCell(arrBasis)
 i= 1
 arrOrientBases12 = np.round(np.append(arrPBasis1, arrPBasis2, axis=0),7)
 arrOrientBases13 = np.round(np.append(arrPBasis1, arrPBasis3, axis=0),7)
-np.savetxt(strRoot + 'Values12.ori', arrOrientBases12, delimiter=' ',fmt='%1.5f')
-np.savetxt(strRoot +  'Values13.ori', arrOrientBases13, delimiter=' ',fmt='%1.5f')
 for l in lstGrainBases:
+    strDir = strRoot + str(i) + 'G/'
     arrGrain = gl.ParallelopiedGrain(arrBasis,l,ld.FCCCell,a*np.ones(3), np.zeros(3))
     objSimulationCell.AddGrain(arrGrain)
     objSimulationCell.RemoveAtomsOnOpenBoundaries()
-    objSimulationCell.WriteLAMMPSDataFile(strRoot + str(i) + '.dat' )
+    objSimulationCell.WriteLAMMPSDataFile(strDir + str(i) + 'G.dat' )
     objSimulationCell.RemoveAllGrains()
-    mf.WriteDoubleDrivenTemplate(strRoot, str(i),0,100,[0,0.25,a],[0,0.25,a],['Values12.ori','Values13.ori'])
+    mf.WriteDoubleDrivenTemplate(strRoot, str(i),intTemp,1000,[0,0.25,a],[0,0.25,a],['Values12.ori','Values13.ori'])
+    np.savetxt(strDir + 'Values12.ori', arrOrientBases12, delimiter=' ',fmt='%1.5f')
+    np.savetxt(strDir +  'Values13.ori', arrOrientBases13, delimiter=' ',fmt='%1.5f')
     i +=1
-
