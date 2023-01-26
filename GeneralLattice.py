@@ -767,12 +767,16 @@ class SimulationCell(object):
     def SetGrainAtoms(self):
         lstGrainAtoms = []
         lstGrainAtomTypes = []
-        for i in self.GrainList:
-                lstGrainAtoms.append(self.RemoveRealDuplicates(self.GetGrain(i).GetInteriorAtomPositions(self.__BasisVectors)))
-                lstGrainAtomTypes.append(np.ones(len(lstGrainAtoms[-1]))*self.GetGrain(i).GetAtomType())
-        if len(lstGrainAtoms) > 0:
-            self.__GrainAtomPositions = np.vstack(lstGrainAtoms)
-            self.__GrainAtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
+        if len(self.GrainList) > 1:
+            for i in self.GrainList:
+                    lstGrainAtoms.append(self.RemoveRealDuplicates(self.GetGrain(i).GetInteriorAtomPositions(self.__BasisVectors)))
+                    lstGrainAtomTypes.append(np.ones(len(lstGrainAtoms[-1]))*self.GetGrain(i).GetAtomType())
+            if len(lstGrainAtoms) > 0:
+                self.__GrainAtomPositions = np.vstack(lstGrainAtoms)
+                self.__GrainAtomTypes = np.concatenate(lstGrainAtomTypes,axis=0).astype('int')
+        elif len(self.GrainList) == 1:
+            self.__GrainAtomPositions = self.GetGrain(self.GrainList[0]).GetAtomPositions()
+            self.__GrainAtomTypes = np.ones(len(self.__GrainAtomPositions))*self.GetGrain(self.GrainList[0]).GetAtomType()
     def GetNonGrainAtoms(self, lstAtomTypes: list):
         lstGBAtoms = []
         for k in self.GrainList:
