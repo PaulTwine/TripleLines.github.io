@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 strRoot = str(sys.argv[1])
-intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
@@ -47,25 +47,17 @@ arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(1),10)
 arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(0),10)
 arrGrainBasis3 = np.round(objCSL.GetLatticeBasis(2),10)
 
-arrPBasis1 = 4.05*np.matmul(ld.FCCPrimitive,arrGrainBasis1)
-arrPBasis2 = 4.05*np.matmul(ld.FCCPrimitive,arrGrainBasis2)
-arrPBasis3 = 4.05*np.matmul(ld.FCCPrimitive,arrGrainBasis3)
 
-objOrient = gf.EcoOrient(4.05,0.25)
-#fltpEqr means grain q is to be penalised, grain r is to be favoured and the test orientation is p
-flt1E13 = objOrient.GetOrderParameter(arrPBasis1, arrPBasis1,arrPBasis3)
-flt2E13 = objOrient.GetOrderParameter(arrPBasis2, arrPBasis1,arrPBasis3)
-flt3E13 =  objOrient.GetOrderParameter(arrPBasis3, arrPBasis1,arrPBasis3)
-flt1E12 = objOrient.GetOrderParameter(arrPBasis1, arrPBasis1,arrPBasis2)
-flt2E12 = objOrient.GetOrderParameter(arrPBasis2, arrPBasis1,arrPBasis2)
-flt3E12 =  objOrient.GetOrderParameter(arrPBasis3, arrPBasis1,arrPBasis2)
-#print(flt1E13,flt2E13,flt3E13,flt1E12,flt2E12,flt3E12)
-r = (flt3E12-flt2E12)/(flt2E13-flt3E13) #use exact values rather than assuming +1, -1 values 
-u1 = u0/(flt1E12 -flt2E12 +r*(flt1E13-flt2E13))
-u2 = r*u1
+arrPBasis1 = np.matmul(a*ld.FCCPrimitive,arrGrainBasis1)
+arrPBasis2 = np.matmul(a*ld.FCCPrimitive,arrGrainBasis2)
+arrPBasis3 = np.matmul(a*ld.FCCPrimitive,arrGrainBasis3)
 
-lstOrientTJ1 = [np.round(u1,10),0.25,a] 
-lstOrientTJ2 = [np.round(u2,10),0.25,a] 
+
+
+arrU = np.loadtxt('../../../arrU.txt')
+
+lstOrientTJ1 = [np.round(u0*arrU[0],10),0.25,a] 
+lstOrientTJ2 = [np.round(u0*arrU[1],10),0.25,a] 
 
 arrFullCell = np.array([[2*x,0,0],[0,2*y,0],[0,0,intHeight]])
 arrSmallCell = np.array([[x,0,0],[0,y,0],[0,0,intHeight]])
