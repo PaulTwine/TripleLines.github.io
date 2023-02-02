@@ -30,15 +30,28 @@ def FitProportional(x,a):
 def FitLine(x, a, b):
     return a*x + b 
 #%%
-
+arrVolume = np.loadtxt('/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp750/u01/TJ/VolumeTJ.txt')
+objLog = LT.LAMMPSLog('/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp750/u01/TJ/TJ.log')
+#%%
+intEnd = 80
+arrPE = objLog.GetValues(1)[100:10*intEnd:10,2]
+print(len(arrPE),len(arrVolume[1,10:intEnd]))
+popt,pop = optimize.curve_fit(FitLine, arrVolume[1,10:intEnd],arrPE)
+plt.plot(arrVolume[1,10:intEnd],FitLine(arrVolume[1,10:intEnd],*popt))
+plt.scatter(arrVolume[1,10:intEnd],arrPE)
+#plt.scatter(objLog.GetValues(1)[100:,0],objLog.GetValues(1)[100:,2])
+print(popt)
+#%%
+plt.scatter(arrVolume[0,:],arrVolume[1,:])
+plt.show()
 # %%
 #strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis221/Sigma9_9_9/Temp'
 #strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 #strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
-lstTemp = [450,550, 650]
-lstTemp = [450,550,650]
-lstU = [0.02,0.03,0.04,0.05,0.06,0.07,0.08]
+#strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
+lstTemp = [450,550, 650,750]
+lstU = [0.01,0.02,0.03,0.04]
 #lstU = [0.02, 0.03,0.04,0.05,0.06,0.07,0.08]
 dctTJ = dict()
 strType = 'TJ'
@@ -59,11 +72,13 @@ def PopulateTJDictionary(strRoot: str, lstTemp: list, lstU: list, strType: str) 
             strDir = strRoot + str(T) + '/u' + strU + '/' + strType + '/'
             strLogFile = strDir + strType + '.log'
             strVolumeFile = strDir + 'Volume' + strType + '.txt'
+            print(strLogFile)
             objData = LT.LAMMPSData(
                 strDir + '1Min.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
             objAnalysis = objData.GetTimeStepByIndex(-1)
             arrCellVectors = objAnalysis.GetCellVectors()
             arrLog = LT.LAMMPSLog(strLogFile)
+            print(strVolumeFile)
             arrVolume = np.loadtxt(strVolumeFile)
             objCSLMobility = gf.CSLMobility(
                 arrCellVectors, arrLog.GetValues(1), arrVolume, strType, T, u)
@@ -117,7 +132,7 @@ plt.close()
 # %%
 strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 strRoot7_7_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
-strRoot21_21_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
+
 strRoot21_21_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 
 strRootR = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49R/Temp'
@@ -136,7 +151,7 @@ dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
 dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
 dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
 #%%
-
+strRoot21_21_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 dctTJ21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, 'TJ')
 dct12BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '12BV') 
 dct13BV21 = PopulateTJDictionary(strRoot21_21_49, lstTemp, lstU, '13BV') 
@@ -177,20 +192,12 @@ def PartitionByTemperature(dctAny: dict(),intTemp, uLower: float, uUpper: float)
     lstU = []
     for a in dctAny.keys():
         if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() <= uUpper) and (dctAny[a].GetPEParameter() >= uLower):
-            intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
-            intStart = int(intFinish/2)
-            dctAny[a].SetLinearRange(intStart,intFinish)
+           # intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
+           # intStart = int(intFinish/2)
+           # dctAny[a].SetLinearRange(intStart,intFinish)
             objRange = dctAny[a].GetLinearRange()
             arrVolumeSpeed = dctAny[a].GetVolumeSpeed()
-            # lstVnOut = BootstrapEstimate(arrVolumeSpeed[0,:],-arrVolumeSpeed[2,:],intFinish - intStart)
             arrLogValues =  dctAny[a].GetLogValues()
-            #arrLogValues = arrLogValues[intStart:intFinish]
-            # lstValuesU = BootstrapEstimate(arrLogValues[:,0],-arrLogValues[:,2], 1000)
-            # lstValuesVn = BootstrapEstimate(arrVolumeSpeed[0,objRange],arrVolumeSpeed[2,objRange],1000)
-            # lstVn.append(np.mean(lstValuesVn))
-            # lstU.append(np.mean(lstValuesU)/np.mean(lstValuesVn))
-            # #arrRows = dctAny[a].GetOverlapRows(1)
-            #arrLogValues = arrLogValues[arrRows]
             lstVnOut,lstUOut = DoubleBootstrapEstimate(arrVolumeSpeed[0,objRange],-arrVolumeSpeed[2,objRange],
             arrVolumeSpeed[1,objRange],arrLogValues[objRange,2],10**4)
             #intFinish - intStart)
@@ -199,9 +206,6 @@ def PartitionByTemperature(dctAny: dict(),intTemp, uLower: float, uUpper: float)
             plt.plot(arrVolumeSpeed[0,objRange], FitLine(arrVolumeSpeed[0,objRange],*popt),c='black')
             plt.title('Distance vs Time' + str(intTemp)+ str(dctAny[a].GetPEParameter()))
             plt.show()
-          #  lstVn.append(-popt[0])
-            # #lstVn.append(lstVnOut)
-            #lstUOut = BootstrapEstimate(arrVolumeSpeed[2,objRange],-arrLogValues[objRange,2],intFinish - intStart)
             popt2,pop2 = optimize.curve_fit(FitLine,arrVolumeSpeed[1,objRange],arrLogValues[objRange,2])
             plt.scatter(arrVolumeSpeed[1,objRange],arrLogValues[objRange,2])
             plt.title('PE vs Volume' + str(intTemp)+str(dctAny[a].GetPEParameter()))
@@ -212,43 +216,144 @@ def PartitionByTemperature(dctAny: dict(),intTemp, uLower: float, uUpper: float)
             lstVn.append(lstVnOut)
     return lstU,lstVn
 #%%
-def PlotDistanceTime(inCSL: gf.CSLMobility, lstVolume: list, lstLAMMPS: list):
+def GetVolumeOrLAMMPSLog(inCSL: gf.CSLMobility, lstVolume: list, lstLAMMPS: list,intStart =100):
     arrLogValues = inCSL.GetLogValues()
     arrVolumeSpeed = inCSL.GetVolumeSpeed()
     intMax = np.min([len(arrLogValues[:,0]),len(arrVolumeSpeed[0])])
     if len(lstLAMMPS) == 0:
-        x = arrVolumeSpeed[lstVolume[0],100:intMax]
-        y = arrVolumeSpeed[lstVolume[1],100:intMax]
+        x = arrVolumeSpeed[lstVolume[0],intStart:intMax]
+        y = arrVolumeSpeed[lstVolume[1],intStart:intMax]
     elif len(lstVolume) == 0:
-        x = arrLogValues[100:intMax,lstLAMMPS[0]]
-        y = arrLogValues[100:intMax,lstLAMMPS[1]]
+        x = arrLogValues[intStart:intMax,lstLAMMPS[0]]
+        y = arrLogValues[intStart:intMax,lstLAMMPS[1]]
     else:
-        x = arrVolumeSpeed[lstVolume[0],100:intMax]
-        y = arrLogValues[100:intMax,lstLAMMPS[0]]
+        x = arrVolumeSpeed[lstVolume[0],intStart:intMax]
+        y = arrLogValues[intStart:intMax,lstLAMMPS[0]]
     return x,y
 #%%
-lstLegend = []
-lstpopt = []
-lstpopt2 = []
-for k in lstU:
-    strKey = '450,' + str(k).split('.')[1]
-    x,y = PlotDistanceTime(dctTJ7[strKey], [0,2],[])
-    popt,pop = optimize.curve_fit(FitLine,x,y)
-    #plt.scatter(x,y)
-    plt.plot(x,FitLine(x, *popt))
-    lstLegend.append(k)
-    lstpopt.append(popt[0]*4.05**3/4)
-    x2,y2 = PlotDistanceTime(dctTJ7[strKey], [1],[2])
-    popt2,pop2 = optimize.curve_fit(FitLine,x2,y2)
-    lstpopt2.append(popt2[0])    
-plt.legend(lstLegend)
-plt.show()
-plt.scatter(np.array(lstU)*4/(4.05**3),-np.array(lstpopt))
-plt.scatter(np.array(lstpopt2),-np.array(lstpopt))
-plt.legend(['Synthetic','Calculated'])
-plt.show()
+dctTJ7Ranges = dict()
+dct12BV7Ranges = dict()
+dct13BV7Ranges = dict()
+#%%
+dctTJ7Ranges['450,01'] = [500,1000]
+dctTJ7Ranges['450,02'] = [500,1000]
+dctTJ7Ranges['450,03'] = [400,750]
+dctTJ7Ranges['450,04'] = [300,500]
+dctTJ7Ranges['550,01'] = [500,1000]
+dctTJ7Ranges['550,02'] = [500,1000]
+dctTJ7Ranges['550,03'] = [400,750]
+dctTJ7Ranges['550,04'] = [650,950]
+dctTJ7Ranges['650,01'] = [500,1000]
+dctTJ7Ranges['650,02'] = [500,1000]
+dctTJ7Ranges['650,03'] = [400,750]
+dctTJ7Ranges['650,04'] = [700,950]
+dctTJ7Ranges['750,01'] = [500,1000]
+dctTJ7Ranges['750,02'] = [500,1000]
+dctTJ7Ranges['750,03'] = [500,1000]
+dctTJ7Ranges['750,04'] = [500,700]
+for i in dctTJ7Ranges:
+    dctTJ7[i].SetLinearRange(*dctTJ7Ranges[i])
+    print(dctTJ7[i].GetLinearRange())
+#%%
+dct12BV7Ranges['450,01'] = [100,1000]
+dct12BV7Ranges['450,02'] = [100,600]
+dct12BV7Ranges['450,03'] = [100,500]
+dct12BV7Ranges['450,04'] = [100,300]
+dct12BV7Ranges['550,01'] = [100,1000]
+dct12BV7Ranges['550,02'] = [100,1000]
+dct12BV7Ranges['550,03'] = [100,600]
+dct12BV7Ranges['550,04'] = [500,1000]
+dct12BV7Ranges['650,01'] = [500,1000]
+dct12BV7Ranges['650,02'] = [800,1000]
+dct12BV7Ranges['650,03'] = [500,700]
+dct12BV7Ranges['650,04'] = [200,500]
+dct12BV7Ranges['750,01'] = [100,1000]
+dct12BV7Ranges['750,02'] = [500,1000]
+dct12BV7Ranges['750,03'] = [600,1000]
+dct12BV7Ranges['750,04'] = [700,1000]
+for i in dct12BV7Ranges:
+    dct12BV7[i].SetLinearRange(*dct12BV7Ranges[i])
+    print(dct12BV7[i].GetLinearRange())
+#%%
+dct13BV7Ranges['450,01'] = [100,1000]
+dct13BV7Ranges['450,02'] = [100,600]
+dct13BV7Ranges['450,03'] = [100,350]
+dct13BV7Ranges['450,04'] = [100,400]
+dct13BV7Ranges['550,01'] = [100,1000]
+dct13BV7Ranges['550,02'] = [100,1000]
+dct13BV7Ranges['550,03'] = [100,600]
+dct13BV7Ranges['550,04'] = [200,500]
+dct13BV7Ranges['650,01'] = [100,1000]
+dct13BV7Ranges['650,02'] = [600,1000]
+dct13BV7Ranges['650,03'] = [600,1000]
+dct13BV7Ranges['650,04'] = [600,1000]
+dct13BV7Ranges['750,01'] = [600,1000]
+dct13BV7Ranges['750,02'] = [600,1000]
+dct13BV7Ranges['750,03'] = [600,1000]
+dct13BV7Ranges['750,04'] = [600,1000]
+for i in dct13BV7Ranges:
+    dct13BV7[i].SetLinearRange(*dct13BV7Ranges[i])
+    print(dct13BV7[i].GetLinearRange())
 
-
+#%%
+def GetVolumeTrendAndPECorrelations(inDct: dict(), strTemp: str, lstUValues: list):
+    lstLegend = []
+    lstpopt = []
+    lstpopt2 = []
+    for k in lstUValues:
+        strKey = strTemp + ',' + str(k).split('.')[1]
+        print(strKey)
+        x,y = GetVolumeOrLAMMPSLog(inDct[strKey], [0,2],[],0)
+        objRange = inDct[strKey].GetLinearRange()
+        x = x[objRange]
+        y = y[objRange]
+        popt,pop = optimize.curve_fit(FitLine,x,y)
+        plt.scatter(x,y)
+       # plt.plot(x,FitLine(x, *popt))
+        lstLegend.append(k)
+        lstpopt.append(popt[0]*4.05**3/4)
+        x2,y2 = GetVolumeOrLAMMPSLog(inDct[strKey], [1],[2],0)
+        x2 = x2[objRange]
+        y2 = y2[objRange]
+        #plt.scatter(x2,y2)
+        popt2,pop2 = optimize.curve_fit(FitLine,x2,y2)
+        lstpopt2.append(popt2[0])    
+    plt.legend(lstLegend)
+    plt.show()
+    #plt.xlim([0,0.005])
+    #plt.ylim([0,0.05])
+    plt.scatter(np.array(lstU)*4/(4.05**3),-np.array(lstpopt))
+    plt.scatter(np.array(lstpopt2),-np.array(lstpopt))
+    plt.legend(['Synthetic','Calculated'])
+    plt.show()
+    print(np.corrcoef(np.array(lstU)*4/(4.05**3),np.array(lstpopt2)))
+    plt.scatter(np.array(lstU)*4/(4.05**3),np.array(lstpopt2))
+    plt.show()
+    print(np.array(lstU)*4/(4.05**3)/np.array(lstpopt2))
+#%%
+def GetPowerBasedMobility(inCSL: gf.CSLMobility):
+    lstU = []
+    lstF = []
+    arrVectors = inCSL.GetCellVectors()
+    fltArea = np.linalg.norm(np.cross(arrVectors[0],arrVectors[2]))
+    objRange = inCSL.GetLinearRange()
+    xU,yU = GetVolumeOrLAMMPSLog(inCSL,[],[0,2])
+    xU = xU[objRange]
+    yU = yU[objRange]
+    popU,popUt= optimize.curve_fit(FitLine,xU,yU)
+    plt.scatter(xU,yU)
+    plt.show()
+    xF,yF = GetVolumeOrLAMMPSLog(inCSL, [1],[2])
+    popF,popFt= optimize.curve_fit(FitLine,xF,yF)
+    xF= xF[objRange]
+    yF = yF[objRange]
+    plt.scatter(xF,yF)
+    plt.show()
+    print(-popU[0]/(fltArea*popF[0]**2))
+#%%
+GetPowerBasedMobility(dct13BV7['450,01'])
+#%%
+GetVolumeTrendAndPECorrelations(dct13BV7,'750', lstU)
 #%%
 def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
     lstMobility = []
@@ -272,13 +377,6 @@ def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
         lstMobilityStd.append(1.96*np.std(lstValues[0]))
     return lstMobility, lstMobilityStd
 #%%
-lstNewTemp = [450,475,500,525,550,575,600,625,650]
-lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7,lstU[0],lstU[3])
-#lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
-#%%
-lstMob12BV,lstError12BV = WriteMobilityValues(lstNewTemp, dct12BV7,lstU[0],lstU[3])
-lstMob13BV,lstError13BV = WriteMobilityValues(lstNewTemp, dct13BV7,lstU[0],lstU[3])
-#%%
 #lstMobGB = WriteMobilityValues(lstNewTemp, dctGB7)
 lstMobBVs = []
 lstMobBVs.append(lstMob12BV)
@@ -286,9 +384,9 @@ lstMobBVs.append(lstMob13BV)
 arrBV = np.vstack(lstMobBVs)
 arrMins = np.min(arrBV, axis=0) 
 #%%
-lstMobTJ,lstMobErrorTJ = WriteMobilityValues(lstTemp,dctTJ7, lstU[0],lstU[3])
-lstMob12BV,lstMobError12BV = WriteMobilityValues(lstTemp,dct12BV7, lstU[0],lstU[3])
-lstMob13BV,lstMobError13BV = WriteMobilityValues(lstTemp,dct13BV7, lstU[0],lstU[3])
+lstMobTJ,lstMobErrorTJ = WriteMobilityValues(lstTemp,dctTJ7, lstU[0],lstU[2])
+lstMob12BV,lstMobError12BV = WriteMobilityValues(lstTemp,dct12BV7, lstU[0],lstU[2])
+lstMob13BV,lstMobError13BV = WriteMobilityValues(lstTemp,dct13BV7, lstU[0],lstU[2])
 #%%
 PlotMobilities(lstTemp, lstMobTJ,lstMob12BV,lstMob13BV,lstMobErrorTJ,lstMobError12BV,lstMobError13BV)
 #%%
@@ -329,7 +427,7 @@ lst13BV = np.loadtxt('/home/p17992pt/S999U015BV13.txt')
 lst13BVE = np.loadtxt('/home/p17992pt/S999U015BV13E.txt')
 PlotMobilities(lstTemp,lstTJ,lst12BV,lst13BV,lstTJE,lst12BVE,lst13BVE)
 #%%
-PlotArrhenius(lstNewTemp,lstMobTJ9)
+PlotArrhenius(lstTemp,lstMob12BV)
 #%%
 def PlotArrhenius(inlstTemp, inlstMob):
     arrITemp = 1/np.array(inlstTemp)
