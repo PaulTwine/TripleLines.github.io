@@ -49,7 +49,8 @@ plt.show()
 #strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
 #strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 #strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
+#strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis511/Sigma9_9_9/Temp'
 lstTemp = [450,550, 650,750]
 lstU = [0.01,0.02,0.03,0.04]
 #lstU = [0.02, 0.03,0.04,0.05,0.06,0.07,0.08]
@@ -123,12 +124,7 @@ def PopulateGBDictionary(strRoot: str, lstTemp: list, lstU: list, strType1: str,
             # print(objLog.GetColumnNames(1),strU,str(T))
     return dctReturn
 # %%
-arrPoints1 = np.loadtxt(strRoot + '450/u005/TJ/Mesh23TJ0.txt')
-plt.scatter(*tuple(zip(*arrPoints1)))
-plt.show()
-plt.clf()
-plt.cla()
-plt.close()
+
 # %%
 strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 strRoot7_7_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
@@ -145,6 +141,17 @@ lstU = [0.005,0.0075, 0.01,0.0125, 0.015,0.0175, 0.02]
 strType = 'TJ'
 strRoot7_7_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 #dctTJR = PopulateTJDictionary(strRootR, lstTemp, lstU, 'TJ')
+#%%
+def MakeTJandBCDictionaries(strDir, lstinTemp, lstinU):
+    dctTJ = PopulateTJDictionary(strDir,lstinTemp,lstinU, 'TJ')
+    dct12BV = PopulateTJDictionary(strDir,lstinTemp,lstinU, '12BV')
+    dct13BV = PopulateTJDictionary(strDir,lstinTemp,lstinU, 'TJ')
+    return dctTJ,dct12BV,dct13BV
+#%%
+strRoot9_9_9 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis511/Sigma9_9_9/Temp'
+dctTJ, dctBV12,dctBV13 = MakeTJandBCDictionaries(strRoot9_9_9,lstTemp,lstU)
+
+
 #%%
 strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
@@ -235,6 +242,10 @@ dctTJ7Ranges = dict()
 dct12BV7Ranges = dict()
 dct13BV7Ranges = dict()
 #%%
+def UpdateDictLinearRange(indctRanges: dict(), indctCSLs: dict()):
+    for i in indctRanges:
+        indctCSLs[i].SetLinearRange(*indctRanges[i])
+#%%
 dctTJ7Ranges['450,01'] = [500,1000]
 dctTJ7Ranges['450,02'] = [500,1000]
 dctTJ7Ranges['450,03'] = [400,750]
@@ -251,9 +262,27 @@ dctTJ7Ranges['750,01'] = [500,1000]
 dctTJ7Ranges['750,02'] = [500,1000]
 dctTJ7Ranges['750,03'] = [500,1000]
 dctTJ7Ranges['750,04'] = [500,700]
-for i in dctTJ7Ranges:
-    dctTJ7[i].SetLinearRange(*dctTJ7Ranges[i])
-    print(dctTJ7[i].GetLinearRange())
+#%%
+dctTJ21Ranges = dict()
+dctTJ21Ranges['450,01'] = [100,1000]
+dctTJ21Ranges['450,02'] = [100,1000]
+dctTJ21Ranges['450,03'] = [100,1000]
+dctTJ21Ranges['450,04'] = [100,1000]
+dctTJ21Ranges['550,01'] = [100,1000]
+dctTJ21Ranges['550,02'] = [100,1000]
+dctTJ21Ranges['550,03'] = [100,1000]
+dctTJ21Ranges['550,04'] = [100,1000]
+dctTJ21Ranges['650,01'] = [100,1000]
+dctTJ21Ranges['650,02'] = [100,1000]
+dctTJ21Ranges['650,03'] = [100,1000]
+dctTJ21Ranges['650,04'] = [100,1000]
+dctTJ21Ranges['750,01'] = [100,1000]
+dctTJ21Ranges['750,02'] = [100,1000]
+dctTJ21Ranges['750,03'] = [100,1000]
+dctTJ21Ranges['750,04'] = [100,1000]
+#%%
+UpdateDictLinearRange(dctTJ21Ranges,dctTJ21)
+#%%
 #%%
 dct12BV7Ranges['450,01'] = [100,1000]
 dct12BV7Ranges['450,02'] = [100,600]
@@ -303,19 +332,24 @@ def GetVolumeTrendAndPECorrelations(inDct: dict(), strTemp: str, lstUValues: lis
     for k in lstUValues:
         strKey = strTemp + ',' + str(k).split('.')[1]
         print(strKey)
-        x,y = GetVolumeOrLAMMPSLog(inDct[strKey], [0,2],[],0)
+        x,y = inDct[strKey].GetVolumeOrLAMMPSLog([0,2], [], 0)
+        #x,y = GetVolumeOrLAMMPSLog(inDct[strKey], [0,2],[],0)
+        inDct[strKey].SetLinearRange(200,800)
         objRange = inDct[strKey].GetLinearRange()
         x = x[objRange]
         y = y[objRange]
         popt,pop = optimize.curve_fit(FitLine,x,y)
         plt.scatter(x,y)
+        plt.show()
        # plt.plot(x,FitLine(x, *popt))
         lstLegend.append(k)
         lstpopt.append(popt[0]*4.05**3/4)
-        x2,y2 = GetVolumeOrLAMMPSLog(inDct[strKey], [1],[2],0)
+        #x2,y2 = GetVolumeOrLAMMPSLog(inDct[strKey], [1],[2],0)
+        x2,y2 = inDct[strKey].GetVolumeOrLAMMPSLog( [1],[2],0)
         x2 = x2[objRange]
         y2 = y2[objRange]
-        #plt.scatter(x2,y2)
+        plt.scatter(x2,y2)
+        plt.show()
         popt2,pop2 = optimize.curve_fit(FitLine,x2,y2)
         lstpopt2.append(popt2[0])    
     plt.legend(lstLegend)
@@ -351,9 +385,9 @@ def GetPowerBasedMobility(inCSL: gf.CSLMobility):
     plt.show()
     print(-popU[0]/(fltArea*popF[0]**2))
 #%%
-GetPowerBasedMobility(dct13BV7['450,01'])
+GetPowerBasedMobility(dct13BV7['750,01'])
 #%%
-GetVolumeTrendAndPECorrelations(dct13BV7,'750', lstU)
+GetVolumeTrendAndPECorrelations(dctBV13,'450', lstU)
 #%%
 def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
     lstMobility = []
@@ -384,24 +418,38 @@ lstMobBVs.append(lstMob13BV)
 arrBV = np.vstack(lstMobBVs)
 arrMins = np.min(arrBV, axis=0) 
 #%%
-lstMobTJ,lstMobErrorTJ = WriteMobilityValues(lstTemp,dctTJ7, lstU[0],lstU[2])
-lstMob12BV,lstMobError12BV = WriteMobilityValues(lstTemp,dct12BV7, lstU[0],lstU[2])
-lstMob13BV,lstMobError13BV = WriteMobilityValues(lstTemp,dct13BV7, lstU[0],lstU[2])
+##remove any outliers with the pop command here.
+dctTJ.pop('550,04')
+lstMobTJ,lstMobErrorTJ = WriteMobilityValues(lstTemp,dctTJ, lstU[0],lstU[3])
+#%%
+lstMob12BV,lstMobError12BV = WriteMobilityValues(lstTemp,dctBV12, lstU[0],lstU[3])
+#%%
+lstMob13BV,lstMobError13BV = WriteMobilityValues(lstTemp,dctBV13, lstU[0],lstU[2])
 #%%
 PlotMobilities(lstTemp, lstMobTJ,lstMob12BV,lstMob13BV,lstMobErrorTJ,lstMobError12BV,lstMobError13BV)
 #%%
+PlotMobilities(lstTemp, lstMobTJ,lstMob12BV,lstMob13BV,lstMobErrorTJ,lstMobError12BV,lstMobError13BV)
+
+#%%
 #%%
 def PlotMobilities(lstTemp,lstTJ,lst12BV, lst13BV,lstTJE,lst12BVE,lst13BVE):
-    plt.scatter(lstTemp, lstTJ)
-    plt.errorbar(lstTemp,lstTJ,lstTJE)
+    lstLegend = []
+    if len(lstTJ) > 0:
+        plt.scatter(lstTemp, lstTJ)
+        plt.errorbar(lstTemp,lstTJ,lstTJE)
+        lstLegend.append('TJ')
 #plt.scatter(lstNewTemp,lstMobGB)
 #plt.scatter(lstNewTemp,lstMobTJ21)
-    plt.scatter(lstTemp, lst12BV)
-    plt.errorbar(lstTemp,lst12BV,lst12BVE)
-    plt.scatter(lstTemp, lst13BV)
-    plt.errorbar(lstTemp,lst13BV,lst13BVE)
+    if len(lst12BV) > 0:
+        plt.scatter(lstTemp, lst12BV)
+        plt.errorbar(lstTemp,lst12BV,lst12BVE)
+        lstLegend.append('1,2 BC')
+    if len(lst13BV) > 0:
+        plt.scatter(lstTemp, lst13BV)
+        plt.errorbar(lstTemp,lst13BV,lst13BVE)
+        lstLegend.append('1,3 BC')
 #plt.scatter(lstNewTemp,arrMins)
-    plt.legend(['TJ','1,2 BC','1,3 BC'])
+    plt.legend(lstLegend)
     plt.xlabel('Temperature in K')
     plt.ylabel('Mobility in $\AA^4$ eV$^{-1}$ fs$^{-1}$')
 #plt.legend(['TJ 7-7-49', 'TJ 21-21-49'])
@@ -427,7 +475,7 @@ lst13BV = np.loadtxt('/home/p17992pt/S999U015BV13.txt')
 lst13BVE = np.loadtxt('/home/p17992pt/S999U015BV13E.txt')
 PlotMobilities(lstTemp,lstTJ,lst12BV,lst13BV,lstTJE,lst12BVE,lst13BVE)
 #%%
-PlotArrhenius(lstTemp,lstMob12BV)
+PlotArrhenius(lstTemp,lstMobTJ)
 #%%
 def PlotArrhenius(inlstTemp, inlstMob):
     arrITemp = 1/np.array(inlstTemp)
