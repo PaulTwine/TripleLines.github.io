@@ -1326,3 +1326,25 @@ def GetLinearCombinations(arr3Vectors, intNLimit: int):
                         for k in range(-intNLimit,intNLimit):
                                 lstAllVectors.append(arr3Vectors[0]*i+arr3Vectors[1]*j+arr3Vectors[2]*k)
         return np.vstack(lstAllVectors)
+def GroupClustersPeriodically(lstPoints: np.array, arrPeriodicVectors: np.array, fltMinDistance: float, lstBoundary = ['pp','pp','pp']):
+        intLength = len(lstPoints)
+        lstAllMatches = []
+        lstUsedIndices = []
+        for i in range(intLength):
+                lstMatches = []
+                objPeriodicCell = PeriodicKDTree(lstPoints[i],arrPeriodicVectors, lstBoundary)
+                for j in range(i+1, intLength):
+                        arrIndices = objPeriodicCell.Pquery_radius(lstPoints[j],fltMinDistance)
+                        lstIndices = mf.FlattenList(arrIndices)
+                        if len(lstIndices) > 0:
+                                lstMatches.append(j)
+                                lstMatches.append(i)
+                if len(lstMatches) > 0:
+                        lstAllMatches.append(np.unique(lstMatches))
+                elif i not in lstUsedIndices:
+                        lstAllMatches.append(np.array([i]))
+                lstUsedIndices.extend(np.concatenate(lstAllMatches))
+                lstUsedIndices = np.unique(lstUsedIndices).tolist()
+        return lstAllMatches
+
+

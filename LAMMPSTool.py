@@ -20,6 +20,8 @@ from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import NearestNeighbors, KDTree
 from sklearn.cluster import KMeans
 import MiscFunctions as mf
+import matplotlib.pyplot as plt
+import itertools as it
 
 class LAMMPSLog(object):
     def __init__(self,strFilename):
@@ -592,69 +594,23 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
     def FindGrainAtomIDs(self, fltAlpha= 0.99):
-        lstIDs = []
-        intV = self.GetColumnIndex('c_v[1]')
-        arrValues = self.GetPTMAtoms()[:,intV]
-        arrRows = mf.ConfidenceInterval(arrValues, fltAlpha, True)
-        lstIDs.append(arrRows.tolist())
-        arrIDs = np.array(self.GetPTMAtomIDs())[arrRows]
+        arrIDs = np.array(self.GetPTMAtomIDs())
         arrGrainAtoms = self.GetAtomsByID(arrIDs)[:,1:4]
-        objPTMKDTree = gf.PeriodicWrapperKDTree(arrGrainAtoms, self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),self.__LatticeParameter)
+        objPTMKDTree = gf.PeriodicWrapperKDTree(arrGrainAtoms, self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),4*self.__LatticeParameter)
         arrDistances, arrIndices = objPTMKDTree.Pquery(arrGrainAtoms, self.__objRealCell.GetNumberOfNeighbours()+1)
-        arrRealIndices = objPTMKDTree.GetPeriodicIndices(arrIndices)
-        arrIndicesRows = np.where(np.all(np.isin(arrRealIndices,arrIDs),axis=1))[0]
         arrDistances = arrDistances[:,1:]
-        arrIndices = arrIndices[:,1:]
+        arrDistances = np.reshape(arrDistances,[len(arrDistances), len(arrDistances[0])])
         arrAllDistances = arrDistances.ravel()
-        mu,st = stats.norm.fit(arrAllDistances)
-        tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)
-        arrRows = np.where(np.all(tupValues[0] < arrDistances,axis=1) & np.all(arrDistances < tupValues[1],axis=1))[0]
-        fltNearest = np.median(arrDistances[arrRows])
-        self.__GBSeparation = fltNearest 
+        fltMin = np.min(arrAllDistances)
+        fltMean = np.mean(arrAllDistances)
+        arrRows1 = np.where(arrAllDistances < 2*fltMean - fltMin)[0]
+        #arrRows1 = np.where(arrAllDistances < (2- fltMin/fltMean)*fltMean)
+        arrRows2 = mf.ConfidenceInterval(arrAllDistances[arrRows1],fltAlpha)
+        fltLower = np.min(arrAllDistances[arrRows1][arrRows2])
+        fltUpper = np.max(arrAllDistances[arrRows1][arrRows2])
+        arrRows = np.where(np.all(arrDistances >= fltLower,axis=1) & np.all(arrDistances <= fltUpper,axis=1))[0]
+        self.__GBSeparation = np.median(arrAllDistances) 
         return arrIDs[arrRows]
-    def ClusterGrains(self, fltTolerance=0.01,intMinGrainSize = 25, fltWrapperWidth = 25):
-        arrIDs = self.FindGrainAtomIDs(0.9) 
-        lstIDs = list(arrIDs.astype('int'))
-       # arrNonIDs = self.FindNonGrainAtomIDs()
-        #lstAllGrainIDs = list(set(range(self.GetNumberOfAtoms())).difference(lstIDs))
-        lstAllGrainIDs = []
-        lstFlattenedGrainIDs=[]
-        objGrainTree = gf.PeriodicWrapperKDTree(self.GetAtomsByID(arrIDs)[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),self.__LatticeParameter,self.GetPeriodicDirections())
-        #objNonGrainTree = gf.PeriodicWrapperKDTree(self.GetAtomsByID(self.GetNonGrainAtomIDs(k))[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),self.__LatticeParameter,self.GetPeriodicDirections())
-        lstUsedIndices = []
-        counter = 0
-        while len(lstIDs) > 0 and counter < len(arrIDs):
-            arrPoints = self.GetAtomsByID(lstIDs[0])[:,1:4]
-            lstUsedIndices.append(lstIDs[0])
-            lstIDs.remove(lstIDs[0])
-            blnStop = False
-            lstCurrentIndices = []
-            while len(lstIDs) > 0 and not (blnStop):
-                intLength = len(lstCurrentIndices)
-                arrDistances, arrIndices = objGrainTree.Pquery(arrPoints,self.__objRealCell.GetNumberOfNeighbours()+1)
-                arrDistances = arrDistances[:,1:]
-                arrIndices = arrIndices[:,1:]
-                #arrRows = np.where(np.all(arrDistances > self.__GBSeparation*0.99,axis=1) & np.all(arrDistances < self.__GBSeparation*1.01,axis=1))
-                arrRows = np.where((np.std(arrDistances, axis=1) < 0.01) & np.all(arrDistances > self.__GBSeparation*0.99,axis=1) & np.all(arrDistances < self.__GBSeparation*1.01,axis=1))
-                if len(arrRows):
-                    arrUniqueIndices = np.unique(arrIndices[arrRows])
-                    arrGrainIndices = np.unique(objGrainTree.GetPeriodicIndices(arrUniqueIndices)) 
-                    lstGrainIndices = list(set(arrGrainIndices).difference(lstUsedIndices))
-                if len(lstGrainIndices) > 0:   
-                    lstUsedIndices.extend(lstGrainIndices)
-                    lstCurrentIndices.extend(lstGrainIndices)
-                    #lstUsedIndices = list(set(lstUsedIndices))
-                    lstIDs = list(set(lstIDs).difference(lstUsedIndices))
-                    arrPoints = self.GetAtomsByID(lstGrainIndices)[:,1:4]
-                else:                     
-                    blnStop = True  
-                if len(lstCurrentIndices) == intLength:
-                    blnStop = True
-                if len(lstCurrentIndices) > 25 and blnStop:
-                    lstAllGrainIDs.append(lstCurrentIndices)
-                    #lstFlattenedGrainIDs = [item for sublist in lstAllGrainIDs for item in sublist]
-            counter +=1 
-        return lstAllGrainIDs
     def MatchPreviousGrainNumbers(self, lstGrainNumbers: list, lstGrainIDs: list):
         arrMatrix = np.zeros([len(self.__GrainLabels)-1, len(lstGrainNumbers)])
         for i in range(len(lstGrainIDs)):
@@ -769,10 +725,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             arrSorted = np.array([np.sort(x) for x in arrAllDistances])
             fltMax = np.max(arrSorted[:,0])
         return fltMax
-    def FindMeshAtomIDs(self, lstGrains):
+    def FindMeshAtomIDs(self, lstGrains, fltWidth = None):
         arrReturn = []
         if set(lstGrains).issubset(set(self.__GrainLabels)):
-            fltWidth = self.EstimateLocalGrainBoundaryWidth()
+            if fltWidth is None:
+                fltWidth = 2*self.EstimateLocalGrainBoundaryWidth()
             arrPoints = self.GetAtomsByID(self.GetNonGrainAtomIDs())[:,0:4]
             arrIDs = arrPoints[:,0]
             arrPoints = arrPoints[:,1:4]
@@ -784,60 +741,28 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             arrRows = np.where(np.all(arrAllDistances < fltWidth,axis=1))[0]
             arrReturn = arrIDs[arrRows] 
         return arrReturn            
-    def FindDefectiveMesh(self,intGrain1, intGrain2, fltWidth = None):
+    def FindDefectiveMesh(self,inGrain1, inGrain2, fltWidth = None):
         if fltWidth is None:
             fltWidth = 2*self.EstimateLocalGrainBoundaryWidth()
-        arrDistances1, arrIndices1 = self.__PeriodicGrains[intGrain1].Pquery(self.__PeriodicGrains[intGrain2].GetExtendedPoints(),k=1) 
-        arrDistances1 = np.array([x[0] for x in arrDistances1])
-        arrRows1 = np.where(arrDistances1 < fltWidth)[0]
-        if len(arrRows1) > 0:
-            arrIndices1 = np.array([x[0] for x in arrIndices1[arrRows1]])
-            arrPoints1 = self.__PeriodicGrains[intGrain1].GetExtendedPoints()[arrIndices1]
-            arrDistances2, arrIndices2 = self.__PeriodicGrains[intGrain2].Pquery(arrPoints1,k=1)
-            arrIndices2 = np.array([x[0] for x in arrIndices2])
-            arrPoints2 = self.__PeriodicGrains[intGrain2].GetExtendedPoints()[arrIndices2]
-           # return self.WrapVectorIntoSimulationBox(np.unique((arrPoints1+arrPoints2)/2,axis=0))
-            return np.unique((arrPoints1+arrPoints2)/2,axis=0)
+        lstPermutations =  list(it.permutations([inGrain1,inGrain2],2))
+        lstAllPoints = []
+        for i in lstPermutations:
+            intGrain1 = i[0]
+            intGrain2 = i[1]
+            arrDistances1, arrIndices1 = self.__PeriodicGrains[intGrain1].Pquery(self.__PeriodicGrains[intGrain2].GetExtendedPoints(),k=1) 
+            arrDistances1 = np.array([x[0] for x in arrDistances1])
+            arrRows1 = np.where(arrDistances1 < fltWidth)[0]
+            if len(arrRows1) > 0:
+                arrIndices1 = np.array([x[0] for x in arrIndices1[arrRows1]])
+                arrPoints1 = self.__PeriodicGrains[intGrain1].GetExtendedPoints()[arrIndices1]
+                arrDistances2, arrIndices2 = self.__PeriodicGrains[intGrain2].Pquery(arrPoints1,k=1)
+                arrIndices2 = np.array([x[0] for x in arrIndices2])
+                arrPoints2 = self.__PeriodicGrains[intGrain2].GetExtendedPoints()[arrIndices2]
+                lstAllPoints.append(np.unique((arrPoints1+arrPoints2)/2,axis=0))
+        if len(lstAllPoints)> 0:
+            return np.concatenate(lstAllPoints,axis=0)
         else:
-            return []  
-    def LabelAtomsByGrain(self, fltTolerance = 3.14, fltRadius = None):
-        if fltRadius is None:
-            fltRadius = 2*self.__LatticeParameter
-        objQuantisedCuboidPoints = QuantisedCuboidPoints(self.GetAtomsByID(self.GetNonLatticeAtomIDs())[:,1:4],self.GetUnitBasisConversions(),self.GetCellVectors(),self.__LatticeParameter*np.ones(3),10)
-        self.FindDefectiveAtoms(fltTolerance)
-        #lstGrainAtoms = self.GetLatticeAtomIDs()
-        #lstNonGrainAtoms = self.GetNonLatticeAtomIDs()
-        lstGrainAtoms = self.GetPTMAtomIDs()
-        lstNonGrainAtoms = self.GetNonPTMAtomIDs()
-        lstGrainNumbers = objQuantisedCuboidPoints.ReturnGrains(self.GetAtomsByID(lstGrainAtoms)[:,1:4],True)
-        self.AppendGrainNumbers(lstGrainNumbers, lstGrainAtoms)
-        objQuantisedCuboidPoints.FindJunctionLines()
-        self.__JunctionLineIDs = objQuantisedCuboidPoints.GetJunctionLineIDs()
-        for i in self.__JunctionLineIDs:
-            self.__JunctionLines[i] = gl.GeneralJunctionLine(np.round(objQuantisedCuboidPoints.GetJunctionLinePoints(i),1),i)
-            self.__JunctionLines[i].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(i, 'JunctionLine'))
-            self.__JunctionLines[i].SetAdjacentGrainBoundaries(objQuantisedCuboidPoints.GetAdjacentGrainBoundaries(i))
-            self.__JunctionLines[i].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(i,'JunctionLine'))
-            #self.__JunctionLines[i].SetExtraMeshPoints(objQuantisedCuboidPoints.GetExtraJunctionLinePoints(i))
-        self.__GrainBoundaryIDs = objQuantisedCuboidPoints.GetGrainBoundaryIDs()
-        self.MakeNonPTMTree()
-        self.MakeNearestNeighbourTree()
-        for k in self.__GrainBoundaryIDs:
-            self.__GrainBoundaries[k] = gl.GeneralGrainBoundary(objQuantisedCuboidPoints.GetGrainBoundaryPoints(k),k)
-            self.__GrainBoundaries[k].SetAdjacentGrains(objQuantisedCuboidPoints.GetAdjacentGrains(k, 'GrainBoundary'))
-            self.__GrainBoundaries[k].SetAdjacentJunctionLines(objQuantisedCuboidPoints.GetAdjacentJunctionLines(k))
-            self.__GrainBoundaries[k].SetPeriodicDirections(objQuantisedCuboidPoints.GetPeriodicExtensions(k,'GrainBoundary'))
-            self.__GrainBoundaries[k].SetExtraMeshPoints(objQuantisedCuboidPoints.GetExtraGrainBoundaryPoints(k))
-            #self.__GrainBoundaries[k].SetSurfaceMesh(objQuantisedCuboidPoints.GetSurfaceMesh(k))
-            arrPoints = gf.AddPeriodicWrapper(self.MoveToSimulationCell(self.__GrainBoundaries[k].GetMeshPoints()),self.GetCellVectors(), fltRadius)
-            arrIndices = self.__NonPTMTree.query_radius(arrPoints, fltRadius) 
-            arrIndices = np.unique(np.concatenate(arrIndices))
-            lstIDs = list(np.array(self.GetNonPTMAtomIDs())[arrIndices])
-            self.__GrainBoundaries[k].AddAtomIDs(lstIDs)
-            lstNewIDs = self.SpreadToHigherEnergy(lstIDs)
-            self.__GrainBoundaries[k].AddAtomIDs(lstNewIDs)
-            self.SetColumnByIDs(np.array(lstNewIDs), self.GetColumnIndex('GrainNumber'), np.zeros(len(lstNewIDs)))
-        self.MakeGrainTrees()
+            return [] 
     def SpreadToHigherEnergy(self, inlstIDs: list):
         lstReturnIDs = list(set(inlstIDs))
         lstAllIDs = list(set(inlstIDs))
