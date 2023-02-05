@@ -17,13 +17,14 @@ from sklearn.cluster import DBSCAN
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 
+#strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma37/' #str(sys.argv[1])
 strDirectory = str(sys.argv[1])
-intDir = int(sys.argv[2])
+intDir =  int(sys.argv[2])
 intDelta = int(sys.argv[3])
 strFile = strDirectory + str(intDir) + '/TJ' + str(intDelta) + '.lst'
 objData = LT.LAMMPSData(strFile,1,4.05, LT.LAMMPSGlobal)
 objTJ = objData.GetTimeStepByIndex(-1)
-objTJ.PartitionGrains(0.995)
+objTJ.PartitionGrains(0.999)
 objTJ.MergePeriodicGrains(30)
 arrIDs = []
 lstTemp = []
@@ -40,7 +41,7 @@ if lstGrainLabels == list(range(5)):
     lstThrees = list(it.combinations(lstGrainLabels, 3))
     t = 1
     for i in lstThrees:
-        ids = objTJ.FindMeshAtomIDs(i,25)
+        ids = objTJ.FindMeshAtomIDs(i,np.sqrt(3)*fltWidth)
         pts = objTJ.GetAtomsByID(ids)[:,1:4]
         if len(ids) > 0:
             clustering = DBSCAN(eps=1.05*objTJ.GetRealCell().GetNearestNeighbourDistance(),min_samples=5).fit(pts)
@@ -78,7 +79,7 @@ if lstGrainLabels == list(range(5)):
         lstTwos = list(it.combinations(lstGrainLabels,2))
         g=1
         for k in lstTwos:
-            ids2 = objTJ.FindMeshAtomIDs(k,25)
+            ids2 = objTJ.FindMeshAtomIDs(k,fltWidth)
             ids2 = list(set(ids2).difference(lstAllTJIDs))
             if len(ids2)> 0:
                 objTJ.SetColumnByIDs(ids2,intGB,g*np.ones(len(ids2)))
