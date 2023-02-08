@@ -1,7 +1,7 @@
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-from sklearn.neighbors import NearestNeighbors
+#from mpl_toolkits.mplot3d import Axes3D
+#import matplotlib.pyplot as plt
+#from sklearn.neighbors import NearestNeighbors
 import GeometryFunctions as gf
 import GeneralLattice as gl
 import LAMMPSTool as LT 
@@ -14,14 +14,14 @@ from sklearn.cluster import DBSCAN
 
 
 
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
+#fig = plt.figure()
+#ax = fig.add_subplot(projection='3d')
 
-strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma37/' #str(sys.argv[1])
-#strDirectory = str(sys.argv[1])
-intDir =  0 #int(sys.argv[2])
-intDelta = 0 #int(sys.argv[3])
-strFile = strDirectory + str(intDir) + '/TJ' + str(intDelta) + '.lst'
+strDirectory = str(sys.argv[1])
+intDir =  int(sys.argv[2])
+intDelta = int(sys.argv[3])
+strType = str(sys.argv[4])
+strFile = strDirectory + str(intDir) + '/' + strType + str(intDelta) + '.lst'
 objData = LT.LAMMPSData(strFile,1,4.05, LT.LAMMPSGlobal)
 objTJ = objData.GetTimeStepByIndex(-1)
 objTJ.PartitionGrains(0.999,25,25)
@@ -33,18 +33,20 @@ fltWidth = objTJ.EstimateLocalGrainBoundaryWidth()
 print(fltWidth)
 lstTJs = []
 objTJ.FindGrainBoundaries(fltWidth/2)
-objTJ.AddColumn(np.zeros([objTJ.GetNumberOfAtoms(),1]),'TripleLine', strFormat = '%i')
-intTJ = objTJ.GetColumnIndex('TripleLine')
-if lstGrainLabels == list(range(5)):
+if strType == 'GB':
+    objTJ.WriteDumpFile(strDirectory+str(intDir) + '/GB' + str(intDelta) + 'P.lst')
+elif lstGrainLabels == list(range(5)) and strType == 'TJ':
     lstGrainLabels.remove(0)
+    objTJ.AddColumn(np.zeros([objTJ.GetNumberOfAtoms(),1]),'TripleLine', strFormat = '%i')
+    intTJ = objTJ.GetColumnIndex('TripleLine')
     lstThrees = list(it.combinations(lstGrainLabels, 3))
     t = 1
     for i in lstThrees:
         ids,mpts = objTJ.FindMeshAtomIDs(i,fltWidth/2)
         #ids,mpts = objTJ.FindJunctionMeshAtoms(fltWidth/2,i)
-        if len(mpts)>0:
-            ax.scatter(*tuple(zip(*mpts)))
-            plt.show()
+        # if len(mpts)>0:
+        #     ax.scatter(*tuple(zip(*mpts)))
+        #     plt.show()
         if len(ids) > 0:
             pts = objTJ.GetAtomsByID(ids)[:,1:4]
             clustering = DBSCAN(2*4.05,min_samples=10).fit(pts)
