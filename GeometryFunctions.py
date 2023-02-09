@@ -1149,8 +1149,11 @@ class CSLMobility(object):
         self.__Mobility = 0
         self.__PEPerVolume = 0
         self.__Scale = len(arrLogValues[:,1]-1)/len(arrVolumeSpeed[1,:]-1)
-        self.__LinearRange = slice(5, len(arrVolumeSpeed[1,:]),1)
+        self.__MaxRows = min([len(arrLogValues[:,0]),len(arrVolumeSpeed[0])])
+        self.__LinearRange = slice(0, self.__MaxRows,1)
     def SetLinearRange(self, intStart, intFinish):
+        intStart = min([intStart, self.__MaxRows])
+        intFinish = min([intFinish, self.__MaxRows])
         self.__LinearRange = slice(intStart,intFinish,1)
     def GetLinearRange(self):
         return self.__LinearRange
@@ -1205,27 +1208,24 @@ class CSLMobility(object):
         return self.__Mobility
     def SetPEPerVolume(self, inPE):
         self.__PEPerVolume = inPE
-    def FindMobilities(self, intStage: int, fltNormalDistance: float):
-        arrPEValues = self.__LogValues
+    def GetVolumeOrLAMMPSLog(self, lstVolume: list, lstLAMMPS: list,intStart =100):
+        arrLogValues = self.GetLogValues()
         arrVolumeSpeed = self.GetVolumeSpeed()
-        arrRows = self.GetOverlapRows(intStage)
-        arrPEValues = arrPEValues[arrRows]
-        intFinish = self.GetLowVolumeCutOff(1, fltNormalDistance)
-       # intStart = np.round(intFinish/2, 0).astype('int')
-        intStart = np.max([intFinish -25,10]).astype('int')
-        popt, pop = optimize.curve_fit(
-            self.FitLine, arrVolumeSpeed[1, intStart:intFinish], arrPEValues[intStart:intFinish, 2])
-        popt2, pop2 = optimize.curve_fit(
-            self.FitLine, arrVolumeSpeed[0, intStart:intFinish], arrVolumeSpeed[2, intStart:intFinish])
-        arrCorr1= np.corrcoef(arrVolumeSpeed[1, intStart:intFinish], arrPEValues[intStart:intFinish, 2])[1,0]
-        arrCorr2 = np.corrcoef(arrVolumeSpeed[0, intStart:intFinish], arrVolumeSpeed[2, intStart:intFinish])[1,0]
-        if (np.abs(arrCorr1) < 0.95) or (np.abs(arrCorr2) < 0.95):
-            print('Correlation warning rho1 = ' + str(arrCorr1) + ', rho2 = ' + str(arrCorr2) + ' temp ' + str(self.GetTemp()) + ' u parameter ' + str(self.GetPEParameter()))
-        self.SetPEPerVolume(popt[0])
-        self.SetMobility(-popt2[0]/popt[0])
-        return intStart, intFinish
+        if len(lstLAMMPS) == 0:
+                x = arrVolumeSpeed[lstVolume[0],intStart:self.__MaxRows]
+                y = arrVolumeSpeed[lstVolume[1],intStart:self.__MaxRows]
+        elif len(lstVolume) == 0:
+                x = arrLogValues[intStart:self.__MaxRows,lstLAMMPS[0]]
+                y = arrLogValues[intStart:self.__MaxRows,lstLAMMPS[1]]
+        else:
+                x = arrVolumeSpeed[lstVolume[0],intStart:self.__MaxRows]
+                y = arrLogValues[intStart:self.__MaxRows,lstLAMMPS[0]]
+        return x,y
     def GetPlanarArea(self):
         return self.__Area
+
+
+
 def FindIntersectionsNPointSets(lstAllMeshPoints: list, inPeriodicCellVectors: np.array, fltWidth: float, intMinIntersections: int):
         intPos = 0
         # for k in lstAllMeshPoints:
@@ -1266,35 +1266,52 @@ class EcoOrient(object):
         def __init__(self,fltCutOff: float,fltTolerance: float):
                 self.__CutOff = fltCutOff
                 self.__Tolerance = fltTolerance
+        def GetNormFactor(self,arrPrimitive1):
+                arrVectors = GetLinearCombinations(arrPrimitive1,4)
+                arrRows = np.where(np.linalg.norm(arrVectors,axis=1) <= self.__CutOff)[0]
+                arrVectors = arrVectors[arrRows]
+                fltTotalWeight = 0
+                zTotal = 0
+                arrReciprocal = FindReciprocalVectors(arrPrimitive1)
+                for a in arrVectors:
+                        fltWeight = self.EcoWeight(a, self.__CutOff)
+                        fltTotalWeight += fltWeight
+                        for q in arrReciprocal:
+                                rtnZ,fltWeight = self.PrimitiveReciprocalProduct(a,q)
+                                zTotal += rtnZ*rtnZ.conjugate()
+                return 3*fltTotalWeight**2-np.real(zTotal)
+        def PrimitiveReciprocalProduct(self, arrPrimitive, arrReciprocal):
+                fltWeight = self.EcoWeight(arrPrimitive,self.__CutOff)
+                z = np.complex(0,np.dot(arrPrimitive,arrReciprocal))
+                rtnZ = fltWeight*np.complex(np.exp(2*np.pi*z))
+                return rtnZ, fltWeight
         def EcoOrientPsiFunction(self,arrTestVector, arrPrimitiveBasis1):#fit of basis2 with respect to basis1
                 arrQ = FindReciprocalVectors(arrPrimitiveBasis1)
                 rtnPsi = np.complex(0)
-                fltN = 0
                 for q in arrQ:
                         rtnZ = np.complex(0)
-                        fltTemp = 0
+                        fltTotalWeight = 0
                         for a in arrTestVector:
-                                fltWeight = self.EcoWeight(a,self.__CutOff)
-                                z = np.complex(0,np.dot(a,q))
-                                rtnZ += fltWeight*np.complex(np.exp(2*np.pi*z))
-                                fltTemp += fltWeight
-                        fltN += fltTemp**2
+                                Z,fltWeight  = self.PrimitiveReciprocalProduct(a,q)
+                                rtnZ += Z
+                                fltTotalWeight += fltWeight
                         rtnPsi += rtnZ*rtnZ.conjugate()
-                return np.real(np.complex(rtnPsi)/fltN)
+                return np.real(np.complex(rtnPsi)), fltTotalWeight
         def EcoWeight(self,inRealVector, fltCutOff):
                 if self.__CutOff == 0:
                         fltReturn = 1
                 else:
                         fltLength = np.linalg.norm(inRealVector)/fltCutOff
-                        if fltLength < 1:
+                        if np.round(fltLength,5) < 1:
                                 fltReturn =  fltLength**4 -2*fltLength**2 + 1
                         else:
                                 fltReturn = 0
                 return fltReturn 
         def GetOrderParameter(self,arrTestVectors,arrPrimitive1,arrPrimitive2):
-                flt1 = self.EcoOrientPsiFunction(arrTestVectors,arrPrimitive1)
-                flt2 = self.EcoOrientPsiFunction(arrTestVectors,arrPrimitive2)
-                fltValue = flt1-flt2
+                N = self.GetNormFactor(arrPrimitive1)
+                flt1 = self.EcoOrientPsiFunction(arrTestVectors,arrPrimitive1)[0]
+                flt2 = self.EcoOrientPsiFunction(arrTestVectors,arrPrimitive2)[0]
+                fltValue = (flt1-flt2)/N
                 if fltValue > self.__Tolerance:
                         fltReturn = 1
                 elif fltValue < -self.__Tolerance:
@@ -1302,3 +1319,32 @@ class EcoOrient(object):
                 else:
                         fltReturn = np.sin(fltValue*np.pi/(2*self.__Tolerance))
                 return fltReturn
+def GetLinearCombinations(arr3Vectors, intNLimit: int):
+        lstAllVectors = []
+        for i in range(-intNLimit,intNLimit):
+                for j in range(-intNLimit,intNLimit):
+                        for k in range(-intNLimit,intNLimit):
+                                lstAllVectors.append(arr3Vectors[0]*i+arr3Vectors[1]*j+arr3Vectors[2]*k)
+        return np.vstack(lstAllVectors)
+def GroupClustersPeriodically(lstPoints: np.array, arrPeriodicVectors: np.array, fltMinDistance: float, lstBoundary = ['pp','pp','pp']):
+        intLength = len(lstPoints)
+        lstAllMatches = []
+        lstUsedIndices = []
+        for i in range(intLength):
+                lstMatches = []
+                objPeriodicCell = PeriodicKDTree(lstPoints[i],arrPeriodicVectors, lstBoundary)
+                for j in range(i+1, intLength):
+                        arrIndices = objPeriodicCell.Pquery_radius(lstPoints[j],fltMinDistance)
+                        lstIndices = mf.FlattenList(arrIndices)
+                        if len(lstIndices) > 0:
+                                lstMatches.append(j)
+                                lstMatches.append(i)
+                if len(lstMatches) > 0:
+                        lstAllMatches.append(np.unique(lstMatches))
+                elif i not in lstUsedIndices:
+                        lstAllMatches.append(np.array([i]))
+                lstUsedIndices.extend(np.concatenate(lstAllMatches))
+                lstUsedIndices = np.unique(lstUsedIndices).tolist()
+        return lstAllMatches
+
+
