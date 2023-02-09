@@ -18,13 +18,13 @@ from sklearn.cluster import DBSCAN
 #ax = fig.add_subplot(projection='3d')
 
 strDirectory = str(sys.argv[1])
-intDir =  int(sys.argv[2])
+intDir = int(sys.argv[2])
 intDelta = int(sys.argv[3])
 strType = str(sys.argv[4])
 strFile = strDirectory + str(intDir) + '/' + strType + str(intDelta) + '.lst'
 objData = LT.LAMMPSData(strFile,1,4.05, LT.LAMMPSGlobal)
 objTJ = objData.GetTimeStepByIndex(-1)
-objTJ.PartitionGrains(0.999,25,25)
+objTJ.PartitionGrains(0.9999,10,10)
 objTJ.MergePeriodicGrains(30)
 arrIDs = []
 lstTemp = []
@@ -43,13 +43,13 @@ elif lstGrainLabels == list(range(5)) and strType == 'TJ':
     t = 1
     for i in lstThrees:
         ids,mpts = objTJ.FindMeshAtomIDs(i,fltWidth/2)
-        #ids,mpts = objTJ.FindJunctionMeshAtoms(fltWidth/2,i)
+       # ids,mpts = objTJ.FindJunctionMeshAtoms(fltWidth/2,i)
         # if len(mpts)>0:
         #     ax.scatter(*tuple(zip(*mpts)))
         #     plt.show()
         if len(ids) > 0:
             pts = objTJ.GetAtomsByID(ids)[:,1:4]
-            clustering = DBSCAN(2*4.05,min_samples=10).fit(pts)
+            clustering = DBSCAN(4.05,min_samples=10).fit(pts)
             arrLabels = clustering.labels_
             lstSplitIDs = []
             lstSplitPoints = []

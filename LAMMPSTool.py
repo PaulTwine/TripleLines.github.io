@@ -601,21 +601,33 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def FindGrainAtomIDs(self, fltAlpha= 0.99):
         arrIDs = np.array(self.GetPTMAtomIDs())
         arrGrainAtoms = self.GetAtomsByID(arrIDs)[:,1:4]
-        objPTMKDTree = gf.PeriodicWrapperKDTree(arrGrainAtoms, self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),4*self.__LatticeParameter)
-        arrDistances, arrIndices = objPTMKDTree.Pquery(arrGrainAtoms, self.__objRealCell.GetNumberOfNeighbours()+1)
-        arrDistances = arrDistances[:,1:]
-        arrDistances = np.reshape(arrDistances,[len(arrDistances), len(arrDistances[0])])
-        arrAllDistances = arrDistances.ravel()
-        fltMin = np.min(arrAllDistances)
-        fltMean = np.mean(arrAllDistances)
-        arrRows1 = np.where(arrAllDistances < 2*fltMean - fltMin)[0]
-        #arrRows1 = np.where(arrAllDistances < (2- fltMin/fltMean)*fltMean)
-        arrRows2 = mf.ConfidenceInterval(arrAllDistances[arrRows1],fltAlpha)
-        fltLower = np.min(arrAllDistances[arrRows1][arrRows2])
-        fltUpper = np.max(arrAllDistances[arrRows1][arrRows2])
-        arrRows = np.where(np.all(arrDistances >= fltLower,axis=1) & np.all(arrDistances <= fltUpper,axis=1))[0]
-        self.__GBSeparation = np.median(arrAllDistances) 
-        return arrIDs[arrRows]
+        objGrainTree = gf.PeriodicWrapperKDTree(arrGrainAtoms,self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),2*self.__objRealCell.GetNearestNeighbourDistance(),self.GetPeriodicDirections())
+        arrDistances1,arrIndices1 =objGrainTree.Pquery(arrGrainAtoms,k = self.__objRealCell.GetNumberOfNeighbours())
+        arrIndices1 = mf.FlattenList(arrIndices1)
+        arrIndices1= objGrainTree.GetPeriodicIndices(arrIndices1)
+        fltNearest = np.mean(arrDistances1[:,1])
+        arrRows = np.where(np.all(arrDistances1 < 1.05*fltNearest, axis=1))[0]
+        arrIDs = arrIDs[arrRows]
+        arrGrainAtoms = arrGrainAtoms[arrRows]
+        self.__GBSeparation = np.median(arrDistances1)
+        if fltAlpha < 1:
+            objGrainTree = gf.PeriodicWrapperKDTree(arrGrainAtoms, self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),4*self.__LatticeParameter)
+            arrDistances, arrIndices = objGrainTree.Pquery(arrGrainAtoms, self.__objRealCell.GetNumberOfNeighbours()+1)
+            arrDistances = arrDistances[:,1:]
+            arrDistances = np.reshape(arrDistances,[len(arrDistances), len(arrDistances[0])])
+            arrAllDistances = arrDistances.ravel()
+            fltMin = np.min(arrAllDistances)
+            fltMean = np.mean(arrAllDistances)
+            arrRows1 = np.where(arrAllDistances < 2*fltMean - fltMin)[0]
+            #arrRows1 = np.where(arrAllDistances < (2- fltMin/fltMean)*fltMean)
+            arrRows2 = mf.ConfidenceInterval(arrAllDistances[arrRows1],fltAlpha)
+            fltLower = np.min(arrAllDistances[arrRows1][arrRows2])
+            fltUpper = np.max(arrAllDistances[arrRows1][arrRows2])
+            arrRows3 = np.where(np.all(arrDistances >= fltLower,axis=1) & np.all(arrDistances <= fltUpper,axis=1))[0]
+            self.__GBSeparation = np.median(arrAllDistances)
+            if len(arrRows3) > 0: 
+                arrIDs = arrIDs[arrRows3]
+        return arrIDs
     def MatchPreviousGrainNumbers(self, lstGrainNumbers: list, lstGrainIDs: list):
         arrMatrix = np.zeros([len(self.__GrainLabels)-1, len(lstGrainNumbers)])
         for i in range(len(lstGrainIDs)):
@@ -641,8 +653,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             arrValues = self.GetAtomsByID(lstIDs)[:, [intPEColumn, intVColumn]]
             return arrValues[:,0]/arrValues[:,1]
     def PartitionGrains(self, fltTolerance=0.01,intMinGrainSize = 25, fltWrapperWidth = 25):
-        arrIDs = self.FindGrainAtomIDs(fltTolerance) 
-        clustering = DBSCAN(eps=1.05*self.__GBSeparation).fit(self.GetAtomsByID(arrIDs)[:,1:4])
+        arrIDs = self.FindGrainAtomIDs(fltTolerance)
+        arrPoints = self.GetAtomsByID(arrIDs)[:,1:4]
+        clustering = DBSCAN(eps=1.05*self.__GBSeparation).fit(arrPoints)
         arrLabels = clustering.labels_
         arrUniqueLabels,arrCounts = np.unique(arrLabels,return_counts=True)
         if 'GrainNumber' not in self.GetColumnNames():
@@ -710,7 +723,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         for j in self.__GrainLabels:
             if j > 0:
                 lstAllGrainIDs.extend(self.GetGrainAtomIDs(j).tolist())
-        return list(set(range(1,self.GetNumberOfAtoms())).difference(lstAllGrainIDs))
+        return list(set(range(1,self.GetNumberOfAtoms()+1)).difference(lstAllGrainIDs))
     def EstimateLocalGrainBoundaryWidth(self):
         intNumberOfGrains = len(self.__GrainLabels) -1
         if intNumberOfGrains <= 1:
@@ -737,21 +750,34 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstRemoval = []
         self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'GrainBoundary', strFormat = '%i')
         intGB = self.GetColumnIndex('GrainBoundary')
+        lstMeshPoints = []
+        lstUsedTwos = []
+        lstAllIDs = []
         for k in lstTwos:
-            lstTemp = self.FindMeshAtomIDs(k,fltWidth)[0]
+            lstTemp,mpts = self.FindMeshAtomIDs(k,fltWidth)
             if len(lstTemp)> 0:
+                lstTemp = list(set(lstTemp).difference(lstAllIDs))
                 lstIDs.append(lstTemp)
-            else:
-                lstRemoval.append(k)
-        arrUnique, arrCounts = np.unique(np.concatenate(lstIDs),return_counts=True)
-        lstDuplicate = arrUnique[arrCounts > 1].tolist()
-        self.SetColumnByIDs(lstDuplicate,intGB, 0*np.ones(len(lstDuplicate)))
+                lstMeshPoints.append(mpts)
+                lstUsedTwos.append(k)
+                lstAllIDs.extend(lstTemp)
+        #arrUnique, arrCounts = np.unique(np.concatenate(lstIDs),return_counts=True)
+        #lstDuplicate = arrUnique[arrCounts > 1].tolist()
+      #  self.SetColumnByIDs(lstDuplicate,intGB, 0*np.ones(len(lstDuplicate)))
+        # lstGBIDs.extend(lstExtraIDs)
+        #lstGBIDs = np.unique(lstGBIDs).tolist()
         # self.__PeriodicGrainBoundaries[-1] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(lstDuplicate)[:,1:4],self.GetCellVectors(), gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWidth)
-        for i in lstRemoval:
-            lstTwos.remove(i)
-        for l in range(len(lstTwos)):
-            lstGBIDs =  list(set(lstIDs[l]).difference(lstDuplicate))
+        for l in range(len(lstUsedTwos)): 
+            lstGBIDs = lstIDs[l]
+            # if len(lstMeshPoints[l]) >0:
+            #     objMeshPoints = gf.PeriodicWrapperKDTree(lstMeshPoints[l],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()), fltWidth,self.GetPeriodicDirections())
+            #     arrPointsAndIDs = self.GetAtomsByID(self.GetAllGrainAtomIDs())[:,0:4]
+            #     arrIndices,arrDistances = objMeshPoints.Pquery_radius(arrPointsAndIDs[:,1:],fltWidth)
+            #     arrIndices = objMeshPoints.GetPeriodicIndices(arrIndices)
+            #     lstExtraIDs = arrPointsAndIDs[mf.FlattenList(arrIndices),0]
             if len(lstGBIDs) > 0:
+               # lstGBIDs.extend(lstExtraIDs)
+                lstGBIDs = np.unique(lstGBIDs).tolist()
                 self.__PeriodicGrainBoundaries[l+1] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(lstGBIDs)[:,1:4],self.GetCellVectors(), gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWidth,self.GetPeriodicDirections())
                 self.SetColumnByIDs(lstGBIDs,intGB, (l+1)*np.ones(len(lstGBIDs)))
     def FindJunctionMeshAtoms(self,fltWidth: float, lstGBs: list):
@@ -794,10 +820,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
            # arrPoints = self.GetAtomsByID(self.GetNonGrainAtomIDs())[:,0:4]
             lstIDs = []
             lstIDs.extend(self.GetGrainAtomIDs(0))
-            lstGBLabels =  self.GetGrainBoundaryLabels()
-            if -1 in lstGBLabels:
-                lstIDs.extend(self.GetGBAtomIDs(-1))
-            #arrPoints = self.GetAtomsByID(self.GetGrainAtomIDs(0))
+            #lstGBLabels =  self.GetGrainBoundaryLabels()
+            # if -1 in lstGBLabels:
+            #     lstIDs.extend(self.GetGBAtomIDs(-1))
+            # #arrPoints = self.GetAtomsByID(self.GetGrainAtomIDs(0))
             arrPoints = self.GetAtomsByID(lstIDs)
             arrIDs = arrPoints[:,0]
             arrPoints = arrPoints[:,1:4]
@@ -822,7 +848,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             # else:
             arrMeanDistances = np.linalg.norm(arrPoints - arrMean, axis=1)
             #arrAllPoints = np.transpose(np.vstack(lstAllPoints))
-            arrAllDistances = np.transpose(np.vstack(lstAllDistances))
+            #arrAllDistances = np.transpose(np.vstack(lstAllDistances))
             #arrSum = np.sum(arrAllDistances[:,:intNumberOfGrains], axis=1)
             #arrRows = np.where(np.all(arrAllDistances <= fltWidth,axis=1))[0]
             arrRows = np.where(arrMeanDistances <= fltWidth)[0]
