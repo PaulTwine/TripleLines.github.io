@@ -30,12 +30,14 @@ class LAMMPSLog(object):
         dctValues = dict()
         dctColumns = dict()
         intStages = 0
+        blnStop = False
         with open(strFilename) as Dfile:
-            while True:
+            while not(blnStop):
                 lstBounds = []
                 try:
                     line = next(Dfile).strip()
                 except StopIteration as EndOfFile:
+                    blnStop = True
                     break
                 if "Step" == line[:4]:
                     lstColumnNames = line.split(' ')
@@ -606,8 +608,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrDistances = arrDistances[:,1:]
         arrIndices = arrIndices[:,1:]
         arrAllDistances = arrDistances.ravel()
-        mu,st = stats.norm.fit(arrAllDistances)
-        tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)
+        shape,scale = stats.gamma.fit(arrAllDistances)
+        tupValues = stats.gamma.interval(alpha=fltAlpha, loc=mu, scale=st)
         arrRows = np.where(np.all(tupValues[0] < arrDistances,axis=1) & np.all(arrDistances < tupValues[1],axis=1))[0]
         fltNearest = np.median(arrDistances[arrRows])
         self.__GBSeparation = fltNearest 
