@@ -23,55 +23,79 @@ intDelta = int(sys.argv[3])
 strType = str(sys.argv[4])
 strFile = strDirectory + str(intDir) + '/' + strType + str(intDelta) + '.lst'
 objData = LT.LAMMPSData(strFile,1,4.05, LT.LAMMPSGlobal)
-objTJ = objData.GetTimeStepByIndex(-1)
-objTJ.PartitionGrains(0.9999,10,10)
-objTJ.MergePeriodicGrains(30)
-arrIDs = []
-lstTemp = []
-lstGrainLabels = objTJ.GetGrainLabels() 
-fltWidth = objTJ.EstimateLocalGrainBoundaryWidth()
+lstGrainLabels = []
+intCount = 0
+a = 0.0
+blnStop = False
+while not(blnStop) and a < 0.02:
+    objTJ = objData.GetTimeStepByIndex(-1)
+    objTJ.PartitionGrains(a,25,25)
+    lstGrainLabels = objTJ.GetGrainLabels()
+    if len(lstGrainLabels) > 0 :
+        objTJ.MergePeriodicGrains(30)
+        lstGrainLabels = objTJ.GetGrainLabels()
+    fltWidth = objTJ.EstimateLocalGrainBoundaryWidth()
+    if lstGrainLabels == list(range(5)) and fltWidth > 0 and fltWidth < 6*4.05:
+        blnStop = True
+    a += 0.001
+
 print(fltWidth)
-lstTJs = []
-objTJ.FindGrainBoundaries(fltWidth/2)
-if strType == 'GB':
-    objTJ.WriteDumpFile(strDirectory+str(intDir) + '/GB' + str(intDelta) + 'P.lst')
-elif lstGrainLabels == list(range(5)) and strType == 'TJ':
-    lstGrainLabels.remove(0)
-    objTJ.AddColumn(np.zeros([objTJ.GetNumberOfAtoms(),1]),'TripleLine', strFormat = '%i')
-    intTJ = objTJ.GetColumnIndex('TripleLine')
-    lstThrees = list(it.combinations(lstGrainLabels, 3))
-    t = 1
-    for i in lstThrees:
-        ids,mpts = objTJ.FindMeshAtomIDs(i,fltWidth/2)
-       # ids,mpts = objTJ.FindJunctionMeshAtoms(fltWidth/2,i)
-        # if len(mpts)>0:
-        #     ax.scatter(*tuple(zip(*mpts)))
-        #     plt.show()
-        if len(ids) > 0:
-            pts = objTJ.GetAtomsByID(ids)[:,1:4]
-            clustering = DBSCAN(4.05,min_samples=10).fit(pts)
-            arrLabels = clustering.labels_
-            lstSplitIDs = []
-            lstSplitPoints = []
-            for a in np.unique(arrLabels):
-                if a != -1:
-                    arrRows = np.where(arrLabels == a)[0]
-                    lstSplitIDs.append(np.array(ids)[arrRows])
-                    lstSplitPoints.append(pts[arrRows])
-            lstMatches = gf.GroupClustersPeriodically(lstSplitPoints, objTJ.GetCellVectors(),2*4.05)
-            for l in lstMatches:
-                lstMergedIDs = []
-                for m in l:
-                    lstMergedIDs.append(lstSplitIDs[m])
-                lstMergedIDs = np.unique(np.concatenate(lstMergedIDs))
-                objTJ.SetColumnByIDs(lstMergedIDs,intTJ,t*np.ones(len(lstMergedIDs)))
-                lstTJs.append(ids)
-                t +=1
-        lstMatches = []
-    lstAllTJIDs = mf.FlattenList(lstTJs)
-    lstAllTJIDs = list(np.unique(lstAllTJIDs))
-    intGB = objTJ.GetColumnIndex('GrainBoundary')
-    objTJ.SetColumnByIDs(lstAllTJIDs,intGB,0*np.ones(len(lstAllTJIDs)))
-    objTJ.WriteDumpFile(strDirectory+str(intDir) + '/TJ' + str(intDelta) + 'P.lst')
+# lstTJs = []
+# lstGrainLabels.remove(0)
+# lstTwos = it.combinations(lstGrainLabels,2)
+# for i in lstTwos:
+#     pts = objTJ.FindDefectiveMesh(i[0],i[1],30)
+#     if len(pts) > 0:
+#         ax.set_axis_off()
+#         ax.scatter(*tuple(zip(*pts)))
+# plt.show()
+objTJ.FindGrainBoundaries(max([3*4.05,fltWidth/2]))
+if strType == 'TJ':
+    objTJ.FindJunctionLines(max([3*4.05,fltWidth/2]), 3)
+objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' + strType + str(intDelta) + 'P.lst')
+
+# if len(pts) > 0:
+#     ax.scatter(*tuple(zip(*pts)),c='r')
+# plt.show()
+
+# if strType == 'GB':
+#     objTJ.WriteDumpFile(strDirectory+str(intDir) + '/GB' + str(intDelta) + 'P.lst')
+# elif lstGrainLabels == list(range(1,5)) and strType == 'TJ':
+#     objTJ.AddColumn(np.zeros([objTJ.GetNumberOfAtoms(),1]),'TripleLine', strFormat = '%i')
+#     intTJ = objTJ.GetColumnIndex('TripleLine')
+#     lstThrees = list(it.combinations(lstGrainLabels, 3))
+#     t = 1
+#     for i in lstThrees:
+#         ids,mpts = objTJ.FindMeshAtomIDs(i,fltWidth/2)
+#        # ids,mpts = objTJ.FindJunctionMeshAtoms(fltWidth/2,i)
+#         # if len(mpts)>0:
+#         #     ax.scatter(*tuple(zip(*mpts)))
+#         #     plt.show()
+#         if len(ids) > 0:
+#             pts = objTJ.GetAtomsByID(ids)[:,1:4]
+#             clustering = DBSCAN(4.05,min_samples=10).fit(pts)
+#             arrLabels = clustering.labels_
+#             lstSplitIDs = []
+#             lstSplitPoints = []
+#             for a in np.unique(arrLabels):
+#                 if a != -1:
+#                     arrRows = np.where(arrLabels == a)[0]
+#                     lstSplitIDs.append(np.array(ids)[arrRows])
+#                     lstSplitPoints.append(pts[arrRows])
+#             lstMatches = gf.GroupClustersPeriodically(lstSplitPoints, objTJ.GetCellVectors(),2*4.05)
+#             for l in lstMatches:
+#                 lstMergedIDs = []
+#                 for m in l:
+#                     lstMergedIDs.append(lstSplitIDs[m])
+#                 lstMergedIDs = np.unique(np.concatenate(lstMergedIDs))
+#                 objTJ.SetColumnByIDs(lstMergedIDs,intTJ,t*np.ones(len(lstMergedIDs)))
+#                 lstTJs.append(ids)
+#                 t +=1
+#         lstMatches = []
+#     lstAllTJIDs = mf.FlattenList(lstTJs)
+#     lstAllTJIDs = list(np.unique(lstAllTJIDs))
+#     intGB = objTJ.GetColumnIndex('GrainBoundary')
+#     objTJ.SetColumnByIDs(lstAllTJIDs,intGB,0*np.ones(len(lstAllTJIDs)))
+#    objTJ.WriteDumpFile(strDirectory+str(intDir) + '/TJ' + str(intDelta) + 'P.lst')
 
 
