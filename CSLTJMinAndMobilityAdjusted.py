@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 strRoot = str(sys.argv[1])
-intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
+intHeight = 1# int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
 intTemp = int(sys.argv[4])
@@ -54,7 +54,7 @@ arrPBasis3 = np.matmul(a*ld.FCCPrimitive,arrGrainBasis3)
 
 
 
-arrU = np.loadtxt('../../../arrU.txt')
+arrU = np.loadtxt(strRoot + '../../arrU.txt')
 
 lstOrientTJ1 = [np.round(u0*arrU[0],10),0.25,a] 
 lstOrientTJ2 = [np.round(u0*arrU[1],10),0.25,a] 
