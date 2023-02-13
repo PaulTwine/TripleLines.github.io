@@ -15,12 +15,12 @@ from mpl_toolkits.mplot3d import Axes3D
 # between grains 1 and 2. 
 
 
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp450/u02/TJ/' #str(sys.argv[1])
-intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = [1,1,1] # eval(str(sys.argv[2]))
-lstSigmaAxis = [21,21,49] #eval(str(sys.argv[3]))
-intTemp = 450 #int(sys.argv[4])
-u0 = 0.08 # float(sys.argv[5])
+strRoot = str(sys.argv[1])
+intHeight = 1# int(sys.argv[2]) #numbers of repeated CSL layers
+lstAxis = eval(str(sys.argv[2]))
+lstSigmaAxis = eval(str(sys.argv[3]))
+intTemp = int(sys.argv[4])
+u0 = float(sys.argv[5])
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
@@ -55,7 +55,7 @@ arrPBasis3 = np.matmul(a*ld.FCCPrimitive,arrGrainBasis3)
 
 
 
-arrU = np.loadtxt(strRoot + '../../../arrU.txt')
+arrU = np.loadtxt('../../../arrU.txt')
 
 lstOrientTJ1 = [np.round(u0*arrU[0],10),0.25,a] 
 lstOrientTJ2 = [np.round(u0*arrU[1],10),0.25,a] 

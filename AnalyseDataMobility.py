@@ -48,11 +48,9 @@ plt.show()
 #strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis221/Sigma9_9_9/Temp'
 strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 #strRoot = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
-strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
-lstTemp = [450,550, 650]
-lstTemp = [450,550,650]
-lstU = [0.02,0.03,0.04,0.05,0.06,0.07,0.08]
-#lstU = [0.02, 0.03,0.04,0.05,0.06,0.07,0.08]
+#strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+lstTemp = [450,500,550,600, 650,700,750]
+lstU = [0.005,0.0075,0.01,0.0125]
 dctTJ = dict()
 strType = 'TJ'
 for T in lstTemp:
@@ -161,7 +159,9 @@ dctTJ, dctBV12,dctBV13 = MakeTJandBCDictionaries(strRoot9_9_9,lstTemp,lstU)
 #%%
 strRoot7_7_49 = '/home/paul/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 dctTJ7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, 'TJ')
+#%%
 dct12BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '12BV') 
+#%%
 dct13BV7 = PopulateTJDictionary(strRoot7_7_49, lstTemp, lstU, '13BV') 
 #%%
 
@@ -208,9 +208,9 @@ def PartitionByTemperature(dctAny: dict(),intTemp, uLower: float, uUpper: float)
     lstU = []
     for a in dctAny.keys():
         if (dctAny[a].GetTemp() == intTemp) and (dctAny[a].GetPEParameter() <= uUpper) and (dctAny[a].GetPEParameter() >= uLower):
-           # intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
-           # intStart = int(intFinish/2)
-           # dctAny[a].SetLinearRange(intStart,intFinish)
+            intFinish = dctAny[a].GetLowVolumeCutOff(1,4*4.05)
+            intStart = int(intFinish/2)
+            dctAny[a].SetLinearRange(intStart,intFinish)
             objRange = dctAny[a].GetLinearRange()
             arrVolumeSpeed = dctAny[a].GetVolumeSpeed()
             arrLogValues =  dctAny[a].GetLogValues()
@@ -258,14 +258,14 @@ lstLegend = []
 lstpopt = []
 lstpopt2 = []
 for k in lstU:
-    strKey = '450,' + str(k).split('.')[1]
-    x,y = PlotDistanceTime(dctTJ7[strKey], [0,2],[])
+    strKey = '700,' + str(k).split('.')[1]
+    x,y = dct13BV7[strKey].GetVolumeOrLAMMPSLog([0,2],[])
     popt,pop = optimize.curve_fit(FitLine,x,y)
-    #plt.scatter(x,y)
+    plt.scatter(x,y)
     plt.plot(x,FitLine(x, *popt))
     lstLegend.append(k)
     lstpopt.append(popt[0]*4.05**3/4)
-    x2,y2 = PlotDistanceTime(dctTJ7[strKey], [1],[2])
+    x2,y2 = dctTJ7[strKey].GetVolumeOrLAMMPSLog([1],[2])
     popt2,pop2 = optimize.curve_fit(FitLine,x2,y2)
     lstpopt2.append(popt2[0])    
 plt.legend(lstLegend)
@@ -274,6 +274,123 @@ plt.scatter(np.array(lstU)*4/(4.05**3),-np.array(lstpopt))
 plt.scatter(np.array(lstpopt2),-np.array(lstpopt))
 plt.legend(['Synthetic','Calculated'])
 plt.show()
+#%%
+dctOfObjRanges = dict()
+#%%
+strKey = '7_7_7'
+#%%
+#%%
+dct13BV7_7_49 = dict()
+dct13BV7_7_49['450,005'] = slice(500,1000,1)
+dct13BV7_7_49['450,0075'] = slice(500,1000,1)
+dct13BV7_7_49['450,01'] = slice(500,1000,1)
+dct13BV7_7_49['450,0125'] = slice(500,1000,1)
+
+dct13BV7_7_49['500,005'] = slice(500,1000,1)
+dct13BV7_7_49['500,0075'] = slice(500,1000,1)
+dct13BV7_7_49['500,01'] = slice(500,1000,1)
+dct13BV7_7_49['500,0125'] = slice(500,1000,1)
+
+dct13BV7_7_49['550,005'] = slice(500,1000,1)
+dct13BV7_7_49['550,0075'] = slice(500,1000,1)
+dct13BV7_7_49['550,01'] = slice(500,1000,1)
+dct13BV7_7_49['550,0125'] = slice(500,1000,1)
+
+dct13BV7_7_49['600,005'] = slice(500,1000,1)
+dct13BV7_7_49['600,0075'] = slice(500,1000,1)
+dct13BV7_7_49['600,01'] = slice(500,1000,1)
+dct13BV7_7_49['600,0125'] = slice(500,1000,1)
+
+dct13BV7_7_49['650,005'] = slice(500,1000,1)
+dct13BV7_7_49['650,0075'] = slice(500,1000,1)
+dct13BV7_7_49['650,01'] = slice(500,1000,1)
+dct13BV7_7_49['650,0125'] = slice(500,1000,1)
+
+dct13BV7_7_49['700,005'] = slice(500,1000,1)
+dct13BV7_7_49['700,0075'] = slice(500,1000,1)
+dct13BV7_7_49['700,01'] = slice(500,1000,1)
+dct13BV7_7_49['700,0125'] = slice(200,500,1)
+
+dct13BV7_7_49['750,005'] = slice(500,1000,1)
+dct13BV7_7_49['750,0075'] = slice(500,1000,1)
+dct13BV7_7_49['750,01'] = slice(500,800,1)
+dct13BV7_7_49['750,0125'] = slice(500,1000,1)
+for k in dct13BV7_7_49:
+    dct13BV7[k].SetLinearRange(dct13BV7_7_49[k][0], dct13BV7_7_49[k][1])
+#%%
+dct12BV7_7_49 = dict()
+dct12BV7_7_49['450,005'] = slice(500,1000,1)
+dct12BV7_7_49['450,0075'] = slice(500,1000,1)
+dct12BV7_7_49['450,01'] = slice(500,1000,1)
+dct12BV7_7_49['450,0125'] = slice(500,1000,1)
+
+dct12BV7_7_49['500,005'] = slice(500,1000,1)
+dct12BV7_7_49['500,0075'] = slice(500,1000,1)
+dct12BV7_7_49['500,01'] = slice(500,1000,1)
+dct12BV7_7_49['500,0125'] = slice(500,1000,1)
+
+dct12BV7_7_49['550,005'] = slice(500,1000,1)
+dct12BV7_7_49['550,0075'] = slice(500,1000,1)
+dct12BV7_7_49['550,01'] = slice(500,1000,1)
+dct12BV7_7_49['550,0125'] = slice(500,1000,1)
+
+dct12BV7_7_49['600,005'] = slice(500,1000,1)
+dct12BV7_7_49['600,0075'] = slice(500,1000,1)
+dct12BV7_7_49['600,01'] = slice(500,1000,1)
+dct12BV7_7_49['600,0125'] = slice(500,1000,1)
+
+dct12BV7_7_49['650,005'] = slice(500,1000,1)
+dct12BV7_7_49['650,0075'] = slice(500,1000,1)
+dct12BV7_7_49['650,01'] = slice(500,1000,1)
+dct12BV7_7_49['650,0125'] = slice(500,1000,1)
+
+dct12BV7_7_49['700,005'] = slice(500,1000,1)
+dct12BV7_7_49['700,0075'] = slice(500,1000,1)
+dct12BV7_7_49['700,01'] = slice(500,1000,1)
+dct12BV7_7_49['700,0125'] = slice(200,500,1)
+
+dct12BV7_7_49['750,005'] = slice(500,1000,1)
+dct12BV7_7_49['750,0075'] = slice(500,1000,1)
+dct12BV7_7_49['750,01'] = slice(500,1000,1)
+dct12BV7_7_49['750,0125'] = slice(500,1000,1)
+
+#%%
+dctTJ7_7_49 = dict()
+dctTJ7_7_49['450,005'] = slice(500,1000,1)
+dctTJ7_7_49['450,0075'] = slice(500,1000,1)
+dctTJ7_7_49['450,01'] = slice(500,1000,1)
+dctTJ7_7_49['450,0125'] = slice(500,1000,1)
+
+dctTJ7_7_49['500,005'] = slice(500,1000,1)
+dctTJ7_7_49['500,0075'] = slice(500,1000,1)
+dctTJ7_7_49['500,01'] = slice(500,1000,1)
+dctTJ7_7_49['500,0125'] = slice(500,1000,1)
+
+dctTJ7_7_49['550,005'] = slice(500,1000,1)
+dctTJ7_7_49['550,0075'] = slice(500,1000,1)
+dctTJ7_7_49['550,01'] = slice(500,1000,1)
+dctTJ7_7_49['550,0125'] = slice(500,1000,1)
+
+dctTJ7_7_49['600,005'] = slice(500,1000,1)
+dctTJ7_7_49['600,0075'] = slice(500,1000,1)
+dctTJ7_7_49['600,01'] = slice(500,1000,1)
+dctTJ7_7_49['600,0125'] = slice(500,1000,1)
+
+dctTJ7_7_49['650,005'] = slice(500,1000,1)
+dctTJ7_7_49['650,0075'] = slice(500,1000,1)
+dctTJ7_7_49['650,01'] = slice(500,1000,1)
+dctTJ7_7_49['650,0125'] = slice(500,1000,1)
+
+dctTJ7_7_49['700,005'] = slice(500,1000,1)
+dctTJ7_7_49['700,0075'] = slice(500,1000,1)
+dctTJ7_7_49['700,01'] = slice(500,1000,1)
+dctTJ7_7_49['700,0125'] = slice(500,1000,1)
+
+dctTJ7_7_49['750,005'] = slice(500,1000,1)
+dctTJ7_7_49['750,0075'] = slice(500,1000,1)
+dctTJ7_7_49['750,01'] = slice(500,1000,1)
+dctTJ7_7_49['750,0125'] = slice(500,1000,1)
+
 
 
 #%%
@@ -299,12 +416,15 @@ def WriteMobilityValues(lstInTemp, dctAny: dict,uLower: float, uUpper: float):
         lstMobilityStd.append(1.96*np.std(lstValues[0]))
     return lstMobility, lstMobilityStd
 #%%
-lstNewTemp = [450,475,500,525,550,575,600,625,650]
-lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstNewTemp, dctTJ7,lstU[0],lstU[3])
+lstMobTJ7,lstErrorTJ7 = WriteMobilityValues(lstTemp, dctTJ7,lstU[0],lstU[3])
 #lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
 #%%
-lstMob12BV,lstError12BV = WriteMobilityValues(lstNewTemp, dct12BV7,lstU[0],lstU[3])
-lstMob13BV,lstError13BV = WriteMobilityValues(lstNewTemp, dct13BV7,lstU[0],lstU[3])
+lstMob12BV7,lstError12BV7 = WriteMobilityValues(lstTemp, dct12BV7,lstU[0],lstU[3])
+#%%
+lstMob13BV7,lstError13BV7 = WriteMobilityValues(lstTemp, dct13BV7,lstU[0],lstU[3])
+#%%
+lstMob12BV,lstError12BV = WriteMobilityValues(lstTemp, dct12BV7,lstU[0],lstU[3])
+lstMob13BV,lstError13BV = WriteMobilityValues(lstTemp, dct13BV7,lstU[0],lstU[3])
 #%%
 #lstMobGB = WriteMobilityValues(lstNewTemp, dctGB7)
 lstMobBVs = []
@@ -317,7 +437,7 @@ lstMobTJ,lstMobErrorTJ = WriteMobilityValues(lstTemp,dctTJ7, lstU[0],lstU[3])
 lstMob12BV,lstMobError12BV = WriteMobilityValues(lstTemp,dct12BV7, lstU[0],lstU[3])
 lstMob13BV,lstMobError13BV = WriteMobilityValues(lstTemp,dct13BV7, lstU[0],lstU[3])
 #%%
-PlotMobilities(lstTemp, lstMobTJ,lstMob12BV,lstMob13BV,lstMobErrorTJ,lstMobError12BV,lstMobError13BV)
+PlotMobilities(lstTemp, lstMobTJ7,lstMob12BV,lstMob13BV,lstErrorTJ7,lstError12BV,lstError13BV)
 #%%
 lstMobTJ,lstMobErrorTJ = WriteMobilityValues(lstTemp,dctTJ21, lstU[0],lstU[2])
 #%%
@@ -387,6 +507,7 @@ def PlotArrhenius(inlstTemp, inlstMob):
     plt.show()
     print(popt)
 #%%
+PlotArrhenius(lstTemp[:-2], lstMobTJ7[:-2])
 #%%
 def BlockBootstrapEstimate(lstX,lstY):
     lstValues = []
