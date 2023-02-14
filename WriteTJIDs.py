@@ -17,6 +17,7 @@ from sklearn.cluster import DBSCAN
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 
+#strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma37/' #str(sys.argv[1])
 strDirectory = str(sys.argv[1])
 intDir = int(sys.argv[2])
 intDelta = int(sys.argv[3])
@@ -27,7 +28,7 @@ lstGrainLabels = []
 intCount = 0
 a = 1
 blnStop = False
-while not(blnStop) and a < 5:
+while not(blnStop) and a < 10:
     objTJ = objData.GetTimeStepByIndex(-1)
     objTJ.PartitionGrains(a,25,25)
     lstGrainLabels = objTJ.GetGrainLabels()
@@ -40,18 +41,18 @@ while not(blnStop) and a < 5:
     a += 1
 
 print(fltWidth)
-# lstTJs = []
+lstTJs = []
 # lstGrainLabels.remove(0)
 # lstTwos = it.combinations(lstGrainLabels,2)
 # for i in lstTwos:
-#     pts = objTJ.FindDefectiveMesh(i[0],i[1],30)
+#     pts = objTJ.FindDefectiveMesh(i[0],i[1])
 #     if len(pts) > 0:
 #         ax.set_axis_off()
 #         ax.scatter(*tuple(zip(*pts)))
 # plt.show()
 objTJ.FindGrainBoundaries(3*4.05)
 if strType == 'TJ':
-     objTJ.FindJunctionLines(3*4.05, 3)
+      objTJ.FindJunctionLines(3*4.05, 3)
 objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' + strType + str(intDelta) + 'P.lst')
 
 # if len(pts) > 0:
