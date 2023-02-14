@@ -1,6 +1,6 @@
 import numpy as np
-#from mpl_toolkits.mplot3d import Axes3D
-#import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt
 #from sklearn.neighbors import NearestNeighbors
 import GeometryFunctions as gf
 import GeneralLattice as gl
@@ -14,8 +14,8 @@ from sklearn.cluster import DBSCAN
 
 
 
-#fig = plt.figure()
-#ax = fig.add_subplot(projection='3d')
+# fig = plt.figure()
+# ax = fig.add_subplot(projection='3d')
 
 strDirectory = str(sys.argv[1])
 intDir = int(sys.argv[2])
@@ -48,10 +48,10 @@ print(fltWidth)
 #     if len(pts) > 0:
 #         ax.set_axis_off()
 #         ax.scatter(*tuple(zip(*pts)))
-# plt.show()
-objTJ.FindGrainBoundaries(max([3*4.05,fltWidth/2]))
+plt.show()
+objTJ.FindGrainBoundaries(3*4.05)
 if strType == 'TJ':
-    objTJ.FindJunctionLines(max([3*4.05,fltWidth/2]), 3)
+     objTJ.FindJunctionLines(3*4.05, 3)
 objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' + strType + str(intDelta) + 'P.lst')
 
 # if len(pts) > 0:
