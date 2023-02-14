@@ -1,6 +1,6 @@
 import numpy as np
-# from mpl_toolkits.mplot3d import Axes3D
-# import matplotlib.pyplot as plt
+#from mpl_toolkits.mplot3d import Axes3D
+#import matplotlib.pyplot as plt
 #from sklearn.neighbors import NearestNeighbors
 import GeometryFunctions as gf
 import GeneralLattice as gl
@@ -14,8 +14,8 @@ from sklearn.cluster import DBSCAN
 
 
 
-# fig = plt.figure()
-# ax = fig.add_subplot(projection='3d')
+#fig = plt.figure()
+#ax = fig.add_subplot(projection='3d')
 
 strDirectory = str(sys.argv[1])
 intDir = int(sys.argv[2])
@@ -25,9 +25,9 @@ strFile = strDirectory + str(intDir) + '/' + strType + str(intDelta) + '.lst'
 objData = LT.LAMMPSData(strFile,1,4.05, LT.LAMMPSGlobal)
 lstGrainLabels = []
 intCount = 0
-a = 0.0
+a = 1
 blnStop = False
-while not(blnStop) and a < 0.02:
+while not(blnStop) and a < 5:
     objTJ = objData.GetTimeStepByIndex(-1)
     objTJ.PartitionGrains(a,25,25)
     lstGrainLabels = objTJ.GetGrainLabels()
@@ -35,9 +35,9 @@ while not(blnStop) and a < 0.02:
         objTJ.MergePeriodicGrains(30)
         lstGrainLabels = objTJ.GetGrainLabels()
     fltWidth = objTJ.EstimateLocalGrainBoundaryWidth()
-    if lstGrainLabels == list(range(5)) and fltWidth > 0 and fltWidth < 6*4.05:
+    if lstGrainLabels == list(range(5)) and fltWidth > 0:
         blnStop = True
-    a += 0.001
+    a += 1
 
 print(fltWidth)
 # lstTJs = []
@@ -48,7 +48,7 @@ print(fltWidth)
 #     if len(pts) > 0:
 #         ax.set_axis_off()
 #         ax.scatter(*tuple(zip(*pts)))
-plt.show()
+# plt.show()
 objTJ.FindGrainBoundaries(3*4.05)
 if strType == 'TJ':
      objTJ.FindJunctionLines(3*4.05, 3)
