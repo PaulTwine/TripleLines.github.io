@@ -17,11 +17,11 @@ from sklearn.cluster import DBSCAN
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 
-#strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma37/' #str(sys.argv[1])
-strDirectory = str(sys.argv[1])
-intDir = int(sys.argv[2])
-intDelta = int(sys.argv[3])
-strType = str(sys.argv[4])
+strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma37/' #str(sys.argv[1])
+#strDirectory = str(sys.argv[1])
+intDir = 4  #int(sys.argv[2])
+intDelta = 0 #int(sys.argv[3])
+strType = 'TJ' #str(sys.argv[4])
 strFile = strDirectory + str(intDir) + '/' + strType + str(intDelta) + '.lst'
 objData = LT.LAMMPSData(strFile,1,4.05, LT.LAMMPSGlobal)
 lstGrainLabels = []
