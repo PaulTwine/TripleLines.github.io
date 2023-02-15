@@ -41,7 +41,12 @@ while not(blnStop) and a < 10:
     a += 1
 
 print(fltWidth)
-lstTJs = []
+objTJ.FindGrainBoundaries(2*4.05)
+# lstTJs = []
+# lstpts = objTJ.FindJunctionMesh(2*4.05,3)
+# for i in lstpts:
+#     ax.scatter(*tuple(zip(*i)))
+# plt.show()
 # lstGrainLabels.remove(0)
 # lstTwos = it.combinations(lstGrainLabels,2)
 # for i in lstTwos:
@@ -50,9 +55,8 @@ lstTJs = []
 #         ax.set_axis_off()
 #         ax.scatter(*tuple(zip(*pts)))
 # plt.show()
-objTJ.FindGrainBoundaries(3*4.05)
 if strType == 'TJ':
-      objTJ.FindJunctionLines(3*4.05, 3)
+       objTJ.FindJunctionLines(2*4.05, 3)
 objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' + strType + str(intDelta) + 'P.lst')
 
 # if len(pts) > 0:
