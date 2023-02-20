@@ -599,8 +599,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         return list(self.GetAtomData()[lstUnassignedAtoms,0].astype('int'))
     def SetLatticeParameter(self, fltParameter: float):
         self.__LatticeParameter = fltParameter
-    def FindGrainAtomIDs(self, intN = 1):
-        arrIDs = np.array(self.GetPTMAtomIDs())
+    def FindGrainAtomIDs(self, intN = 1, arrIDs = None):
+        if arrIDs is None:
+            arrIDs = np.array(self.GetPTMAtomIDs())
         arrGrainAtoms = self.GetAtomsByID(arrIDs)[:,1:4] 
         arrUsedRows = np.array(list(range(len(arrIDs))))
         for i in range(intN):
@@ -765,6 +766,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             fltMax = np.max(np.sum(arrSorted[:,:2],axis=1))
         self.__MaxGBWidth = fltMax
         return fltMax
+    def GetLabels(self, strColumn):
+        lstReturn = []
+        if strColumn in self.GetColumnNames():
+            lstReturn = list(np.unique(self.GetColumnByName(strColumn), axis=0).astype('int'))
+        return lstReturn
     def GetTripleLineIDs(self, intTripleLine, strColumnName = 'TripleLine'):
         intCol = self.GetColumnIndex(strColumnName)
         arrRows = np.where(self.GetAtomData()[:,intCol] == intTripleLine)[0]
