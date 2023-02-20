@@ -62,21 +62,78 @@ class AxisStore(object):
 #ax = fig.add_subplot(projection='3d')
 fig, ax = plt.subplots()
 #%%
-
-strRoot ='/home/paul/csf4_scratch/TJ/Axis001/TJSigma5/0/'
-objData = LT.LAMMPSData(strRoot + 'TJ0P.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
-objAnalysis = objData.GetTimeStepByIndex(-1)
-ids = objAnalysis.GetTripleLineIDs(1)
-intV = objAnalysis.GetColumnIndex('c_v[1]')
-intPE = objAnalysis.GetColumnIndex('c_pe1')
-print(objAnalysis.GetColumnNames())
-vals = objAnalysis.GetAtomsByID(ids)
-print(np.mean(vals[:,intPE]),np.std(vals[:,intPE]))
-plt.hist(vals[:,intPE]+ 3.36*np.ones(len(vals)),bins = 10)
-plt.show()
-plt.hist(vals[:,intV]- (4.05**3/4)*np.ones(len(vals)),bins = 10)
-plt.show()
+class DeltaStore(object):
+    def __init__(self, arrAxis: int, intSigma,intDirNo: int, intDelta: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__DirNo = intDirNo
+        self.__intDelta = intDelta
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetValues(self, lstOfValues: list, strKey: str):
+        self.__Values[strKey] = lstOfValues
+    def GetValues(self, strKey: str):
+        return self.__Values[strKey]  
+    def WriteFileOfValues(self, strFilename):
+        with open(strFilename, 'w') as fdata:
+            for k in self.__Values:
+                fdata.write(str(k)  + '\n') 
+                for i in self.GetValues(k):
+                    fdata.write(','.join(map(str,i)))
+                    fdata.write('\n')
+                    
+            fdata.close() 
+    def ReadFileOfValues(self, strFilename, lstKeys):
+        blnGo = True
+        with open(strFilename, 'r') as fdata:
+            lstOfValues = []
+            while blnGo:
+                try:
+                    line = next(fdata).strip()
+                except StopIteration as EndOfFile:
+                    blnGo = False
+                    break
+                if line in lstKeys:
+                    if len(lstOfValues) > 0:
+                        self.SetValues(lstOfValues,strKey)
+                        lstOfValues = []
+                    strKey = line
+                else: 
+                    lstOfValues.append(list(map(lambda x: float(x), line.split(','))))
+            fdata.close()
 #%%
+class DirStore(object):
+    def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__DirNo = intDirNo
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetDeltaStore(self, inDeltaStore: DeltaStore, strKey: str):
+        self.__Values[strKey] = inDeltaStore
+    def GetDeltaStore(self, strKey: str):
+        return self.__Values[strKey]
+#%%
+class SigmaStore(object):
+    def __init__(self, arrAxis: int, intSigma, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetDirStore(self, inDirStore: DirStore, strKey: str):
+        self.__Values[strKey] = inDirStore
+    def GetDirStore(self, strKey: str):
+        return self.__Values[strKey] 
+#%%
+class AxisStore(object):
+    def __init__(self, arrAxis: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetSigmaStore(self, inDirStore: DirStore, strKey: str):
+        self.__Values[strKey] = inDirStore
+    def GetSigmaStore(self, strKey: str):
+        return self.__Values[strKey] 
 #%%
 def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str)->SigmaStore:
     objSigmaStore = SigmaStore(arrAxis,intSigma, strType)
@@ -84,7 +141,9 @@ def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType:
         objDirStore = DirStore(arrAxis,intSigma,j,strType)
         for i in range(10): #delta values
             objDeltaStore = DeltaStore(arrAxis,intSigma,j,i,strType)
-            objData = LT.LAMMPSData(strRootDir + str(j)  + '/' + strType + str(i) + 'P.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
+            strFilename = strRootDir + str(j)  + '/' + strType + str(i) + 'P.lst'
+            strSavename = strRootDir + str(j)  + '/' + strType + str(i) + 'P.txt'
+            objData = LT.LAMMPSData(strFilename, 1, 4.05, LT.LAMMPSAnalysis3D)
             objLT = objData.GetTimeStepByIndex(-1)
             if strType == 'TJ':
                 lstLabels = objLT.GetLabels('TripleLine')
@@ -97,45 +156,52 @@ def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType:
             lstPE = [] #Pe per atom
             lstV = [] # vollume per atom
             lstS = [] # hydrostatic stress per atom
+            lstG = [] #one entry for the total excess energy stored in the grains compared to an ideal crystal
+            if -1 in lstLabels:
+                lstLabels.remove(-1)
+            if 0 in lstLabels:
+                if strType =='GB':
+                    idsG = objLT.GetGrainBoundaryIDs(0)
+                elif strType =='TJ':
+                    idsG1 = objLT.GetTripleLineIDs(0)
+                    idsG2 = objLT.GetGrainBoundaryIDs(0)
+                    idsG = np.append(idsG1,idsG2, axis=0)
+                lstG = [np.array([len(idsG), np.sum(objLT.GetAtomsByID(idsG)[:,intPE]), np.sum(objLT.GetAtomsByID(idsG)[:,intV]),
+                             np.sum(np.sum(objLT.GetAtomsByID(idsG)[:,intC1:intC3+1],axis=1))])]
+                objDeltaStore.SetValues(lstG, 'GE')
+                lstLabels.remove(0)
             for k in  lstLabels:
                 if strType == 'TJ':
                     ids = objLT.GetTripleLineIDs(k)
                 elif strType == 'GB':
-                    ids = objLT.GetGrainBoundaryIDs(k)
+                    ids = objLT.GetGrainBoundaryIDs(k)              
                 lstPE.append(objLT.GetColumnByIDs(ids,intPE))
                 lstV.append(objLT.GetColumnByIDs(ids,intV))
-                lstS.append(np.sum(objLT.GetAtomsByID(ids)[:,intC1:intC3+1],axis=1))
+                lstS.append(np.sum(objLT.GetAtomsByID(ids)[:,intC1:intC3+1],axis=1))          
             objDeltaStore.SetValues(lstPE, 'PE')
             objDeltaStore.SetValues(lstV, 'V')
             objDeltaStore.SetValues(lstS, 'S')
             objDirStore.SetDeltaStore(objDeltaStore, i)
+            objDeltaStore.WriteFileOfValues(strSavename)
         objSigmaStore.SetDirStore(objDirStore,j)
     return objSigmaStore
-#%%    
-arrAxis = np.array([0,0,1])
-intSigma = 5
-objSigmaStore = SigmaStore(arrAxis,intSigma, 'TJ')
-for j in range(10): #directories
-    objDirStore = DirStore(arrAxis,intSigma,j,'TJ')
-    strRoot = strRoot ='/home/paul/csf4_scratch/TJ/Axis001/TJSigma5/' + str(j) + '/'
-    for i in range(10): #delta values
-        objDeltaStore = DeltaStore(arrAxis,intSigma,j,i,'TJ')
-        objData = LT.LAMMPSData(strRoot  +  'TJ' + str(i) + 'P.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
-        objLT = objData.GetTimeStepByIndex(-1)
-        lstTJLabels = objLT.GetLabels('TripleLine')
-        lstTJLabels.remove(0)
-        intV = objLT.GetColumnIndex('c_v[1]')
-        intPE = objLT.GetColumnIndex('c_pe1')
-        lstPE = []
-        lstV = []
-        for k in  lstTJLabels:
-            ids = objLT.GetTripleLineIDs(k)
-            lstPE.append(objLT.GetColumnByIDs(ids,intPE))
-            lstV.append(objLT.GetColumnByIDs(ids,intV))
-        objDeltaStore.SetValues(lstPE, 'PE')
-        objDeltaStore.SetValues(lstV, 'V')
-        objDirStore.SetDeltaStore(objDeltaStore, i)
-    objSigmaStore.SetDirStore(objDirStore,j)
+#%%
+def PopulateSigmaStoreByFile(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str, lstOfKeys: list)->SigmaStore:
+    objSigmaStore = SigmaStore(arrAxis,intSigma, strType)
+    for j in range(1): #directories
+        objDirStore = DirStore(arrAxis,intSigma,j,strType)
+        for i in range(10): #delta values
+            objDeltaStore = DeltaStore(arrAxis,intSigma,j,i,strType)
+            strLoadname = strRootDir + str(j)  + '/' + strType + str(i) + 'P.txt'
+            objDeltaStore.ReadFileOfValues(strLoadname, lstOfKeys)
+            objDirStore.SetDeltaStore(objDeltaStore, i)
+        objSigmaStore.SetDirStore(objDirStore,j)
+    return objSigmaStore
+#%%
+objStore = PopulateSigmaStoreByFile(13, np.array([0,0,1]),'/home/paul/csf4_scratch/TJ/Axis001/TJSigma13/','GB',['GE','PE','V','S'])
+objDirStore = objStore.GetDirStore(0)
+objDeltaStore = objDirStore.GetDeltaStore(0)
+print(objDeltaStore.GetValues('PE')[1])
 #%%
 objGB = PopulateSigmaStore(17,np.array([0,0,1]),'/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/','GB')
 #%%
@@ -191,9 +257,53 @@ plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax)))/10)
 #plt.ylim([0.015, 0.045])
 plt.tight_layout()
 plt.show()
-#%%
-# %%
-      
-# %%
+
 
 #%%
+ 
+# %%
+class DeltaStore(object):
+    def __init__(self, arrAxis: int, intSigma,intDirNo: int, intDelta: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__DirNo = intDirNo
+        self.__intDelta = intDelta
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetValues(self, lstOfValues: list, strKey: str):
+        self.__Values[strKey] = lstOfValues
+    def GetValues(self, strKey: str):
+        return self.__Values[strKey]      
+# %%
+class DirStore(object):
+    def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__DirNo = intDirNo
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetDeltaStore(self, inDeltaStore: DeltaStore, strKey: str):
+        self.__Values[strKey] = inDeltaStore
+    def GetDeltaStore(self, strKey: str):
+        return self.__Values[strKey]
+#%%
+class SigmaStore(object):
+    def __init__(self, arrAxis: int, intSigma, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetDirStore(self, inDirStore: DirStore, strKey: str):
+        self.__Values[strKey] = inDirStore
+    def GetDirStore(self, strKey: str):
+        return self.__Values[strKey]  
+# %%
+class AxisStore(object):
+    def __init__(self, arrAxis: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetSigmaStore(self, inDirStore: DirStore, strKey: str):
+        self.__Values[strKey] = inDirStore
+    def GetSigmaStore(self, strKey: str):
+        return self.__Values[strKey] 
