@@ -89,7 +89,7 @@ class AxisStore(object):
     def GetSigmaStore(self, strKey: str):
         return self.__Values[strKey] 
 #%%
-def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str)->SigmaStore:
+def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str, blnWriteFile = False)->SigmaStore:
     objSigmaStore = SigmaStore(arrAxis,intSigma, strType)
     for j in range(10): #directories
         objDirStore = DirStore(arrAxis,intSigma,j,strType)
@@ -136,7 +136,8 @@ def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType:
             objDeltaStore.SetValues(lstV, 'V')
             objDeltaStore.SetValues(lstS, 'S')
             objDirStore.SetDeltaStore(objDeltaStore, i)
-            objDeltaStore.WriteFileOfValues(strSavename)
+            if blnWriteFile:
+                objDeltaStore.WriteFileOfValues(strSavename)
         objSigmaStore.SetDirStore(objDirStore,j)
     return objSigmaStore
 #%%
