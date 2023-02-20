@@ -51,7 +51,7 @@ class LAMMPSLog(object):
                     dctValues[intStages] = arrValues
                     dctColumns[intStages] = lstColumnNames
                     intStages += 1    
-            self.__Values = dctValues
+            self.__Values = dctValues 
             self.__ColumnNames = dctColumns
             self.__Stages = intStages
             Dfile.close()
@@ -1084,6 +1084,11 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             if fltNewPE >= fltCurrentPE:
                   lstReturn.append(int(i[0]))
         return lstReturn
+    def GetLabels(self,strName):
+        lstReturn = []
+        if strName in self.GetColumnNames():
+            lstReturn = list(np.unique(self.GetColumnByName(strName), axis=0).astype('int'))
+        return lstReturn
     def GetGrainLabels(self):
         if 'GrainNumber' in self.GetColumnNames():
             self.__GrainLabels = list(np.unique(self.GetColumnByName('GrainNumber'), axis=0).astype('int'))  
@@ -1091,6 +1096,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__GrainLabels = []
         return self.__GrainLabels
     def GetGrainBoundaryLabels(self):
+        self.__GrainBoundaryLabels = list(np.unique(self.GetColumnByName('GrainBoundary'), axis=0).astype('int'))
+        return self.__GrainBoundaryLabels  
+    def GetTripleLineLabels(self):
         self.__GrainBoundaryLabels = list(np.unique(self.GetColumnByName('GrainBoundary'), axis=0).astype('int'))
         return self.__GrainBoundaryLabels  
     def AppendGrainNumbers(self, lstGrainNumbers: list, lstGrainAtoms = None):
