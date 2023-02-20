@@ -12,6 +12,52 @@ import copy as cp
 from scipy import spatial
 from scipy import optimize
 #%%
+class DeltaStore(object):
+    def __init__(self, arrAxis: int, intSigma,intDirNo: int, intDelta: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__DirNo = intDirNo
+        self.__intDelta = intDelta
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetValues(self, lstOfValues: list, strKey: str):
+        self.__Values[strKey] = lstOfValues
+    def GetValues(self, strKey: str):
+        return self.__Values[strKey]
+#%%
+class DirStore(object):
+    def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__DirNo = intDirNo
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetDeltaStore(self, inDeltaStore: DeltaStore, strKey: str):
+        self.__Values[strKey] = inDeltaStore
+    def GetDeltaStore(self, strKey: str):
+        return self.__Values[strKey]
+#%%
+class SigmaStore(object):
+    def __init__(self, arrAxis: int, intSigma, strType: str):
+        self.___Axis = arrAxis
+        self.__Sigma = intSigma
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetDirStore(self, inDirStore: DirStore, strKey: str):
+        self.__Values[strKey] = inDirStore
+    def GetDirStore(self, strKey: str):
+        return self.__Values[strKey]  
+# %%
+class AxisStore(object):
+    def __init__(self, arrAxis: int, strType: str):
+        self.___Axis = arrAxis
+        self.__Type = strType
+        self.__Values = dict() 
+    def SetSigmaStore(self, inDirStore: DirStore, strKey: str):
+        self.__Values[strKey] = inDirStore
+    def GetSigmaStore(self, strKey: str):
+        return self.__Values[strKey] 
+#%%
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 fig, ax = plt.subplots()
@@ -34,7 +80,7 @@ plt.show()
 #%%
 def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str)->SigmaStore:
     objSigmaStore = SigmaStore(arrAxis,intSigma, strType)
-    for j in range(10): #directories
+    for j in range(1): #directories
         objDirStore = DirStore(arrAxis,intSigma,j,strType)
         for i in range(10): #delta values
             objDeltaStore = DeltaStore(arrAxis,intSigma,j,i,strType)
@@ -91,20 +137,20 @@ for j in range(10): #directories
         objDirStore.SetDeltaStore(objDeltaStore, i)
     objSigmaStore.SetDirStore(objDirStore,j)
 #%%
-objGB = PopulateSigmaStore(13,np.array([0,0,1]),'/home/paul/csf4_scratch/TJ/Axis001/TJSigma13/','GB')
+objGB = PopulateSigmaStore(17,np.array([0,0,1]),'/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/','GB')
 #%%
-objTJ = PopulateSigmaStore(13,np.array([0,0,1]),'/home/paul/csf4_scratch/TJ/Axis001/TJSigma13/','TJ')
+objTJ = PopulateSigmaStore(17,np.array([0,0,1]),'/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/','TJ')
 #%%
 #fltDatum = 4.05**3/4 
-fltDatum = -3.36
-#fltDatum = 0
-strType = 'V' 
-#strType = 'PE'
-#strType = 'S'
+#fltDatum = -3.36
+fltDatum = 0
+#strType = 'V' 
+strType = 'PE'
+strType = 'S'
 lstColours = ['b', 'c', 'r', 'g', 'm','y','k','w']
-intDeltaMax = 9
+intDeltaMax = 10
 intDeltaMin = 0
-for j in range(10):
+for j in range(1):
     objDirGB = objGB.GetDirStore(j)
     objDirTJ = objTJ.GetDirStore(j)
     for i in range(intDeltaMin,intDeltaMax):
@@ -147,48 +193,7 @@ plt.tight_layout()
 plt.show()
 #%%
 # %%
-class DeltaStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, intDelta: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__intDelta = intDelta
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetValues(self, lstOfValues: list, strKey: str):
-        self.__Values[strKey] = lstOfValues
-    def GetValues(self, strKey: str):
-        return self.__Values[strKey]      
+      
 # %%
-class DirStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDeltaStore(self, inDeltaStore: DeltaStore, strKey: str):
-        self.__Values[strKey] = inDeltaStore
-    def GetDeltaStore(self, strKey: str):
-        return self.__Values[strKey]
+
 #%%
-class SigmaStore(object):
-    def __init__(self, arrAxis: int, intSigma, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDirStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetDirStore(self, strKey: str):
-        return self.__Values[strKey]  
-# %%
-class AxisStore(object):
-    def __init__(self, arrAxis: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetSigmaStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetSigmaStore(self, strKey: str):
-        return self.__Values[strKey] 
