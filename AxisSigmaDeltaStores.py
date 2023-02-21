@@ -42,7 +42,6 @@ class DeltaStore(object):
                     line = next(fdata).strip()
                 except StopIteration as EndOfFile:
                     blnGo = False
-                    break
                 if line in lstKeys:
                     if len(lstOfValues) > 0:
                         self.SetValues(lstOfValues,strKey)
@@ -50,6 +49,8 @@ class DeltaStore(object):
                     strKey = line
                 else: 
                     lstOfValues.append(list(map(lambda x: float(x), line.split(','))))
+            if not(blnGo):
+                self.SetValues(lstOfValues,strKey)
             fdata.close()
 class DirStore(object):
     def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
@@ -107,9 +108,9 @@ def PopulateDeltaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType:
         elif strType =='TJ':
             idsG1 = objLT.GetTripleLineIDs(0)
             idsG2 = objLT.GetGrainBoundaryIDs(0)
-            idsG = np.append(idsG1,idsG2, axis=0)
-        lstG = [np.array([len(idsG), np.sum(objLT.GetAtomsByID(idsG)[:,intPE]), np.sum(objLT.GetAtomsByID(idsG)[:,intV]),
-                        np.sum(np.sum(objLT.GetAtomsByID(idsG)[:,intC1:intC3+1],axis=1))])]
+            idsG = list(set(idsG1).intersection(set(idsG2)))
+        idsG = np.unique(idsG).tolist()
+        lstG = [np.array([len(idsG), np.sum(objLT.GetAtomsByID(idsG)[:,intPE]), np.sum(objLT.GetAtomsByID(idsG)[:,intV]),np.sum(np.sum(objLT.GetAtomsByID(idsG)[:,intC1:intC3+1],axis=1))])]
         objDeltaStore.SetValues(lstG, 'GE')
         lstLabels.remove(0)
     for k in  lstLabels:
@@ -124,7 +125,7 @@ def PopulateDeltaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType:
     objDeltaStore.SetValues(lstV, 'V')
     objDeltaStore.SetValues(lstS, 'S')
     if blnWriteFile:
-                objDeltaStore.WriteFileOfValues(strSavename) 
+        objDeltaStore.WriteFileOfValues(strSavename) 
 def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str, blnWriteFile = False)->SigmaStore:
     objSigmaStore = SigmaStore(arrAxis,intSigma, strType)
     for j in range(10): #directories
