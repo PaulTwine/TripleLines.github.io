@@ -678,9 +678,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def SetPeriodicGrain(self, strName: str, arrIDs: np.array, fltWrapperWidth: float):
         self.__PeriodicGrains[strName] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(arrIDs)[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
         self.__GrainLabels = np.unique(self.__GrainLabels.append(strName)).tolist()  
-    def MergePeriodicGrains(self, fltWrapperWidth = None, intCloseAtoms = 25):
-        if fltWrapperWidth is None:
-            fltWrapperWidth = 2*self.__LatticeParameter
+    def MergePeriodicGrains(self, intCloseAtoms = 5):
         i = 0
         lstKeys = self.GetGrainLabels()
         lstKeys.remove(0)
@@ -688,18 +686,23 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         while i < len(lstKeys):
             blnMerge = False
             j = i+1
-            c = 0 
-            while c < 3 and not(blnMerge):
+            c = 0
+            lstAllRows = [] 
+            for c in range(len(arrConstraints)):
                 arrVector = arrConstraints[c,:-1]
                 fltValue = arrConstraints[c,-1]
-                #arrRows = np.where((np.dot(arrVector,self.__PeriodicGrains[lstKeys[i]].GetOriginalPoints()) < self.__LatticeParameter) | (np.dot(arrVector,self.__PeriodicGrains[lstKeys[i]].GetOriginalPoints())) >  fltValue -self.__LatticeParameter)[0]
-                fltDots = np.matmul(arrVector, np.transpose(self.__PeriodicGrains[lstKeys[i]].GetOriginalPoints()))
+                arrOriginalPoints = self.__PeriodicGrains[lstKeys[i]].GetOriginalPoints()
+                fltDots = np.matmul(arrVector, np.transpose(arrOriginalPoints))
                 arrRows = np.where(((fltDots > -self.__LatticeParameter) & (fltDots < self.__LatticeParameter)) | ((fltDots > fltValue -self.__LatticeParameter) & (fltDots < fltValue+  self.__LatticeParameter)))[0]
                 if len(arrRows) > 0: 
                     blnMerge = True
-                c +=1
+                    lstAllRows.extend(arrRows)
+            if blnMerge:
+                    arrRows = np.unique(lstAllRows)
+                    arrBoundaryPoints = arrOriginalPoints[arrRows]
             while j < len(lstKeys) and blnMerge:
-                arrIndices, arrDistances = self.__PeriodicGrains[lstKeys[i]].Pquery_radius(self.__PeriodicGrains[lstKeys[j]].GetExtendedPoints(),self.__GBSeparation)
+                #arrIndices, arrDistances = self.__PeriodicGrains[lstKeys[i]].Pquery_radius(self.__PeriodicGrains[lstKeys[j]].GetExtendedPoints(),self.__GBSeparation)
+                arrIndices, arrDistances = self.__PeriodicGrains[lstKeys[j]].Pquery_radius(arrBoundaryPoints,1.05*self.__GBSeparation)
                 arrLengths = np.array([len(x) for x in arrIndices])
                 arrRows = np.where(arrLengths > 0)[0]
                 if len(arrRows) > intCloseAtoms:

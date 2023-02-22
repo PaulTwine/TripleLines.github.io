@@ -17,8 +17,8 @@ import sys
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 
-#strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/' #str(sys.argv[1])
 strDirectory = str(sys.argv[1])
+#strDirectory = str(sys.argv[1])
 intDir = int(sys.argv[2])
 intDelta = int(sys.argv[3])
 strType = str(sys.argv[4])
