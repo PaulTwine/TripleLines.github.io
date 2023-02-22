@@ -2,14 +2,14 @@ import numpy as np
 #from mpl_toolkits.mplot3d import Axes3D
 #import matplotlib.pyplot as plt
 #from sklearn.neighbors import NearestNeighbors
-import GeometryFunctions as gf
-import GeneralLattice as gl
+#import GeometryFunctions as gf
+#import GeneralLattice as gl
 import LAMMPSTool as LT 
-import LatticeDefinitions as ld
+#import LatticeDefinitions as ld
 import sys 
-import MiscFunctions as mf
-import itertools as it
-from sklearn.cluster import DBSCAN
+#import MiscFunctions as mf
+#import itertools as it
+#from sklearn.cluster import DBSCAN
 
 
 
@@ -17,7 +17,7 @@ from sklearn.cluster import DBSCAN
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 
-#strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma37/' #str(sys.argv[1])
+#strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/' #str(sys.argv[1])
 strDirectory = str(sys.argv[1])
 intDir = int(sys.argv[2])
 intDelta = int(sys.argv[3])
@@ -28,20 +28,22 @@ lstGrainLabels = []
 intCount = 0
 a = 1
 blnStop = False
-while not(blnStop) and a < 10:
-    objTJ = objData.GetTimeStepByIndex(-1)
+objTJ = objData.GetTimeStepByIndex(-1)
+while not(blnStop) and a <= 10:
+    objTJ.ResetGrainNumbers()   
     objTJ.PartitionGrains(a,25,25)
     lstGrainLabels = objTJ.GetGrainLabels()
     if len(lstGrainLabels) > 0 :
         objTJ.MergePeriodicGrains(30)
         lstGrainLabels = objTJ.GetGrainLabels()
     fltWidth = objTJ.EstimateLocalGrainBoundaryWidth()
-    if lstGrainLabels == list(range(5)) and fltWidth > 0:
+    if lstGrainLabels == list(range(5)) and fltWidth > 0 and fltWidth < 50:
         blnStop = True
     a += 1
 
 print(fltWidth)
-objTJ.FindGrainBoundaries(2*4.05)
+fltWidth = np.min([fltWidth,50])
+objTJ.FindGrainBoundaries(3*4.05)
 # lstTJs = []
 # lstpts = objTJ.FindJunctionMesh(2*4.05,3)
 # for i in lstpts:
@@ -56,7 +58,7 @@ objTJ.FindGrainBoundaries(2*4.05)
 #         ax.scatter(*tuple(zip(*pts)))
 # plt.show()
 if strType == 'TJ':
-       objTJ.FindJunctionLines(2*4.05, 3)
+       objTJ.FindJunctionLines(3*4.05, 3)
 objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' + strType + str(intDelta) + 'P.lst')
 
 # if len(pts) > 0:
