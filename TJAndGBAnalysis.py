@@ -11,300 +11,212 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy as cp
 from scipy import spatial
 from scipy import optimize
+import AxisSigmaDeltaStores as AS
 #%%
-class DeltaStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, intDelta: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__intDelta = intDelta
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetValues(self, lstOfValues: list, strKey: str):
-        self.__Values[strKey] = lstOfValues
-    def GetValues(self, strKey: str):
-        return self.__Values[strKey]
+plt.rc('text', usetex=True)
+plt.rc('text.latex', preamble=r'\usepackage{amsmath} \usepackage{bm}')
+plt.rcParams['figure.dpi'] = 300
 #%%
-class DirStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDeltaStore(self, inDeltaStore: DeltaStore, strKey: str):
-        self.__Values[strKey] = inDeltaStore
-    def GetDeltaStore(self, strKey: str):
-        return self.__Values[strKey]
+objStoreTJ = AS.PopulateSigmaStoreByFile(31, np.array([1,1,1]),'/home/p17992pt/csf4_scratch/TJ/Axis111/TJSigma31/','TJ',['GE','PE','V','S'])
+#objDirStore = objStoreTJ.GetDirStore(0)
+# objDeltaStore = objDirStoreTJ.GetDeltaStore(0)
+# print(objDeltaStore.GetValues('PE')[1])
 #%%
-class SigmaStore(object):
-    def __init__(self, arrAxis: int, intSigma, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDirStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetDirStore(self, strKey: str):
-        return self.__Values[strKey]  
-# %%
-class AxisStore(object):
-    def __init__(self, arrAxis: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetSigmaStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetSigmaStore(self, strKey: str):
-        return self.__Values[strKey] 
+objStoreGB = AS.PopulateSigmaStoreByFile(31, np.array([1,1,1]),'/home/p17992pt/csf4_scratch/TJ/Axis111/TJSigma31/','GB',['GE','PE','V','S'])
+#objDirStoreGB = objStore.GetDirStore(0)
+#objDeltaStoreGB = objDirStore.GetDeltaStore(0)
+#print(objDeltaStore.GetValues('PE')[1])
 #%%
-#fig = plt.figure()
-#ax = fig.add_subplot(projection='3d')
 fig, ax = plt.subplots()
 #%%
-class DeltaStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, intDelta: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__intDelta = intDelta
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetValues(self, lstOfValues: list, strKey: str):
-        self.__Values[strKey] = lstOfValues
-    def GetValues(self, strKey: str):
-        return self.__Values[strKey]  
-    def WriteFileOfValues(self, strFilename):
-        with open(strFilename, 'w') as fdata:
-            for k in self.__Values:
-                fdata.write(str(k)  + '\n') 
-                for i in self.GetValues(k):
-                    fdata.write(','.join(map(str,i)))
-                    fdata.write('\n')
-                    
-            fdata.close() 
-    def ReadFileOfValues(self, strFilename, lstKeys):
-        blnGo = True
-        with open(strFilename, 'r') as fdata:
-            lstOfValues = []
-            while blnGo:
-                try:
-                    line = next(fdata).strip()
-                except StopIteration as EndOfFile:
-                    blnGo = False
-                    break
-                if line in lstKeys:
-                    if len(lstOfValues) > 0:
-                        self.SetValues(lstOfValues,strKey)
-                        lstOfValues = []
-                    strKey = line
-                else: 
-                    lstOfValues.append(list(map(lambda x: float(x), line.split(','))))
-            fdata.close()
-#%%
-class DirStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDeltaStore(self, inDeltaStore: DeltaStore, strKey: str):
-        self.__Values[strKey] = inDeltaStore
-    def GetDeltaStore(self, strKey: str):
-        return self.__Values[strKey]
-#%%
-class SigmaStore(object):
-    def __init__(self, arrAxis: int, intSigma, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDirStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetDirStore(self, strKey: str):
-        return self.__Values[strKey] 
-#%%
-class AxisStore(object):
-    def __init__(self, arrAxis: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetSigmaStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetSigmaStore(self, strKey: str):
-        return self.__Values[strKey] 
-#%%
-def PopulateSigmaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str, blnWriteFile = False)->SigmaStore:
-    objSigmaStore = SigmaStore(arrAxis,intSigma, strType)
-    for j in range(1): #directories
-        objDirStore = DirStore(arrAxis,intSigma,j,strType)
-        for i in range(10): #delta values
-            objDeltaStore = DeltaStore(arrAxis,intSigma,j,i,strType)
-            strFilename = strRootDir + str(j)  + '/' + strType + str(i) + 'P.lst'
-            strSavename = strRootDir + str(j)  + '/' + strType + str(i) + 'P.txt'
-            objData = LT.LAMMPSData(strFilename, 1, 4.05, LT.LAMMPSAnalysis3D)
-            objLT = objData.GetTimeStepByIndex(-1)
-            if strType == 'TJ':
-                lstLabels = objLT.GetLabels('TripleLine')
-            elif strType =='GB':
-                lstLabels = objLT.GetLabels('GrainBoundary')
-            intV = objLT.GetColumnIndex('c_v[1]')
-            intPE = objLT.GetColumnIndex('c_pe1')
-            intC1 = objLT.GetColumnIndex('c_st[1]')
-            intC3 = objLT.GetColumnIndex('c_st[3]')    
-            lstPE = [] #Pe per atom
-            lstV = [] # vollume per atom
-            lstS = [] # hydrostatic stress per atom
-            lstG = [] #one entry for the total excess energy stored in the grains compared to an ideal crystal
-            if -1 in lstLabels:
-                lstLabels.remove(-1)
-            if 0 in lstLabels:
-                if strType =='GB':
-                    idsG = objLT.GetGrainBoundaryIDs(0)
-                elif strType =='TJ':
-                    idsG1 = objLT.GetTripleLineIDs(0)
-                    idsG2 = objLT.GetGrainBoundaryIDs(0)
-                    idsG = np.append(idsG1,idsG2, axis=0)
-                lstG = [np.array([len(idsG), np.sum(objLT.GetAtomsByID(idsG)[:,intPE]), np.sum(objLT.GetAtomsByID(idsG)[:,intV]),
-                             np.sum(np.sum(objLT.GetAtomsByID(idsG)[:,intC1:intC3+1],axis=1))])]
-                objDeltaStore.SetValues(lstG, 'GE')
-                lstLabels.remove(0)
-            for k in  lstLabels:
-                if strType == 'TJ':
-                    ids = objLT.GetTripleLineIDs(k)
-                elif strType == 'GB':
-                    ids = objLT.GetGrainBoundaryIDs(k)              
-                lstPE.append(objLT.GetColumnByIDs(ids,intPE))
-                lstV.append(objLT.GetColumnByIDs(ids,intV))
-                lstS.append(np.sum(objLT.GetAtomsByID(ids)[:,intC1:intC3+1],axis=1))          
-            objDeltaStore.SetValues(lstPE, 'PE')
-            objDeltaStore.SetValues(lstV, 'V')
-            objDeltaStore.SetValues(lstS, 'S')
-            objDirStore.SetDeltaStore(objDeltaStore, i)
-            if blnWriteFile:
-                objDeltaStore.WriteFileOfValues(strSavename)
-        objSigmaStore.SetDirStore(objDirStore,j)
-    return objSigmaStore
-#%%
-def PopulateSigmaStoreByFile(intSigma: int, arrAxis: np.array,strRootDir:str, strType: str, lstOfKeys: list)->SigmaStore:
-    objSigmaStore = SigmaStore(arrAxis,intSigma, strType)
-    for j in range(1): #directories
-        objDirStore = DirStore(arrAxis,intSigma,j,strType)
-        for i in range(10): #delta values
-            objDeltaStore = DeltaStore(arrAxis,intSigma,j,i,strType)
-            strLoadname = strRootDir + str(j)  + '/' + strType + str(i) + 'P.txt'
-            objDeltaStore.ReadFileOfValues(strLoadname, lstOfKeys)
-            objDirStore.SetDeltaStore(objDeltaStore, i)
-        objSigmaStore.SetDirStore(objDirStore,j)
-    return objSigmaStore
-#%%
-objStore = PopulateSigmaStoreByFile(13, np.array([0,0,1]),'/home/paul/csf4_scratch/TJ/Axis001/TJSigma13/','GB',['GE','PE','V','S'])
-objDirStore = objStore.GetDirStore(0)
-objDeltaStore = objDirStore.GetDeltaStore(0)
-print(objDeltaStore.GetValues('PE')[1])
-#%%
-objGB = PopulateSigmaStore(17,np.array([0,0,1]),'/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/','GB')
-#%%
-objTJ = PopulateSigmaStore(17,np.array([0,0,1]),'/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/','TJ')
-#%%
-#fltDatum = 4.05**3/4 
-#fltDatum = -3.36
-fltDatum = 0
-#strType = 'V' 
-strType = 'PE'
-strType = 'S'
-lstColours = ['b', 'c', 'r', 'g', 'm','y','k','w']
+##Per atom graphs of excess PE, excess volume and hydrostatc stress
+strDeltaAxis = r'$\bm{\delta_{i}}$'
+strDMinAxis = r'$10d_{\mathrm{min}}/r_0$'
+fltDatum = 4.05**3/4 
+fltDatum = -3.36
+#fltDatum = 0
+strType = 'V' 
+#strType = 'PE'
+#strType = 'S'
+#lstColours = ['b', 'c', 'r', 'g', 'm','y','k','w']
+lstColours = ['black','darkolivegreen','darkgoldenrod']
 intDeltaMax = 10
 intDeltaMin = 0
-for j in range(1):
-    objDirGB = objGB.GetDirStore(j)
-    objDirTJ = objTJ.GetDirStore(j)
-    for i in range(intDeltaMin,intDeltaMax):
+lstAllTJs = []
+for j in range(10): #directories
+    objDirGB = objStoreGB.GetDirStore(j)
+    objDirTJ = objStoreTJ.GetDirStore(j) 
+    for i in range(intDeltaMin,intDeltaMax): #delta values
         objDeltaTJ = objDirTJ.GetDeltaStore(i)
-        lstPEValuesTJ = objDeltaTJ.GetValues(strType)
+        lstValuesTJ = objDeltaTJ.GetValues(strType)
         intCol = 0
-        for l in lstPEValuesTJ[1:]:
-            plt.scatter(i/10-0.01,(np.mean(l)-fltDatum),c='g',label='Tripleline')
-            #plt.scatter(i,np.mean(l)-fltVDatum,c='g',label='Tripleline')#c =lstColours[intCol])
+        lstAllTJs.extend(np.concatenate(lstValuesTJ,axis=0))
+        for l in lstValuesTJ[1:]:
+            plt.scatter(i,(np.mean(l)-fltDatum),c=lstColours[0],label='Tripleline')
             intCol +=1
         objDeltaGB = objDirGB.GetDeltaStore(i)
-        lstPEValuesGB = objDeltaGB.GetValues(strType)
+        lstValuesGB = objDeltaGB.GetValues(strType)
         intCol = 0
-        arrLengths  = np.argsort(list(map(lambda x: len(x),lstPEValuesGB)))
+        arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGB)))
+        # if len(arrLengths) != 3:
+        #     print(len(arrLengths),i,j)
         for k in arrLengths:
-            arrValues = lstPEValuesGB[k]
-            if intCol < 2:
-                plt.scatter(i/10+0.01,(np.mean(arrValues)-fltDatum),c='r',label = 'Cylinder')
+            arrValues = lstValuesGB[k]
+            # if np.mean(arrValues)-fltDatum < 0.01:
+            #      print(i,j, len(arrValues))
+            if intCol ==0:
+                plt.scatter(i-0.1,(np.mean(arrValues)-fltDatum),c=lstColours[1],label = 'Cylinder')
+            elif intCol ==1:
+                plt.scatter(i+0.1,(np.mean(arrValues)-fltDatum),c=lstColours[1],label = 'Cylinder')
+                
             elif intCol ==2:
-                plt.scatter(i/10+0.01,(np.mean(arrValues)-fltDatum),c='y',label = 'CSL')
-            else:
+                plt.scatter(i,(np.mean(arrValues)-fltDatum),c=lstColours[2],label = 'CSL')
+            #else:
             #plt.scatter(i,np.mean(k)-(4.05**3/4),c= 'b') #c =lstColours[intCol])
-                plt.scatter(i/10,(np.mean(arrValues)-fltDatum),c='b',label = 'Grain')#c =lstColours[intCol])
+                #print(i,j)
+               # plt.scatter(i/10,(np.mean(arrValues)-fltDatum),c='b',label = 'Grain')#c =lstColours[intCol])
             
             intCol +=1 
-a = ax.get_legend_handles_labels()  # a = [(h1 ... h2) (l1 ... l2)]  non unique
+   # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
+   #plt.scatter(arrDeltaMeanTJ, i/10, c='black', marker='x')
+a = plt.gca().get_legend_handles_labels()  # a = [(h1 ... h2) (l1 ... l2)]  non unique
 b = {l:h for h,l in zip(*a)}        # b = {l1:h1, l2:h2}             unique
 c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
 d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
-ax.legend(*d)
+plt.legend(*d)
 if strType == 'V':
-    strYlabel = 'Excess volume per atom in $\AA^{3}$ per atom'   
+    strYlabel = 'Mean excess volume per atom in $\AA^{3}$ per atom'   
 elif strType == 'PE':
-    strYlabel = 'Excess potential energy per atom in eV per atom'
+    strYlabel = 'Mean excess potential energy per atom in eV per atom'
+elif strType =='S':
+    strYlabel = 'Mean hydrostatic stress per atom in eV $\AA^{-3}$ per atom'
+plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
+#plt.ylim([0.0, 0.06])
 plt.ylabel(strYlabel)
-plt.xlabel('$\delta /r_0$')
-plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax)))/10)
-#plt.ylim([0.015, 0.045])
+plt.xlabel(strDMinAxis)
 plt.tight_layout()
 plt.show()
 
+# %%
+strType = 'PE'
+fltDatum = -3.36 #4.05**3/4#
+for j in range(10): #directories
+    objDirGB = objStoreGB.GetDirStore(j)
+    objDirTJ = objStoreTJ.GetDirStore(j) 
+    for i in range(intDeltaMin,intDeltaMax): #delta values
+        objDeltaTJ = objDirTJ.GetDeltaStore(i)
+        lstValuesTJ = objDeltaTJ.GetValues(strType)
+        intCol = 0
+        for l in lstValuesTJ[1:]:
+            plt.scatter(i,(np.sum(l)-len(l)*fltDatum),c=lstColours[0],label='Tripleline')
+            intCol +=1
+        objDeltaGB = objDirGB.GetDeltaStore(i)
+        lstValuesGB = objDeltaGB.GetValues(strType)
+        intCol = 0
+        arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGB)))
+        # if len(arrLengths) != 3:
+        #     print(len(arrLengths),i,j)
+        # for k in arrLengths:
+        #     arrValues = lstValuesGB[k]
+        #     intL = len(arrValues)
+        #     # if np.mean(arrValues)-fltDatum < 0.01:
+            #     print(i,j, len(arrValues))
+            # if intCol ==0:
+            #     plt.scatter(i-0.1,(np.sum(arrValues)-intL*fltDatum),c=lstColours[1],label = 'Cylinder')
+            # elif intCol ==1:
+            #     plt.scatter(i+0.1,(np.sum(arrValues)-intL*fltDatum),c=lstColours[1],label = 'Cylinder')
+                
+            # elif intCol ==2:
+            #     plt.scatter(i,(np.sum(arrValues)-intL*fltDatum),c=lstColours[2],label = 'CSL')
+            # #else:
+            # #plt.scatter(i,np.mean(k)-(4.05**3/4),c= 'b') #c =lstColours[intCol])
+                #print(i,j)
+               # plt.scatter(i/10,(np.mean(arrValues)-fltDatum),c='b',label = 'Grain')#c =lstColours[intCol])
+         #   intCol +=1
+        arrGValues = objDeltaTJ.GetValues('GE')[0]
+        arrExcess = arrGValues[1]-arrGValues[0]*fltDatum
+        plt.scatter(i-0.1,arrExcess, c='navy',label='TJ Grain')
+        # arrGValues = objDeltaGB.GetValues('GE')[0]
+        # arrExcess = arrGValues[1]-arrGValues[0]*fltDatum
+        # plt.scatter(i+0.1,arrExcess, c='darkgoldenrod',label='GB Grain')
+         
+   # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
+   #plt.scatter(arrDeltaMeanTJ, i/10, c='black', marker='x')
+a = plt.gca().get_legend_handles_labels()  # a = [(h1 ... h2) (l1 ... l2)]  non unique
+b = {l:h for h,l in zip(*a)}        # b = {l1:h1, l2:h2}             unique
+c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
+d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
+plt.legend(*d)
+if strType == 'V':
+    strYlabel = 'Excess volume per atom in $\AA^{3}$ per atom'   
+elif strType == 'PE':
+    strYlabel = 'Excess potential energy in eV'
+elif strType =='S':
+    strYlabel = 'Hydrostatic stress per atom in eV $\AA^{-3}$ per atom'
+plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
+#plt.ylim([0.0, 0.06])
+plt.ylabel(strYlabel)
+plt.xlabel(strDMinAxis)
+plt.tight_layout()
+plt.show()
+# %%
+def PlotEnergyDensities(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore):
+    strDeltaAxis = r'$\bm{\delta_{i}}$'
+    strDMinAxis = r'$10d_{\mathrm{min}}/r_0$'
+    fltDatum = -3.36/(4.05**3/4)
+    lstColours = ['black','darkolivegreen','darkgoldenrod']
+    intDeltaMax = 10
+    intDeltaMin = 0
+    lstAllTJs = []
+    for j in range(10): #directories
+        objDirGB = inStoreGB.GetDirStore(j)
+        objDirTJ = inStoreTJ.GetDirStore(j) 
+        for i in range(intDeltaMin,intDeltaMax): #delta values
+            objDeltaTJ = objDirTJ.GetDeltaStore(i)
+            lstValuesTJPE = objDeltaTJ.GetValues('PE')
+            lstValuesTJV = objDeltaTJ.GetValues('V')
+            intCol = 0
+            for l in range(1,len(lstValuesTJ)):
+                plt.scatter(i,(np.sum(lstValuesTJPE[l])/np.sum(lstValuesTJV[l])-fltDatum),c=lstColours[0],label='Tripleline')
+                intCol +=1
+            objDeltaGB = objDirGB.GetDeltaStore(i)
+            lstValuesGBPE = objDeltaGB.GetValues('PE')
+            lstValuesGBV = objDeltaGB.GetValues('V')
+            intCol = 0
+            arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGBPE)))
+            # if len(arrLengths) != 3:
+            #     print(len(arrLengths),i,j)
+            for k in arrLengths:
+                arrValues = np.sum(lstValuesGBPE[k])/np.sum(lstValuesGBV[k])
+                # if np.mean(arrValues)-fltDatum < 0.01:
+                #      print(i,j, len(arrValues))
+                if intCol ==0:
+                    plt.scatter(i-0.1,(arrValues-fltDatum),c=lstColours[1],label = 'Cylinder')
+                elif intCol ==1:
+                    plt.scatter(i+0.1,(arrValues-fltDatum),c=lstColours[1],label = 'Cylinder')
+                    
+                elif intCol ==2:
+                    plt.scatter(i,(arrValues-fltDatum),c=lstColours[2],label = 'CSL')
+                #else:
+                #plt.scatter(i,np.mean(k)-(4.05**3/4),c= 'b') #c =lstColours[intCol])
+                    #print(i,j)
+                    # plt.scatter(i/10,(np.mean(arrValues)-fltDatum),c='b',label = 'Grain')#c =lstColours[intCol])
+                
+                intCol +=1 
+    # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
+    #plt.scatter(arrDeltaMeanTJ, i/10, c='black', marker='x')
+    a = plt.gca().get_legend_handles_labels()  # a = [(h1 ... h2) (l1 ... l2)]  non unique
+    b = {l:h for h,l in zip(*a)}        # b = {l1:h1, l2:h2}             unique
+    c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
+    d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
+    plt.legend(*d)
+    strYlabel = 'Mean excess potential energy density in eV $\AA^{3}$'   
+    plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
+    plt.ylabel(strYlabel)
+    plt.xlabel(strDMinAxis)
+    plt.tight_layout()
+    plt.show()
 
-#%%
- 
 # %%
-class DeltaStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, intDelta: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__intDelta = intDelta
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetValues(self, lstOfValues: list, strKey: str):
-        self.__Values[strKey] = lstOfValues
-    def GetValues(self, strKey: str):
-        return self.__Values[strKey]      
+PlotEnergyDensities(objStoreGB,objStoreTJ)
 # %%
-class DirStore(object):
-    def __init__(self, arrAxis: int, intSigma,intDirNo: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__DirNo = intDirNo
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDeltaStore(self, inDeltaStore: DeltaStore, strKey: str):
-        self.__Values[strKey] = inDeltaStore
-    def GetDeltaStore(self, strKey: str):
-        return self.__Values[strKey]
-#%%
-class SigmaStore(object):
-    def __init__(self, arrAxis: int, intSigma, strType: str):
-        self.___Axis = arrAxis
-        self.__Sigma = intSigma
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetDirStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetDirStore(self, strKey: str):
-        return self.__Values[strKey]  
-# %%
-class AxisStore(object):
-    def __init__(self, arrAxis: int, strType: str):
-        self.___Axis = arrAxis
-        self.__Type = strType
-        self.__Values = dict() 
-    def SetSigmaStore(self, inDirStore: DirStore, strKey: str):
-        self.__Values[strKey] = inDirStore
-    def GetSigmaStore(self, strKey: str):
-        return self.__Values[strKey] 
