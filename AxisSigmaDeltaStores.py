@@ -100,6 +100,7 @@ def PopulateDeltaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType:
     lstV = [] # vollume per atom
     lstS = [] # hydrostatic stress per atom
     lstG = [] #one entry for the total excess energy stored in the grains compared to an ideal crystal
+    lstTE = [] #one entry for total potential energy and number of atoms
     if -1 in lstLabels:
         lstLabels.remove(-1)
     if 0 in lstLabels:
@@ -121,6 +122,10 @@ def PopulateDeltaStore(intSigma: int, arrAxis: np.array,strRootDir:str, strType:
         lstPE.append(objLT.GetColumnByIDs(ids,intPE))
         lstV.append(objLT.GetColumnByIDs(ids,intV))
         lstS.append(np.sum(objLT.GetAtomsByID(ids)[:,intC1:intC3+1],axis=1))          
+    fltTotalPE = np.sum(objLT.GetColumnByIndex(intPE))
+    intNumberOfAtoms = objLT.GetNumberOfAtoms()
+    lstTotal =[[fltTotalPE,intNumberOfAtoms]]
+    objDeltaStore.SetValues(lstTotal,'TE')
     objDeltaStore.SetValues(lstPE, 'PE')
     objDeltaStore.SetValues(lstV, 'V')
     objDeltaStore.SetValues(lstS, 'S')
