@@ -1177,6 +1177,7 @@ class CSLMobility(object):
         intStart = min([intStart, self.__MaxRows])
         intFinish = min([intFinish, self.__MaxRows])
         self.__LinearRange = slice(intStart,intFinish,1)
+        
     def GetLinearRange(self):
         return self.__LinearRange
     def FitLine(self, x, a, b):
