@@ -942,7 +942,6 @@ def PrimitiveToOrthogonalVectorsGrammSchmdit(inPrimitiveVectors,arrPrimitiveCell
         arrPrimitiveVectors = 2*inPrimitiveVectors[arrRows]
         intL = len(arrPrimitiveVectors)
         lstVectors = []
-        #lstVectors.append(arrPrimitiveVectors[0])
         for i in range(0,intL):
                 intVector = 0
                 arrProjections = np.zeros(3)
@@ -957,17 +956,11 @@ def PrimitiveToOrthogonalVectorsGrammSchmdit(inPrimitiveVectors,arrPrimitiveCell
                        u = lstVectors[-1]
                        arrVector = arrVector*(np.dot(u,u))
                 lstVectors.append(arrVector)
-                # arrPrimitive = np.matmul(arrVector,np.linalg.inv(arrPrimitiveCells)).astype('int')
-                # arrPrimitive = arrPrimitive/np.gcd.reduce(arrPrimitive)
-                # arrVector = np.matmul(arrPrimitiveCells,arrPrimitive)
-                # lstVectors.append(2*arrVector)
         arrVectors = np.vstack(lstVectors)
         for a in range(len(arrVectors)):
                 arrP = np.matmul(arrVectors[a],np.linalg.inv(arrPrimitiveCells)).astype('int')
                 arrP = arrP/np.gcd.reduce(arrP)
                 arrVectors[a] = np.matmul(np.transpose(arrP), arrPrimitiveCells)
-        #print(np.matmul(arrVectors, np.transpose(arrVectors)))
-        #arrLengths = np.linalg.norm(arrVectors,axis=1)
         arrRows = np.argsort(arrLengths)[::-1]
         return arrVectors[arrRows]
 
