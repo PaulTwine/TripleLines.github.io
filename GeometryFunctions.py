@@ -637,37 +637,27 @@ def CubicCSLGenerator(inAxis: np.array, intIterations=5, blnDisorientation = Fal
         return arrReturn[np.argsort(arrReturn[:,0])]
 def FindAxesFromSigmaValues(intSigma :int, intLimit: int): #cubic only
         lstAxes = []
-        k=0
-        while k <= intSigma:
-                j = 0
-                while j <= k:
-                        h = 0
-                        while h <= j:
-                                blnNotFound = True
-                                n = 1
-                                m = 1
-                                arrAxis = np.array([h,j,k])
-                                intGCD = np.gcd.reduce(arrAxis)
-                                if intGCD == 0:
-                                        blnNotFound = False
-                                else:
-                                        arrAxis = arrAxis/intGCD
-                                        intSquared = np.sum(arrAxis*arrAxis).astype('int')
-                                while m <= n and blnNotFound:
-                                        while n <= intLimit and blnNotFound:
-                                                i = (np.max([np.gcd(n,m),1]))**2 
-                                                intTest = (n**2 + m**2*(intSquared))/i
-                                                intTest = np.max([intTest,1])
-                                                while np.mod(intTest,2) == 0:
-                                                        intTest = intTest/2
-                                                if intTest == intSigma:
-                                                        blnNotFound =False
-                                                        lstAxes.append(arrAxis)
-                                                n +=1
-                                        m +=1
-                                h +=1
-                        j+=1
-                k +=1                  
+        lstPossibleAxes = list(it.combinations_with_replacement(list(range(intSigma)),3))
+        lstPossibleAxes.remove((0,0,0))
+        lstReduce = list(map(lambda x: x/np.gcd.reduce(x),lstPossibleAxes))
+        lstReduce = np.unique(lstReduce,axis=0).astype('int')
+        for a in lstReduce:
+                blnNotFound = True
+                n = 0
+                m = 0
+                intSquared = np.sum(a*a).astype('int')
+                while m <= intLimit and blnNotFound:
+                        n = 0
+                        while n <= intLimit and blnNotFound:
+                                intTest = (n**2 + m**2*(intSquared))
+                                intTest = np.max([intTest,1])
+                                while np.mod(intTest,2) == 0:
+                                        intTest = intTest/2
+                                if int(intTest) == int(intSigma):
+                                        blnNotFound =False
+                                        lstAxes.append(a)
+                                n +=1
+                        m +=1
         return np.unique(lstAxes,axis=0)
 def GetBoundaryPoints(inPoints, intNumberOfNeighbours: int, fltRadius: float, inCellVectors = None):
         intLength = len(inPoints) #assumes a lattice configuration with fixed number of neighbours
@@ -946,6 +936,45 @@ def FindPrimitiveVectors( inLatticePoints):
         lstVectors.append(arrVector3)
         arrPrimitiveVectors = np.vstack(lstVectors)
         return arrPrimitiveVectors
+def PrimitiveToOrthogonalVectorsGrammSchmdit(inPrimitiveVectors,arrPrimitiveCells):
+        arrLengths = np.linalg.norm(inPrimitiveVectors,axis=1)
+        arrRows = np.argsort(arrLengths)
+        arrPrimitiveVectors = 2*inPrimitiveVectors[arrRows]
+        intL = len(arrPrimitiveVectors)
+        lstVectors = []
+        #lstVectors.append(arrPrimitiveVectors[0])
+        for i in range(0,intL):
+                intVector = 0
+                arrProjections = np.zeros(3)
+                intVector = 0
+                v= 2*arrPrimitiveVectors[i]
+                while intVector < len(lstVectors):
+                        u = lstVectors[intVector]
+                        arrProjections += np.dot(u,v)/np.dot(u,u)*u
+                        intVector +=1
+                arrVector = (v -arrProjections)
+                if len(lstVectors):
+                       u = lstVectors[-1]
+                       arrVector = arrVector*(np.dot(u,u))
+                lstVectors.append(arrVector)
+                # arrPrimitive = np.matmul(arrVector,np.linalg.inv(arrPrimitiveCells)).astype('int')
+                # arrPrimitive = arrPrimitive/np.gcd.reduce(arrPrimitive)
+                # arrVector = np.matmul(arrPrimitiveCells,arrPrimitive)
+                # lstVectors.append(2*arrVector)
+        arrVectors = np.vstack(lstVectors)
+        for a in range(len(arrVectors)):
+                arrP = np.matmul(arrVectors[a],np.linalg.inv(arrPrimitiveCells)).astype('int')
+                arrP = arrP/np.gcd.reduce(arrP)
+                arrVectors[a] = np.matmul(np.transpose(arrP), arrPrimitiveCells)
+        #print(np.matmul(arrVectors, np.transpose(arrVectors)))
+        #arrLengths = np.linalg.norm(arrVectors,axis=1)
+        arrRows = np.argsort(arrLengths)[::-1]
+        return arrVectors[arrRows]
+
+                       
+                
+
+
 
 def PrimitiveToOrthogonalVectors(inPrimitiveVectors, inAxis): #trys to find orthogonal vectors from primitive vectors
         lstAllVectors = [] 
