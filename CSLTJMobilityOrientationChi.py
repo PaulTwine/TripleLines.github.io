@@ -50,7 +50,7 @@ for l in lstGrainBases:
     objSimulationCell.RemoveAtomsOnOpenBoundaries()
     objSimulationCell.WriteLAMMPSDataFile(strDir + str(i) + 'G.dat' )
     objSimulationCell.RemoveAllGrains()
-    mf.WriteDoubleDrivenTemplate(strRoot, str(i),intTemp,1000,[0,0.25,a],[0,0.25,a],['Values12.ori','Values13.ori'])
+    mf.WriteDoubleDrivenTemplate(strDir, str(i),intTemp,1000,[0,0.25,a],[0,0.25,a],['Values12.ori','Values13.ori'])
     np.savetxt(strDir + 'Values12.ori', arrOrientBases12, delimiter=' ',fmt='%1.5f')
     np.savetxt(strDir +  'Values13.ori', arrOrientBases13, delimiter=' ',fmt='%1.5f')
     i +=1
