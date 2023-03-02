@@ -34,4 +34,4 @@ else:
     u_1 = 2/(arrFValues[0,0]-arrFValues[1,0]+ r*(arrFValues[0,1]-arrFValues[1,1]))
     u_2 = r*u_1
 print(u_1,u_2)
-np.savetxt(strRoot + 'arrU.txt', np.array([u_1,u_2]))
+np.savetxt(strRoot + '../arrU.txt', np.array([u_1,u_2]))
