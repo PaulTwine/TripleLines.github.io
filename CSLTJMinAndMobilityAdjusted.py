@@ -55,7 +55,7 @@ arrPBasis3 = np.matmul(a*ld.FCCPrimitive,arrGrainBasis3)
 
 
 
-arrU = np.loadtxt('../../../arrU.txt')
+arrU = np.loadtxt(strRoot + '../../arrU.txt')
 
 lstOrientTJ1 = [np.round(u0*arrU[0],10),0.25,a] 
 lstOrientTJ2 = [np.round(u0*arrU[1],10),0.25,a] 
