@@ -406,7 +406,10 @@ class LAMMPSPostProcess(LAMMPSTimeStep):
         return self.__NonLatticeAtomIDs  
     def FindDefectiveAtoms(self, fltTolerance = None):
         if fltTolerance is None:
-            fltThreshold = np.mean(self.GetNonPTMAtoms()[:,self.GetColumnIndex('c_pe1')])
+            if self.GetNumberOfNonPTMAtoms() > 0:
+                fltThreshold = np.mean(self.GetNonPTMAtoms()[:,self.GetColumnIndex('c_pe1')])
+            else:
+                fltThreshold = np.mean(self.GetPTMAtoms()[:,self.GetColumnIndex('c_pe1')])
         else:
             fltThreshold = fltTolerance
         lstRowDefectiveAtoms = np.where(self.GetPTMAtoms()[:,self._intPE] > fltThreshold)[0]
@@ -576,6 +579,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.__JunctionLineIDs = []
         self.__GrainBoundaryIDs = []
         self.__DuplicateGBIDs = []
+        self.__JunctionMesh = []
+        self.__GrainBoundaryMesh = []
         self.__GBSeparation = 0 
         self.blnPEAssigned = False
         self.blnVolumeAssigned = False
@@ -802,6 +807,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstAllIDs = []
         for k in lstTwos:
             lstTemp,mpts = self.FindMeshAtomIDs(k,fltGBWidth)
+            if len(mpts) > 0:
+                mpts = self.WrapVectorIntoSimulationBox(mpts)
             if len(lstTemp)> 0:
                 lstIDs.append(lstTemp)
                 lstMeshPoints.append(mpts)
@@ -815,6 +822,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                     lstDuplicateIDs.extend(list(set(lstIDs[d]).intersection(lstIDs[e])))
         arrDuplicates = np.unique(lstDuplicateIDs).astype('int')
         self.__DuplicateGBIDs = arrDuplicates
+        lstAllGBMesh = []
         for l in range(intN): 
             lstGBIDs = []  #lstIDs[l]
             lstExtraIDs = []
@@ -824,7 +832,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             elif len(lstMeshPoints[l]) > 0:
                 arrMesh = lstMeshPoints[l]
             if len(arrMesh) > 0:
+                arrMesh = self.WrapVectorIntoSimulationBox(arrMesh)
                 arrMesh = np.unique(arrMesh, axis=0)
+                lstAllGBMesh.append(arrMesh)
                 arrIDs = self.GetGrainAtomIDs(0)
                 arrIndices, arrDistances = self.__PeriodicGrains[0].Pquery_radius(arrMesh, fltGBWidth)
                 arrIndices = self.__PeriodicGrains[0].GetPeriodicIndices(arrIndices)
@@ -848,7 +858,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 self.SetColumnByIDs(lstGBIDs,intGBCol, (l+1)*np.ones(len(lstGBIDs)))
                 lstGBIDs = self.GetGBAtomIDs(l+1)
                 self.__PeriodicGrainBoundaries[l+1] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(lstGBIDs)[:,1:4],self.GetCellVectors(), gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltGBWidth,self.GetPeriodicDirections())
-        self.SetColumnByIDs(arrDuplicates, intGBCol, -1*np.ones(len(arrDuplicates))) #remove any duplicate GBs which may leave a small gap around the triple oine                
+        self.SetColumnByIDs(arrDuplicates, intGBCol, -1*np.ones(len(arrDuplicates))) #remove any duplicate GBs which may leave a small gap around the triple oine  
+        return lstAllGBMesh #returns the mesh points for plotting              
     def FindJunctionLines(self, fltRadius, intOrder, fltSearchRadius = None):
         if fltSearchRadius is None:
             fltSearchRadius = self.__MaxGBWidth
@@ -857,6 +868,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         t=1
         lstAllTJs= []
         lstMergedPoints = self.FindJunctionMesh(fltRadius,intOrder)
+        self.__JunctionMesh = lstMergedPoints
         for m in lstMergedPoints:
            # blnTJ = False
             lstAllIDs = []
