@@ -13,9 +13,17 @@ from scipy import optimize
 strDirectory = str(sys.argv[1])
 strFile = str(sys.argv[2])
 intTimeStep = int(sys.argv[3])
-
+intFactor = 100
+intTimeStep = intTimeStep*intFactor
 objData = LT.LAMMPSData(strDirectory + strFile, 1, 4.05, LT.LAMMPSAnalysis3D)
 objAnalysis = objData.GetTimeStepByIndex(-1)
+lstColumnNames = objAnalysis.GetColumnNames()
+while 'GrainBoundary' in lstColumnNames:
+    objAnalysis.DeleteColumnByName('GrainBoundary')
+    lstColumnNames = objAnalysis.GetColumnNames()
+while 'TripleLine' in lstColumnNames:
+    objAnalysis.DeleteColumnByName('TripleLine')
+    lstColumnNames = objAnalysis.GetColumnNames()
 intEco =1
 arrIDs1 = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',intEco)
 arrIDs2 =  objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',-intEco)
@@ -25,6 +33,10 @@ if (len(arrIDs1) > 0) and (len(arrIDs2) > 0) and (len(arrIDs3) > 0):
     lstOverlap.extend(list(set(arrIDs1).intersection(arrIDs2.tolist())))
     lstOverlap.extend(list(set(arrIDs1).intersection(arrIDs3.tolist())))
     lstOverlap.extend(list(set(arrIDs2).intersection(arrIDs3.tolist())))
+    arrPTMIDs = objAnalysis.GetNonPTMAtomIDs()
+    lstOverlap.extend(arrPTMIDs)
+    lstGrainZeroIDs = objAnalysis.GetGrainAtomIDs(0)
+    lstOverlap.extend(lstGrainZeroIDs)
     lstOverlap = np.unique(lstOverlap).tolist()
     arrIDs1 = np.array(list(set(arrIDs1).difference(lstOverlap)))
     arrIDs2 = np.array(list(set(arrIDs2).difference(lstOverlap)))
@@ -33,8 +45,7 @@ if (len(arrIDs1) > 0) and (len(arrIDs2) > 0) and (len(arrIDs3) > 0):
     objAnalysis.SetPeriodicGrain(1,arrIDs1, 25)
     objAnalysis.SetPeriodicGrain(2,arrIDs2, 25)
     objAnalysis.SetPeriodicGrain(3,arrIDs3, 25)
-    lstGrainZeroIDs = objAnalysis.GetGrainAtomIDs(0)
-    objAnalysis.SetPeriodicGrain(0,lstGrainZeroIDs,25)
+    objAnalysis.SetPeriodicGrain(0,lstOverlap,25)
     objAnalysis.FindGrainBoundaries(2*4.05)
     arrTJMesh = objAnalysis.FindJunctionMesh(2*4.05,3)
     objAnalysis.FindJunctionLines(2*4.05,3)

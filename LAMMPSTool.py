@@ -154,8 +154,16 @@ class LAMMPSTimeStep(object):
         self.__TimeStep = fltTimeStep
         self.__AtomData = np.zeros([intNumberOfAtoms,self.__NumberOfColumns])
         self.__ColumnNames = lstColumnNames
+        self.__ColumnTypes = []
         self.SetBoundBoxLabels(lstBoundaryType)
         self.SetBoundBoxDimensions(lstBounds)
+    def DeleteColumnByIndex(self,intColumnIndex: int):
+        self.__ColumnNames.pop(intColumnIndex)
+        self.__ColumnTypes.pop(intColumnIndex)
+        self.__AtomData = np.delete(self.__AtomData,intColumnIndex,1)
+    def DeleteColumnByName(self,strColumnName: str):
+        intColumnIndex = self.GetColumnIndex(strColumnName)
+        self.DeleteColumnByIndex(intColumnIndex)
     def SetColumnTypes(self, lstColumnTypes): #records whether columns are integers or floats
         self.__ColumnTypes = lstColumnTypes
     def GetBoundaryTypes(self):
@@ -804,7 +812,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstGrains.remove(0)
         lstTwos = list(it.combinations(lstGrains, 2))
         lstIDs = []
-        self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'GrainBoundary', strFormat = '%i')
+        if 'GrainBoundary' not in self.GetColumnNames():
+            self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'GrainBoundary', strFormat = '%i')
         intGBCol = self.GetColumnIndex('GrainBoundary')
         lstMeshPoints = []
         lstUsedTwos = []
@@ -867,7 +876,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
     def FindJunctionLines(self, fltRadius, intOrder, fltSearchRadius = None):
         if fltSearchRadius is None:
             fltSearchRadius = self.__MaxGBWidth
-        self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'TripleLine', strFormat = '%i')
+        if 'Tripleline' not in self.GetColumnNames():
+            self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]),'TripleLine', strFormat = '%i')
         intTJCol = self.GetColumnIndex('TripleLine')
         t=1
         lstAllTJs= []
