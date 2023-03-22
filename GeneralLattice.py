@@ -1217,7 +1217,7 @@ class SigmaCell(object):
         return  gf.CubicCSLGenerator(self.__RotationAxis, intSigmaMax,blnDisorientation)
     def GetOnlyCSLPrimitiveVectors(self,intSigmaValue,fltPrimitiveCellSize: float):
         blnValidSigma = True
-        arrSigma = self.GetSigmaValues(25, True)
+        arrSigma = self.GetSigmaValues(300, True)
         arrRows = np.where(arrSigma[:,0].astype('int') == intSigmaValue)[0]
         lstAllCSLPrimitiveVectors=[]
         lstAllBases=[]

@@ -589,6 +589,10 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.intGrainBoundary = -1
         self.__objRealCell = gl.RealCell(ld.GetCellNodes(str(intLatticeType)),fltLatticeParameter*np.ones(3))
         self.__MaxGBWidth = 0
+    def GetMaxGBWidth(self):
+        return self.__MaxGBWidth
+    def SetMaxGBWidth(self, fltWidth):
+        self.__MaxGBWidth = fltWidth
     def GetRealCell(self):
         return self.__objRealCell
     def GetGrainAtomIDsByEcoOrient(self, strColumnName, intValue):
@@ -682,7 +686,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             self.__GrainLabels = []
     def SetPeriodicGrain(self, strName: str, arrIDs: np.array, fltWrapperWidth: float):
         self.__PeriodicGrains[strName] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(arrIDs)[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
-        self.__GrainLabels = np.unique(self.__GrainLabels.append(strName)).tolist()  
+        self.AppendGrainNumbers(int(strName)*np.ones(len(arrIDs)),arrIDs)  
     def MergePeriodicGrains(self, intCloseAtoms = 5):
         i = 0
         lstKeys = self.GetGrainLabels()
@@ -942,7 +946,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
             intPos = 0
             for j in range(len(lstGrainLabels)):
                 arrDistances, arrIndices = self.__PeriodicGrains[lstGrainLabels[j]].Pquery(k,1)
-                arrDistances = mf.FlattenList(arrDistances)
+                arrDistances = np.array(mf.FlattenList(arrDistances))
                 arrIndices = mf.FlattenList(arrIndices)
                 if np.all(arrDistances <= self.__MaxGBWidth):
                     arrAllPoints[:,:,intPos] = self.__PeriodicGrains[lstGrainLabels[j]].GetExtendedPoints()[arrIndices]
@@ -1078,7 +1082,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if 'GrainNumber' not in self.GetColumnNames():
             self.AddColumn(np.zeros([self.GetNumberOfAtoms(),1]), 'GrainNumber', '%i')
         arrGrainNumbers = np.array([lstGrainNumbers])
-        self.__GrainLabels = list(np.unique(lstGrainNumbers))
+        self.__GrainLabels.extend(list(np.unique(lstGrainNumbers).astype('int')))
+        self.__GrainLabels = list(np.unique(self.__GrainLabels))
         np.reshape(arrGrainNumbers, (len(lstGrainNumbers),1))
         intGrainNumber = self.GetColumnIndex('GrainNumber')
         if lstGrainAtoms is None:
