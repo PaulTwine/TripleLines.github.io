@@ -1363,7 +1363,9 @@ def GroupClustersPeriodically(lstPoints: np.array, arrPeriodicVectors: np.array,
                                 lstMatches.append(j)
                                 lstMatches.append(i)
                 if len(lstMatches) > 0:
-                        lstAllMatches.append(np.unique(lstMatches))
+                        arrUniqueMatches = np.unique(lstMatches)
+                        if not(np.any(np.isin(arrUniqueMatches,lstUsedIndices))):
+                                lstAllMatches.append(arrUniqueMatches)
                 elif i not in lstUsedIndices:
                         lstAllMatches.append(np.array([i]))
                 lstUsedIndices.extend(np.concatenate(lstAllMatches))

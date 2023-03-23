@@ -158,12 +158,14 @@ class LAMMPSTimeStep(object):
         self.SetBoundBoxLabels(lstBoundaryType)
         self.SetBoundBoxDimensions(lstBounds)
     def DeleteColumnByIndex(self,intColumnIndex: int):
-        self.__ColumnNames.pop(intColumnIndex)
-        self.__ColumnTypes.pop(intColumnIndex)
-        self.__AtomData = np.delete(self.__AtomData,intColumnIndex,1)
+        if intColumnIndex < len(self.__ColumnNames):
+            self.__ColumnNames.pop(intColumnIndex)
+            self.__ColumnTypes.pop(intColumnIndex)
+            self.__AtomData = np.delete(self.__AtomData,intColumnIndex,1)
     def DeleteColumnByName(self,strColumnName: str):
-        intColumnIndex = self.GetColumnIndex(strColumnName)
-        self.DeleteColumnByIndex(intColumnIndex)
+        if strColumnName in self.__ColumnNames:
+            intColumnIndex = self.GetColumnIndex(strColumnName)
+            self.DeleteColumnByIndex(intColumnIndex)
     def SetColumnTypes(self, lstColumnTypes): #records whether columns are integers or floats
         self.__ColumnTypes = lstColumnTypes
     def GetBoundaryTypes(self):

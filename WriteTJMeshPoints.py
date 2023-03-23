@@ -13,8 +13,6 @@ from scipy import optimize
 strDirectory = str(sys.argv[1])
 strFile = str(sys.argv[2])
 intTimeStep = int(sys.argv[3])
-intFactor = 100
-intTimeStep = intTimeStep*intFactor
 objData = LT.LAMMPSData(strDirectory + strFile, 1, 4.05, LT.LAMMPSAnalysis3D)
 objAnalysis = objData.GetTimeStepByIndex(-1)
 lstColumnNames = objAnalysis.GetColumnNames()
@@ -41,14 +39,14 @@ if (len(arrIDs1) > 0) and (len(arrIDs2) > 0) and (len(arrIDs3) > 0):
     arrIDs1 = np.array(list(set(arrIDs1).difference(lstOverlap)))
     arrIDs2 = np.array(list(set(arrIDs2).difference(lstOverlap)))
     arrIDs3 = np.array(list(set(arrIDs3).difference(lstOverlap)))
-    objAnalysis.SetMaxGBWidth(2*4.05)
+    objAnalysis.SetMaxGBWidth(4*4.05)
     objAnalysis.SetPeriodicGrain(1,arrIDs1, 25)
     objAnalysis.SetPeriodicGrain(2,arrIDs2, 25)
     objAnalysis.SetPeriodicGrain(3,arrIDs3, 25)
     objAnalysis.SetPeriodicGrain(0,lstOverlap,25)
-    objAnalysis.FindGrainBoundaries(2*4.05)
-    arrTJMesh = objAnalysis.FindJunctionMesh(2*4.05,3)
-    objAnalysis.FindJunctionLines(2*4.05,3)
+    objAnalysis.FindGrainBoundaries(3*4.05)
+    arrTJMesh = objAnalysis.FindJunctionMesh(3*4.05,3)
+    objAnalysis.FindJunctionLines(3*4.05,3)
     for i in range(len(arrTJMesh)):
         np.savetxt(strDirectory + 'TJ' + str(i) + 'Mesh' + str(intTimeStep) +  '.txt', arrTJMesh[i])
     objAnalysis.WriteDumpFile(strDirectory + strFile)
