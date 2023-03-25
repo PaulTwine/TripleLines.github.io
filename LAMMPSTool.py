@@ -23,6 +23,66 @@ import MiscFunctions as mf
 import matplotlib.pyplot as plt
 import itertools as it
 
+class LAMMPSDat(object):
+    def __init__(self,strFilename, blnImportAtomPostions = False):
+        self.__FileName = strFilename
+        self.__Values = []
+        self.__ColumnNames = []
+        self.__Atoms = 0
+        self.__AtomTypes = 0
+        self.__CellVectors = []
+        with open(strFilename) as Dfile:
+            blnStop= False
+            intRows = 0
+            lstBounds = []
+            while not(blnStop):     
+                try:
+                    line = next(Dfile).strip()
+                    intRows +=1
+                except StopIteration as EndOfFile:
+                    break
+                if len(line) > 0:
+                    if "atoms" == line[-5:]:
+                        lstValues = line.split(' ')
+                        self.__Atoms = int(lstValues[0])
+                    elif "atom types" == line[-10:]:
+                        lstValues = line.split(' ')
+                        self.__AtomTypes = int(lstValues[0])
+                    elif "xlo xhi" == line[-7:]:
+                        lstValues = line.split(' ')
+                        lstBounds.append(list(map(lambda x : float(x),lstValues[:2])))
+                    elif "ylo yhi" == line[-7:]:
+                        lstValues = line.split(' ')
+                        lstBounds.append(list(map(lambda x : float(x),lstValues[:2])))
+                    elif "zlo zhi" == line[-7:]:
+                        lstValues = line.split(' ')
+                        lstBounds.append(list(map(lambda x : float(x),lstValues[:2])))
+                    elif "xy xz yz" == line[-8:]:
+                        lstValues = line.split(' ')
+                        lstBounds.append(list(map(lambda x : float(x),lstValues[:3])))
+                    elif "Atoms" == line[-5:]:
+                        blnStop = True    
+            Dfile.close()
+            arrCellVectors = np.zeros([3,3])
+            arrCellVectors[0,0] = lstBounds[0][1] - lstBounds[0][0] 
+            arrCellVectors[1,1] = lstBounds[1][1] - lstBounds[1][0] 
+            arrCellVectors[2,2] = lstBounds[2][1] - lstBounds[1][0]
+            if len(lstBounds) ==4:
+                arrCellVectors[1,0] = lstBounds[3][0]
+                arrCellVectors[2,0]  = lstBounds[3][1]
+                arrCellVectors[2,1] = lstBounds[3][2]
+            self.__CellVectors = arrCellVectors
+            if blnImportAtomPostions:
+                self.__Values = np.loadtxt(strFilename, skiprows=intRows) 
+    def GetCellVectors(self):
+        return self.__CellVectors
+    def GetNumberOfAtoms(self):
+        return self.__Atoms
+    def GetAtomTypes(self):
+        return self.__AtomTypes
+    def GetValues(self):
+        return  self.__Values
+
 class LAMMPSLog(object):
     def __init__(self,strFilename):
         self.__FileName = strFilename
@@ -934,7 +994,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrOverlapPoints = self.GetAtomsByID(arrOverlapIDs)[:,1:4]
         lstTJPoints = []
         lstSplitPoints = []
-        clustering = DBSCAN(2*self.__LatticeParameter,min_samples=5).fit(arrOverlapPoints)
+        clustering = DBSCAN(2*self.__LatticeParameter,min_samples=25).fit(arrOverlapPoints)
         arrLabels = clustering.labels_
         for a in np.unique(arrLabels):
             if a != -1:
