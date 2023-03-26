@@ -241,9 +241,10 @@ class LAMMPSTimeStep(object):
     def SetRow(self, intRowNumber: int, lstRow: list):
         self.__AtomData[intRowNumber] = lstRow
     def AddColumn(self, arrColumn: np.array, strColumnName: str, strFormat = '%s'):
-        self.__AtomData = np.append(self.__AtomData, arrColumn, axis=1)
-        self.__ColumnNames.append(strColumnName)
-        self.__ColumnTypes += ' ' + strFormat
+        if strColumnName not in self.__ColumnNames:
+            self.__AtomData = np.append(self.__AtomData, arrColumn, axis=1)
+            self.__ColumnNames.append(strColumnName)
+            self.__ColumnTypes += ' ' + strFormat
     def SetColumnToZero(self, strColumnName: str):
         arrColumn = np.zeros(self.GetNumberOfAtoms())
         intColumnIndex = self.GetColumnIndex(strColumnName)
