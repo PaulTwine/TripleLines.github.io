@@ -363,19 +363,23 @@ def AddPeriodicWrapperAndIndices(inPoints: np.array,inCellVectors,inConstraints:
         lstNewIndices.append(arrAllIndices)
         for i in range(3):
                 if lstPeriodic[i] == 'p':
+                        blnAdd = False
                         j = inConstraints[i]
                         k = inCellVectors[i]
                         arrPositions1 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), fltDistance),5)
                         arrRows1 = np.where(arrPositions1 < 1e-5)[0]
                         if len(arrRows1) > 0:
+                                blnAdd = True
                                 lstNewIndices.append(arrAllIndices[arrRows1])
                                 lstNewPoints.append(arrAllPoints[arrRows1] + k)
                         arrPositions2 =  np.round(np.subtract(np.matmul(arrAllPoints, np.transpose(j[:-1])), j[-1]-fltDistance),5)
                         arrRows2 = np.where(arrPositions2 > -1e-5)[0]
                         if len(arrRows2) > 0:
+                                blnAdd = True
                                 lstNewIndices.append(arrAllIndices[arrRows2])
                                 lstNewPoints.append(arrAllPoints[arrRows2] - k)
-                        if len(lstNewPoints) > 0:
+                        #if len(lstNewPoints) > 0:
+                        if blnAdd:
                                 arrAllPoints = np.concatenate(lstNewPoints)
                                 arrAllIndices = np.concatenate(lstNewIndices)                
         if len(arrAllPoints) > intLength:

@@ -229,7 +229,7 @@ class LAMMPSTimeStep(object):
     def SetColumnTypes(self, lstColumnTypes): #records whether columns are integers or floats
         self.__ColumnTypes = lstColumnTypes
     def GetBoundaryTypes(self):
-        return self.__BoundaryTypes
+        return self.__BoundaryTypes 
     def GetNumberOfColumns(self):
         return len(self.__ColumnNames)
     def SetColumnByIndex(self, arrColumn:np.array, intColumnIndex: int):
@@ -702,10 +702,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         else:
             arrIDs = []
         self.__GBSeparation =  fltNearest
-        return arrIDs        
-       
+        return arrIDs              
     def MatchPreviousGrainNumbers(self, lstGrainNumbers: list, lstGrainIDs: list):
-        arrMatrix = np.zeros([len(self.__GrainLabels)-1, len(lstGrainNumbers)])
+        arrMatrix = np.zeros([len(self.__GrainLabels), len(lstGrainNumbers)])
         for i in range(len(lstGrainIDs)):
             lstIDs = self.GetGrainAtomIDs(i+1)
             for j in range(len(lstGrainIDs)):
@@ -719,7 +718,9 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         for i in lstCurrentLabels:
             lstAllIDs.append(self.GetGrainAtomIDs(i))
         for k in range(len(lstNewLabels)):
-            self.SetColumnByIDs(lstAllIDs[k], self.GetColumnByName('GrainNumber'),lstNewLabels[k]*np.ones(len(lstAllIDs[k])))
+            self.SetColumnByIDs(lstAllIDs[k], self.GetColumnIndex('GrainNumber'),lstNewLabels[k]*np.ones(len(lstAllIDs[k])))
+        for g in lstCurrentLabels:
+            self.__PeriodicGrains[g] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(self.GetGrainAtomIDs(g))[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),25)
     def FindPEPerVolume(self, lstIDs=None):
         if lstIDs is None:
             return self.GetColumnByName('c_pe1')/self.GetColumnByName('c_v[1]')
@@ -756,8 +757,32 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         else:
             self.__GrainLabels = []
     def SetPeriodicGrain(self, strName: str, arrIDs: np.array, fltWrapperWidth: float):
-        self.__PeriodicGrains[strName] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(arrIDs)[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
-        self.AppendGrainNumbers(int(strName)*np.ones(len(arrIDs)),arrIDs)  
+        arrOriginalIDs = arrIDs
+        arrPoints = self.GetAtomsByID(arrIDs)[:,1:4]
+        self.__PeriodicGrains[strName] = gf.PeriodicWrapperKDTree(arrPoints,self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
+        arrRows = []
+        if strName != 0:
+            fltDistance = 1.05*self.GetRealCell().GetNearestNeighbourDistance()
+            arrDistances,arrIndices = self.__PeriodicGrains[strName].Pquery(arrPoints,2)
+            arrRows = np.where(arrDistances[:,1] <= fltDistance)[0]
+            arrIndices = arrIndices[arrRows]
+            arrPeriodicIndices = self.__PeriodicGrains[strName].GetPeriodicIndices(arrIndices)
+            arrIDs = arrOriginalIDs[arrPeriodicIndices]
+            self.__PeriodicGrains[strName] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(arrIDs)[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
+            # clustering = DBSCAN(eps=fltDistance,min_samples=5).fit(arrExtendedPoints)
+            # arrLabels = clustering.labels_
+            # arrIndices = np.where(arrLabels != -1)[0]
+            # arrPeriodicIndices = self.__PeriodicGrains[strName].GetPeriodicIndices(arrIndices)
+            # arrIndices2 = arrIndices[arrIndices < len(arrIDs)]
+            # arrIDs = arrIDs[arrIndices2]
+            # arrIDs = np.unique(arrIDs)
+            # self.__PeriodicGrains[strName] = gf.PeriodicWrapperKDTree(self.GetAtomsByID(arrIDs)[:,1:4],self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),fltWrapperWidth,self.GetPeriodicDirections())
+        self.AppendGrainNumbers(int(strName)*np.ones(len(arrIDs)),arrIDs)
+        if len(arrIDs) < len(arrOriginalIDs):
+            lstRows =  list(set(arrOriginalIDs).difference(arrIDs))
+            return lstRows
+        else:
+            return []  
     def MergePeriodicGrains(self, intCloseAtoms = 5):
         i = 0
         lstKeys = self.GetGrainLabels()
@@ -784,7 +809,6 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 blnMerge = True
                 arrBoundaryPoints = arrOriginalPoints[arrRows]
             while j < len(lstKeys) and blnMerge:
-                #arrIndices, arrDistances = self.__PeriodicGrains[lstKeys[i]].Pquery_radius(self.__PeriodicGrains[lstKeys[j]].GetExtendedPoints(),self.__GBSeparation)
                 arrIndices, arrDistances = self.__PeriodicGrains[lstKeys[j]].Pquery_radius(arrBoundaryPoints,1.05*self.__GBSeparation)
                 arrIndices = mf.FlattenList(arrIndices)
                 intLength = 0
@@ -809,11 +833,13 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         if 0 in lstGrainLabels:
             lstGrainLabels.remove(0)
         n = 1
+        lstGrainLabels = np.sort(lstGrainLabels)
         for l in lstGrainLabels:
             if l != n:
                 self.AppendGrainNumbers(n*np.ones(len(self.GetGrainAtomIDs(l))),self.GetGrainAtomIDs(l))
                 self.__PeriodicGrains[n] = gf.PeriodicWrapperKDTree(self.__PeriodicGrains[l].GetOriginalPoints(),self.GetCellVectors(),gf.FindConstraintsFromBasisVectors(self.GetCellVectors()),self.__PeriodicGrains[l].GetWrapperLength(),self.GetPeriodicDirections())
-                self.__PeriodicGrains.pop(l)
+                #self.__PeriodicGrains.pop(l)
+                del self.__PeriodicGrains[l]               
             n +=1 
         self.__GrainLabels = self.GetGrainLabels()
     def GetAllGrainAtomIDs(self):
