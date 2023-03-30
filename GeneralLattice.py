@@ -907,7 +907,12 @@ class SimulationCell(object):
     def RemoveNonGrainAtomPositons(self):
         self.__NonGrainAtomPositions = []
         self.__NonGrainAtomTypes = []
- 
+    def GetAllAtomPositions(self):
+        return self.__AllAtomPositions
+    def WritePOSCARFile(self,strRootDir):
+        self.SetAllAtomPositions()
+        gf.WritePOSCARFile(self.__BasisVectors,self.GetAllAtomPositions(),strRootDir+ 'POSCAR')
+   
 class Grain(object):
     def __init__(self, intGrainNumber: int):
         self.__GrainID = intGrainNumber
@@ -1443,5 +1448,5 @@ class CSLTripleLine(object):
         return self.__RotationMatrix
     def GetLatticeBasis(self, intIndex: int):
         return self.__LatticeBases[intIndex]
-  
+    
     

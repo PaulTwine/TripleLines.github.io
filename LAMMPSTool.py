@@ -192,7 +192,6 @@ class LAMMPSData(object):
             Dfile.close()
             self.__lstTimeSteps = lstTimeSteps
             self.__lstNumberOfAtoms = lstNumberOfAtoms
-
     def GetTimeSteps(self):
         return self.__lstTimeSteps
     def GetAtomNumbers(self):

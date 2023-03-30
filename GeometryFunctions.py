@@ -1375,5 +1375,40 @@ def GroupClustersPeriodically(lstPoints: np.array, arrPeriodicVectors: np.array,
                 lstUsedIndices.extend(np.concatenate(lstAllMatches))
                 lstUsedIndices = np.unique(lstUsedIndices).tolist()
         return lstAllMatches
-
+def WritePOSCARFile(inCellVectors: np.array, inAtomPositions: np.array, strFilename='POSCAR',strType = None, strConstraints = None):
+       arrCellVectors = inCellVectors
+       r = inAtomPositions
+       intLength = np.shape(inAtomPositions)[0]
+       with open(strFilename,'w') as Dfile:
+                header = '#VASP coordinate file'
+                Dfile.write(header)
+                Dfile.write('\n')
+        # Lattice parameter already factored into supercell and coordinates
+                Dfile.write('1.0\n')
+        # Supercell shape
+                lstOrder = [0,1,2]
+                if np.dot(arrCellVectors[0,:],np.cross(arrCellVectors[1,:],arrCellVectors[2,:])) < 0:
+                        lstOrder = [1,0,2]
+                for s in range(3):
+                        for t in range(3):
+                                Dfile.write(str(arrCellVectors[lstOrder[s],t]) + ' ')
+                        Dfile.write('\n')
+        # Atom positions
+                if strType is None:
+                        Dfile.write(str(intLength) + '\n')
+                else:
+                        Dfile.write(strType + '\n')
+                Dfile.write('Selective dynamics\n')
+                Dfile.write('Cartesian\n')
+                for i in range(intLength):
+                        Dfile.write(str(r[i,0]) + ' ' + str(r[i,1]) + ' ' + str(r[i,2]))
+                        if strConstraints is not None:
+                                Dfile.write(' ' + strConstraints[i,0] + ' ' + strConstraints[i,1] + ' ' + strConstraints[i,2])
+                        else:
+                                Dfile.write(' T T T')
+                        Dfile.write('\n')          
+                Dfile.flush()
+                Dfile.close() 
+            
+       
 
