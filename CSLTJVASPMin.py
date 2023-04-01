@@ -7,7 +7,6 @@ import LAMMPSTool as LT
 import sys
 import copy as cp
 from scipy import spatial
-import MiscFunctions
 from mpl_toolkits.mplot3d import Axes3D
 
 
@@ -19,7 +18,7 @@ arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 fltTolerance = 0.6
-a = 4.05
+a = 4.038670328 # different lattice parameter for DFT based upon k points
 intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==lstSigmaAxis,axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJBasisVectors(intIndex,True)
