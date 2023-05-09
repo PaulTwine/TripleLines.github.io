@@ -20,6 +20,8 @@ import LatticeDefinitions as ld
 from scipy import optimize
 import MiscFunctions as mf
 import cmath as cm
+from fractions import Fraction
+from functools import reduce
 
 #import shapely as sp
 #import geopandas as gpd
@@ -170,7 +172,8 @@ def EquidistantPoint(inVector1: np.array, inVector2: np.array, inVector3: np.arr
                 vctDirection = np.matmul(invMatrix, np.array([np.dot(arrMatrix[0],0.5*(inVector2+inVector3) - inVector1),0,0.5*np.dot(arrMatrix[2],arrMatrix[2])]))+inVector1
         else:
                 vctDirection= np.mean(np.unique(np.array([inVector1, inVector2, inVector3]),axis=0), axis=0)
-        return vctDirection    
+        return vctDirection
+   
 def CheckLinearEquality(inPoints: np.array, inPlane: np.array, fltTolerance: float)-> np.array: #returns indices to delete for real coordinates  
         arrPositions = np.subtract(np.matmul(inPoints, np.transpose(inPlane[:,:-1])), np.transpose(inPlane[:,-1]))
         arrPositions = np.argwhere(np.abs(arrPositions) < fltTolerance)[:,0]        
@@ -1409,6 +1412,52 @@ def WritePOSCARFile(inCellVectors: np.array, inAtomPositions: np.array, strFilen
                         Dfile.write('\n')          
                 Dfile.flush()
                 Dfile.close() 
-            
-       
+def FindPrimitiveCellVectors(arrBasis: np.array, arrSymmetries = None):
+        lstRows = []
+        for i in range(3):
+              arrRows = np.zeros(3)
+              arrRows[i] = 1
+              lstRows.append(arrRows)
+              lstRows.append(-arrRows)
+        arrSymmetries = np.array(list(map(lambda x: np.array(x),list(it.permutations(lstRows,3)))))
+        lstRows = list(map(lambda x: np.linalg.det(x),arrSymmetries))
+        arrRows = np.where(abs(np.array(lstRows)) ==1)[0]
+        arrSymmetries = arrSymmetries[arrRows]
+        arrMatrices = np.matmul(arrBasis, arrSymmetries)
+        arrEigenValues1,arrEigenVectors1 = np.linalg.eig(arrMatrices)
+        arrRows1, arrCols1 = np.where(np.round(np.imag(arrEigenValues1),10) == 0)
+        arrEigenValues2 = np.real(arrEigenValues1[arrRows1,arrCols1])
+        arrEigenVectors2 = np.real(arrEigenVectors1[arrRows1,:,arrCols1])
+        arrRows2 = np.where(np.round(arrEigenValues2,10) == 1)[0]
+        arrRealVectors = arrEigenVectors2[arrRows2]
+        #arrLengths = np.abs(arrEigenValues-np.ones(np.shape(arrEigenValues)))
+        #arrLengths = np.round(arrLengths,10)
+        #arrRows,arrCols = np.where((arrLengths ==0) | (arrLengths ==2))
+        #complex number comparisons were unreliable and so this checks
+        #whether the eigenvalue is real and it is +/- 1
+       # arrRows,arrCols = np.where((arrEigenValues == np.complex(1)) | (arrEigenValues == -np.complex(1)))
+        #arrRealVectors = arrEigenVectors[arrRows,:,arrCols]
+        #arrRows2 = np.where(np.all(arrRealVectors ==np.real(arrRealVectors),axis=1))[0]
+        #arrRealVectors = np.real(arrRealVectors[arrRows2])
+        arrRealVectors = np.unique(np.round(arrRealVectors,10), axis=0)
+        #arrNonZeroMins = np.array(list(map(lambda x: x/#np.min(np.abs(x[x!=0])), arrRealVectors)))
+        arrIntegerVectors =  np.array(list(map(lambda x: recover_integer_vector(x),arrRealVectors)))
+        return arrIntegerVectors
+def ReducePrimitiveIntegerVectors(inIntegerVectors: np.array, arrPrimitive: np.array):
+        intPrimitives = np.matmul(inIntegerVectors,np.linalg.inv(arrPrimitive))
+        arrReduced = np.array(list(map(lambda x: x/np.gcd.reduce(x.astype('int')),intPrimitives)))
+        return np.matmul(arrReduced, arrPrimitive)
+def recover_integer_vector(u, denom=200):
+        u /= min(abs(x) for x in u if x)
+    # get the denominators of the fractions
+        denoms = [Fraction(x).limit_denominator(denom).denominator for x in u]
+        if len(denoms) > 1:
+               return np.lcm.reduce(denoms)*u
+        else:
+               return u 
+    # multiply the scaled u by LCM(denominators)
+        #lcm = lambda a, b: (a * b)/np.gcd.reduce(a, b)
+        #return u*reduce(np.lcm.reduce, list(denoms))
+               
+     
 

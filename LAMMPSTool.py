@@ -1015,10 +1015,8 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         self.SetColumnByIDs(lstAllTJs,intGBCol,0*np.ones(len(lstAllTJs)))
     def FindJunctionMesh(self,fltWidth: float, intOrder: int):
         arrReturn = [] 
-        lstMeshPoints = []
         arrOverlapIDs = self.GetGrainBoundaryIDs(-1)
         arrOverlapPoints = self.GetAtomsByID(arrOverlapIDs)[:,1:4]
-        lstTJPoints = []
         lstSplitPoints = []
         clustering = DBSCAN(2*self.__LatticeParameter,min_samples=25).fit(arrOverlapPoints)
         arrLabels = clustering.labels_
@@ -1041,6 +1039,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         lstGrainLabels.remove(0)
         for k in lstMergedPoints:
             arrAllPoints = np.zeros([len(k), len(k[0]), intOrder])
+            arrAllDistances = np.zeros([len(k),intOrder])
             intPos = 0
             for j in range(len(lstGrainLabels)):
                 arrDistances, arrIndices = self.__PeriodicGrains[lstGrainLabels[j]].Pquery(k,1)
@@ -1048,12 +1047,19 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
                 arrIndices = mf.FlattenList(arrIndices)
                 if np.all(arrDistances <= self.__MaxGBWidth):
                     arrAllPoints[:,:,intPos] = self.__PeriodicGrains[lstGrainLabels[j]].GetExtendedPoints()[arrIndices]
+                    arrAllDistances[:,intPos] = arrDistances
                     intPos += 1
-            arrMeanPoints = np.mean(arrAllPoints, axis=2)
-            arrRows = np.where(np.linalg.norm(k-arrMeanPoints,axis=1) < self.__MaxGBWidth/2)[0]
-            if len(arrRows) > 0:
-                arrReturn = self.WrapVectorIntoSimulationBox(arrMeanPoints[arrRows])
-                lstMeshTJPoints.append(arrReturn) 
+            if intOrder == 3:
+                arrReturn = np.vstack(list(map(lambda x: gf.EquidistantPoint(x[:,0],x[:,1],x[:,2]),arrAllPoints)))
+                arrReturn = self.WrapVectorIntoSimulationBox(arrReturn)
+                lstMeshTJPoints.append(np.unique(arrReturn,axis=0))
+            else:
+                arrMeanPoints = np.mean(arrAllPoints, axis=2)
+                #arrDistanceCheck = (np.sum(arrAllDistances,axis=1)-np.max(arrAllDistances,axis=1))/np.max(arrAllDistances,axis=1) #distance between two closest grain points must be at least 
+                arrRows = np.where(np.linalg.norm(k-arrMeanPoints,axis=1) < self.__MaxGBWidth/2)[0]
+                if len(arrRows) > 0:
+                    arrReturn = self.WrapVectorIntoSimulationBox(arrMeanPoints[arrRows])
+                    lstMeshTJPoints.append(np.unique(arrReturn,axis=0)) 
         return lstMeshTJPoints
         
     def GetPeriodicGrainBoundary(self, intKey):
