@@ -233,12 +233,15 @@ def FindConstraintsFromBasisVectors(inBasisVectors: np.array): #must be in order
             arrConstraints[j,:i] = NormaliseVector(np.cross(inBasisVectors[np.mod(j+1,i)], inBasisVectors[np.mod(j+2,i)]))
             arrConstraints[j,i] = np.dot(arrConstraints[j,:i],inBasisVectors[np.mod(j,i)])
         return arrConstraints
-def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVector: np.array)->np.array:      
+def RemoveVectorsOutsideSimulationCell(inBasis: np.array, inVectors: np.array,blnIncludeAllBoundaries = False)->np.array:      
         arrUnitBasis = inBasis/np.linalg.norm(inBasis, ord=2, axis=1, keepdims=True)
         invMatrix = np.linalg.inv(arrUnitBasis) 
         arrMod = np.linalg.norm(inBasis, axis=1)           
-        arrCoefficients = np.matmul(inVector, invMatrix) #find the coordinates in the simulation cell basis
-        arrRows = np.where(np.all(arrCoefficients < arrMod, axis=1) & np.all(arrCoefficients >= 0 , axis=1))[0]
+        arrCoefficients = np.round(np.matmul(inVectors, invMatrix),10) #find the coordinates in the simulation cell basis
+        if blnIncludeAllBoundaries:
+                arrRows = np.where(np.all(arrCoefficients <= arrMod, axis=1) & np.all(arrCoefficients >= 0 , axis=1))[0]
+        else:
+                arrRows = np.where(np.all(arrCoefficients < arrMod, axis=1) & np.all(arrCoefficients >= 0 , axis=1))[0]
         return arrRows   
 def WrapVectorIntoSimulationCell(inCellVectors: np.array, inVector: np.array, fltTolerance = 1e-5)->np.array: 
         arrUnitBasis = inCellVectors/np.linalg.norm(inCellVectors, ord=2, axis=1, keepdims=True)
@@ -324,9 +327,10 @@ def MakePeriodicDistanceMatrix(inVectors1: np.array, inVectors2: np.array, inCel
 def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: float, blnRemoveOriginalPoints = False, lstPeriodic = ['p','p','p']):
         arrInverseMatrix = np.linalg.inv(inCellVectors)
         arrCoefficients = np.matmul(inPoints, arrInverseMatrix)
-        arrProportions = np.zeros(3)
+        intSize = np.shape(inPoints)[1]
+        arrProportions = np.zeros(intSize)
         for i in range(len(inCellVectors)):
-                arrUnitVector = np.zeros(3)
+                arrUnitVector = np.zeros(intSize)
                 arrUnitVector[i] = 1
                 fltComponent = np.dot(NormaliseVector(inCellVectors[i]),arrUnitVector)
                 if fltComponent != 0:
@@ -334,9 +338,9 @@ def AddPeriodicWrapper(inPoints: np.array,inCellVectors: np.array, fltDistance: 
         lstNewPoints = []
         if not blnRemoveOriginalPoints:
                 lstNewPoints.append(arrCoefficients)
-        for j in range(3):
+        for j in range(intSize):
                 if lstPeriodic[j] == 'p':
-                        arrVector = np.zeros(3)
+                        arrVector = np.zeros(intSize)
                         arrVector[j] = 1
                         arrRows = np.where((arrCoefficients[:,j] >= 0) & (arrCoefficients[:,j] <= arrProportions[j]))[0]
                         arrNewPoints = arrCoefficients[arrRows] + arrVector

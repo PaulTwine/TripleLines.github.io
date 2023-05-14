@@ -17,13 +17,16 @@ strFile = str(sys.argv[2])
 intTimeStep = int(sys.argv[3])
 
 a= 4.05
-#strDirectory = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp650/u03L/TJ/'
-#strFile = '1Sim10400.dmp'  # str(sys.argv[2])
-#intTimeStep = 10400  # int(sys.argv[3])
+# strDirectory = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp600/u03L/TJ/'
+# strFile = '1Sim86300.dmp'  # str(sys.argv[2])
+# intTimeStep = 86300  # int(sys.argv[3])
 objData = LT.LAMMPSData(strDirectory + strFile, 1, a, LT.LAMMPSAnalysis3D)
 objAnalysis = objData.GetTimeStepByIndex(-1)
 lstColumnNames = objAnalysis.GetColumnNames()
 lstNames = ['GrainNumber', 'GrainBoundary', 'TripleLine']
+arrCellVectors = objAnalysis.GetCellVectors()
+arrTJPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[2]+arrCellVectors[1]),0.5*(arrCellVectors[2]+arrCellVectors[0]),0.5*(arrCellVectors[2]+arrCellVectors[1]+arrCellVectors[0])])
+objTJTree = gf.PeriodicWrapperKDTree(arrTJPositions,arrCellVectors, gf.FindConstraintsFromBasisVectors(arrCellVectors),20)
 for k in lstNames:
     if k in lstColumnNames:
         objAnalysis.SetColumnToZero(k)
@@ -37,7 +40,7 @@ blnStop = False
 b = 1
 while not(blnStop) and b < 6:
     objAnalysis.ResetGrainNumbers()
-    objAnalysis.PartitionGrains(b, 25, 5*a)
+    objAnalysis.PartitionGrains(b, 250, 5*a)
     lstGrainLabels = objAnalysis.GetGrainLabels()
     if len(lstGrainLabels) > 0:
         objAnalysis.MergePeriodicGrains(25)
