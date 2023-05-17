@@ -1018,7 +1018,7 @@ class LAMMPSAnalysis3D(LAMMPSPostProcess):
         arrOverlapIDs = self.GetGrainBoundaryIDs(-1)
         arrOverlapPoints = self.GetAtomsByID(arrOverlapIDs)[:,1:4]
         lstSplitPoints = []
-        clustering = DBSCAN(2*self.__LatticeParameter,min_samples=25).fit(arrOverlapPoints)
+        clustering = DBSCAN(2*self.__LatticeParameter,min_samples=5).fit(arrOverlapPoints)
         arrLabels = clustering.labels_
         for a in np.unique(arrLabels):
             if a != -1:
