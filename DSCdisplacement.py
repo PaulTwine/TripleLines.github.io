@@ -20,7 +20,7 @@ plt.rcParams['figure.dpi'] = 300
 #%%
 objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(200)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[21,21,49],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[7,7,49],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex,True)
@@ -118,7 +118,7 @@ for i in range(1,20):
 dctCoincidence,arrTJ,arrDistances = MakeCoincidentDictionary(lstPoints,arrEdgeVectors,0.25/np.sqrt(2),0.25/np.sqrt(2))
 print(np.max(np.mean(arrDistances,axis=1)))
 #%%
-dctExactCoincidence,arrExactTJ,arrExactDistances = MakeCoincidentDictionary(lstPoints,arrEdgeVectors,0,0)
+dctExactCoincidence,arrExactTJ,arrExactDistances = MakeCoincidentDictionary(lstPoints,arrEdgeVectors,0.001,0.001)
 # %%
 def GetBicrystalAtomicLayer(inlstPoints: list,arrCoincidence: np.array,inEdgeVectors: np.array,intLayer: int, intNumberOfLayers:int):
     zlength = np.linalg.norm(inEdgeVectors[2])
@@ -155,7 +155,7 @@ def GetBicrystalAtomicLayer(inlstPoints: list,arrCoincidence: np.array,inEdgeVec
 lstGrainColours = ['goldenrod','darkcyan','purple']
 lstCoincidenceColours = ['darkolivegreen','saddlebrown','black']
 arrTranslate = arrEdgeVectors[0,:2]
-intLayer = 1
+intLayer = 0
 lstGrains1 = [0,1]
 lstBiPoints1, arrCoincide1 = GetBicrystalAtomicLayer(np.array(lstPoints)[lstGrains1],dctCoincidence[tuple(lstGrains1)],arrEdgeVectors,intLayer,3)
 
@@ -167,7 +167,6 @@ lstExactBiPoints1, arrExactCoincide1 = GetBicrystalAtomicLayer(np.array(lstPoint
 lstGrains2 = [0,2]
 lstBiPoints2, arrCoincide2 = GetBicrystalAtomicLayer(np.array(lstPoints)[lstGrains2],dctCoincidence[tuple(lstGrains2)],arrEdgeVectors,intLayer,3)
 
-lstGrains2 = [0,2]
 lstExactBiPoints2, arrExactCoincide2 = GetBicrystalAtomicLayer(np.array(lstPoints)[lstGrains2],dctExactCoincidence[tuple(lstGrains2)],arrEdgeVectors,intLayer,3)
 
 
@@ -175,13 +174,16 @@ lstExactBiPoints2, arrExactCoincide2 = GetBicrystalAtomicLayer(np.array(lstPoint
 
 lstEmpty, arrCoincide3 = GetBicrystalAtomicLayer([],arrTJ,arrEdgeVectors,intLayer,3)
 
-lstEmpty, arrExactCoincide3 = GetBicrystalAtomicLayer([],arrExactTJ,arrEdgeVectors,intLayer,3)
+if len(arrExactTJ) > 0:
+    lstEmpty, arrExactCoincide3 = GetBicrystalAtomicLayer([],arrExactTJ,arrEdgeVectors,intLayer,3)
+else:
+    arrExactCoincide3 = []
 
 
 #arrCoincide3 = gf.MergeTooCloseAtoms(arrCoincide3,arrEdgeVectors,0.15)
-blnTJ = True
+blnTJ =  True
 bln12 = True
-bln13 = True
+bln13 = True # True
 intS = 5
 #arrTranslate = np.zeros(2)
 if bln12:
@@ -196,11 +198,15 @@ if bln13:
 if len(arrCoincide1) > 0 and bln12:
     arrWrapped12C = gf.AddPeriodicWrapper(arrCoincide1[:,:2],arrEdgeVectors[:2,:2],0.1,False)
     plt.plot(*tuple(zip(*(arrWrapped12C+arrTranslate))),c=lstCoincidenceColours[0],linestyle='None',marker='o',markersize=1.2*intS)
-    #plt.scatter(*tuple(zip(*(arrCoincide1[:,:2]))),s=6,c=lstCoincidenceColours[0])
+if len(arrExactCoincide1) > 0 and bln12:
+    arrExactWrapped12C = gf.AddPeriodicWrapper(arrExactCoincide1[:,:2],arrEdgeVectors[:2,:2],0.1,False)
+    plt.plot(*tuple(zip(*(arrExactWrapped12C+arrTranslate))),c=lstCoincidenceColours[0],linestyle='None',marker='s',markersize=1.2*intS)   
 if len(arrCoincide2) > 0 and bln13:
     arrWrapped13C = gf.AddPeriodicWrapper(arrCoincide2[:,:2],arrEdgeVectors[:2,:2],0.1,False)
     plt.plot(*tuple(zip(*(arrWrapped13C))),c=lstCoincidenceColours[1],linestyle='None',marker='o',markersize=1.2*intS)
- #   plt.scatter(*tuple(zip(*(arrCoincide2[:,:2]+arrTranslate))),s=6,c=lstCoincidenceColours[1])
+if len(arrExactCoincide2) > 0 and bln13:
+    arrExactWrapped13C = gf.AddPeriodicWrapper(arrExactCoincide2[:,:2],arrEdgeVectors[:2,:2],0.1,False)
+    plt.plot(*tuple(zip(*(arrExactWrapped13C))),c=lstCoincidenceColours[1],linestyle='None',marker='s',markersize=1.2*intS)
 if blnTJ:
     plt.xlim([-0.5,2*arrEdgeVectors[0,0]+0.5])
 elif bln12:    
@@ -211,6 +217,10 @@ if len(arrCoincide3) > 0 and blnTJ:
     arrWrappedTJ = gf.AddPeriodicWrapper(arrCoincide3[:,:2],arrEdgeVectors[:2,:2],0.1,False)
     plt.plot(*tuple(zip(*arrWrappedTJ)),c=lstCoincidenceColours[2],linestyle='None',marker='o',markersize=1.2*intS)
     plt.plot(*tuple(zip(*(arrWrappedTJ+arrTranslate))),c=lstCoincidenceColours[2],linestyle='None',marker='o',markersize=1.2*intS)
+if len(arrExactCoincide3) > 0 and blnTJ:
+    arrExactWrappedTJ = gf.AddPeriodicWrapper(arrExactCoincide3[:,:2],arrEdgeVectors[:2,:2],0.1,False)
+    plt.plot(*tuple(zip(*arrExactWrappedTJ)),c=lstCoincidenceColours[2],linestyle='None',marker='s',markersize=1.2*intS)
+    plt.plot(*tuple(zip(*(arrExactWrappedTJ+arrTranslate))),c=lstCoincidenceColours[2],linestyle='None',marker='s',markersize=1.2*intS)
 plt.ylim([-0.5,arrEdgeVectors[1,1]+0.5])
 ax = plt.gca()
 ax.set_aspect('equal', adjustable='box')
@@ -225,7 +235,7 @@ ax = fig.add_subplot(projection='3d')
 ax.scatter(*tuple(zip(*arrTJ)))
 plt.show()
 #%%
-arrFacetPoint = arrCoincide2[2]
+arrFacetPoint = arrCoincide2[10]
 
 #%%
 
@@ -241,20 +251,22 @@ if len(arrCoincide2) > 0:
     plt.plot(*tuple(zip(*(arrWrapped2+arrTranslate))),linestyle='None',c=lstCoincidenceColours[1],marker='o',markersize=1.2*intS)
 ### For 7-7-49 use level 1 use arrconincide2[10]
 #arrFacetPoint = arrCoincide2[10]
-plt.plot([0,arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[1])
-plt.plot([arrEdgeVectors[0,0],arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[1])
+blnIncludeGBs = False
+if blnIncludeGBs:
+    plt.plot([0,arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[1])
+    plt.plot([arrEdgeVectors[0,0],arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[1])
 
-plt.plot([0,arrEdgeVectors[0,0]-arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[1])
+    plt.plot([0,arrEdgeVectors[0,0]-arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[1])
 
-plt.plot([arrEdgeVectors[0,0],arrEdgeVectors[0,0]-arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[1])
+    plt.plot([arrEdgeVectors[0,0],arrEdgeVectors[0,0]-arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[1])
 
-plt.plot([2*arrEdgeVectors[0,0],2*arrEdgeVectors[0,0]-arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[0])
+    plt.plot([2*arrEdgeVectors[0,0],2*arrEdgeVectors[0,0]-arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[0])
 
-plt.plot([arrEdgeVectors[0,0],2*arrEdgeVectors[0,0]-arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[0])
+    plt.plot([arrEdgeVectors[0,0],2*arrEdgeVectors[0,0]-arrFacetPoint[0]],[0,arrFacetPoint[1]],c=lstCoincidenceColours[0])
 
-plt.plot([arrEdgeVectors[0,0],arrEdgeVectors[0,0]+arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[0])
+    plt.plot([arrEdgeVectors[0,0],arrEdgeVectors[0,0]+arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[0])
 
-plt.plot([2*arrEdgeVectors[0,0],arrEdgeVectors[0,0]+arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[0])
+    plt.plot([2*arrEdgeVectors[0,0],arrEdgeVectors[0,0]+arrFacetPoint[0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrFacetPoint[1]],c=lstCoincidenceColours[0])
 
 #plt.plot([arrEdgeVectors[0,0],arrEdgeVectors[0,0]-arrCoincide2[10,0]],[arrEdgeVectors[1,1],arrEdgeVectors[1,1] -arrCoincide2[10,1]],c=lstCoincidenceColours[1])
 
@@ -266,8 +278,27 @@ plt.ylim([-0.5,arrEdgeVectors[1,1]+0.5])
 plt.plot(*tuple(zip(*arrWrapped3)),linestyle='None',c=lstCoincidenceColours[2],marker='o',markersize=1.2*intS)
 plt.plot(*tuple(zip(*(arrWrapped3+arrTranslate))),linestyle='None',c=lstCoincidenceColours[2],marker='o',markersize=1.2*intS)
 
+if len(arrExactCoincide1) > 0:
+    arrExactWrapped1 = gf.AddPeriodicWrapper(arrExactCoincide1[:,:2],arrEdgeVectors[:2,:2],0.1,False)
+    plt.xlim([-0.5,2*arrEdgeVectors[0,0]+0.5])
+    plt.ylim([-0.5,arrEdgeVectors[1,1]+0.5])
+    plt.plot(*tuple(zip(*arrExactWrapped1)),linestyle='None',c=lstCoincidenceColours[0],marker='s',markersize=1.2*intS)
+    plt.plot(*tuple(zip(*(arrExactWrapped1+arrTranslate))),linestyle='None',c=lstCoincidenceColours[0],marker='s',markersize=1.2*intS)
+if len(arrExactCoincide2) > 0:
+    arrExactWrapped2 = gf.AddPeriodicWrapper(arrExactCoincide2[:,:2],arrEdgeVectors[:2,:2],0.1,False)
+    plt.xlim([-0.5,2*arrEdgeVectors[0,0]+0.5])
+    plt.ylim([-0.5,arrEdgeVectors[1,1]+0.5])
+    plt.plot(*tuple(zip(*arrExactWrapped2)),linestyle='None',c=lstCoincidenceColours[1],marker='s',markersize=1.2*intS)
+    plt.plot(*tuple(zip(*(arrExactWrapped2+arrTranslate))),linestyle='None',c=lstCoincidenceColours[1],marker='s',markersize=1.2*intS)
+if len(arrExactCoincide3) > 0:
+    arrExactWrapped3 = gf.AddPeriodicWrapper(arrExactCoincide3[:,:2],arrEdgeVectors[:2,:2],0.1,False)
+    plt.xlim([-0.5,2*arrEdgeVectors[0,0]+0.5])
+    plt.ylim([-0.5,arrEdgeVectors[1,1]+0.5])
+    plt.plot(*tuple(zip(*arrExactWrapped3)),linestyle='None',c=lstCoincidenceColours[2],marker='s',markersize=1.2*intS)
+    plt.plot(*tuple(zip(*(arrExactWrapped3+arrTranslate))),linestyle='None',c=lstCoincidenceColours[2],marker='s',markersize=1.2*intS)
 
-#plt.axline(arrEdgeVectors[0,:2],slope=-3*arrEdgeVectors[1,1]/(2*arrEdgeVectors[0,0]),c=lstCoincidenceColours[1],linestyle='dotted')
+
+
 ax = plt.gca()
 ax.set_aspect('equal', adjustable='box')
 plt.axis('off')
