@@ -6,21 +6,23 @@ import GeneralLattice as gl
 import LAMMPSTool as LT
 import sys
 from mpl_toolkits.mplot3d import Axes3D
+print(gf.CubicCSLGenerator(np.array([1,1,0]), 5))
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')
-strDirectory = str(sys.argv[1])
-intSigma = int(sys.argv[2])
-intMax = int(sys.argv[3])
+#strDirectory = str(sys.argv[1])
+#intSigma = int(sys.argv[2])
+#intMax = int(sys.argv[3])
 #strDirectory = '../PythonLAMMPS/'
-arrAxis = np.array([1,1,1])
+arrAxis = np.array([1,0,1])
 #intSigma = 3
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
-objSigma.MakeCSLCell(intSigma)
-gf.CubicCSLGenerator(arrAxis, 5)
-arrRotation = np.zeros(3)
-arrRotation[1:3] = objSigma.GetLatticeRotations()
+objSigma.MakeCSLCell(3)
+#gf.CubicCSLGenerator(arrAxis, 5)
+#arrRotation = np.zeros(3)
+#arrRotation[1:3] = objSigma.GetLatticeRotations()
 #arrRotation[0] = -arrRotation[1]
 arrSigmaBasis = objSigma.GetBasisVectors()
+print(arrSigmaBasis)
 a1 = 4.05 ##lattice parameter
 a2 = a1*np.sqrt(3) #periodic cell repeat multiple
 h= 1

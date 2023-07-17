@@ -12,8 +12,9 @@ strDirectory = str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
 lstAxis = eval(str(sys.argv[2]))
 lstSigmaAxis = eval(str(sys.argv[3]))
-intTemp = int(sys.argv[4])
-intRuns = 3000000
+lstGrainPE = eval(str(sys.argv[4]))
+intTemp = int(sys.argv[5])
+intRuns = 100000
 
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
@@ -31,11 +32,13 @@ arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-s = np.round(np.sqrt(4*10**5/(intHeight*np.linalg.det(arrBasis))))
+s = np.round(np.sqrt(2*10**5/(intHeight*np.linalg.det(arrBasis))))
 intRound = 6
 arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(0),intRound) 
 arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(2),intRound)
 arrGrainBasis3 = np.round(objCSL.GetLatticeBasis(1),intRound)
+
+
 
 arrFullCell = np.array([[4*s,0,0],[0,4*s,0],[0,0,intHeight]])
 arrSmallCell = np.array([[2*s,0,0],[0,2*s,0],[0,0,intHeight]])
@@ -55,7 +58,7 @@ arrGrain3 = gl.ParallelopiedGrain(arrSmallBox,arrGrainBasis3,ld.FCCCell,a*np.one
 
 fltNearestNeighbour = arrGrain1.GetNearestNeighbourDistance()
 fltE = fltTolerance*fltNearestNeighbour
-strFilename = 'TJ'
+strFilename = 'TJ' + str(lstGrainPE)
 objSimulationCell.AddGrain(arrGrain1)
 objSimulationCell.AddGrain(arrGrain2)
 objSimulationCell.AddGrain(arrGrain3)

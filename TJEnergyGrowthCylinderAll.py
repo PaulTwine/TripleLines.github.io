@@ -8,18 +8,19 @@ import sys
 from mpl_toolkits.mplot3d import Axes3D 
 import copy as cp
 
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
-strDirectory = '/home/p17992pt/csf3_scratch/CSLGrowthCylinder/Axis100/GBSigma13/0/' #str(sys.argv[1])
-strDirectory = '/home/p17992pt/LAMMPSData/'
-intSigma = 13 #int(sys.argv[2])
-fltFactor = 0.85# float(sys.argv[4])
-lstAxis = [1,0,0] #eval(str(sys.argv[3]))
-arrAxis = np.array(lstAxis)
-objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
-objSigma.MakeCSLCell(intSigma)
+
+# strDirectory = str(sys.argv[1])
+# intSigma = int(sys.argv[2])
+# fltFactor = float(sys.argv[4])
+# lstAxis = eval(str(sys.argv[3]))
+# arrAxis = np.array(lstAxis)
+arrAxis = np.array([0,0,1])
+objSigma = gl.SigmaCell(np.array([5,1,1]),ld.FCCCell)
+objSigma.MakeCSLCell(9)
 fltAngle1, fltAngle2 = objSigma.GetLatticeRotations()
+print((fltAngle1-fltAngle2)*180/np.pi)
 arrSigmaBasis = objSigma.GetBasisVectors()
+
 intMax = 60
 intHeight = 5
 s1 = np.linalg.norm(arrSigmaBasis, axis=1)[0]
@@ -38,7 +39,7 @@ h = a*np.round(intHeight/s3,0)
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]
-if np.all(arrAxis == np.array([1,0,0])):
+if np.all(arrAxis == np.array([0,0,1])):
     arrBasisVectors = gf.StandardBasisVectors(3)
 else:
     fltAngle3, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
@@ -47,12 +48,13 @@ arrLatticeParameters= np.array([a,a,a])
 fltDatum = -3.36
 arrShift = a*(0.5-np.random.ranf())*arrSigmaBasis[1]+a*(0.5-np.random.ranf())*arrSigmaBasis[2]
 arrCentre = 0.5*(arrX+arrXY+z) + arrShift
-np.savetxt(strDirectory + 'GrainCentre.txt',arrCentre)
+#np.savetxt(strDirectory + 'GrainCentre.txt',arrCentre)
 strConstraint = str(arrXY[0])+ '*(y -' + str(arrCentre[1]) + ') - ' + str(arrXY[1]) + '*(x -' + str(arrCentre[0]) + ')' 
 MySimulationCell = gl.SimulationCell(np.array([arrX,arrXY, z])) 
 objFullCell1 = gl.ExtrudedParallelogram(arrX,arrXY,s3*h, gf.RotateVectors(fltAngle1,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell2 = gl.ExtrudedParallelogram(arrX,arrXY, s3*h, gf.RotateVectors(fltAngle2,z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,np.zeros(3))
 objFullCell3 = gl.ExtrudedParallelogram(arrX,arrXY, s3*h, gf.RotateVectors(np.mean([fltAngle1,fltAngle2]),z,arrBasisVectors), ld.FCCCell, arrLatticeParameters,arrShift)
+objFullCell1.ApplyLatticeShift(np.array([1.2,-4.5,-3.0]))
 objFullCell1.SetPeriodicity(['n','p','p'])
 objFullCell2.SetPeriodicity(['n','p','p'])
 objFullCell3.SetPeriodicity(['n','n','n'])

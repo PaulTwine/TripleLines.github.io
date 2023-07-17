@@ -14,24 +14,25 @@ import re
 import sys 
 
 strDirectory = str(sys.argv[1])
-#arrValues = np.loadtxt(strDirectory +'Values.txt')
-#print(arrValues)
-#plt.scatter(list(range(100)),arrValues[0,:])
-#plt.show()
-#print(np.argmax(arrValues[0,:]))
-lstPE = []
-lstAtoms = []
-lstLattice = []
+intDirs = 10
+intFiles = 10
+lstStacked = []
 for j in range(100):
-    objData = LT.LAMMPSData(strDirectory+ str(j) + '/read0.lst',1,4.05, LT.LAMMPSGlobal)
-    obj0 = objData.GetTimeStepByIndex(-1)
-    objData = LT.LAMMPSData(strDirectory+ str(j) + '/read1.lst',1,4.05, LT.LAMMPSGlobal)
-    obj1 = objData.GetTimeStepByIndex(-1)
-    lstAtoms.append(obj0.GetNumberOfAtoms() - obj1.GetNumberOfAtoms())
-    intPECol = obj1.GetColumnIndex('c_pe1')
-    fltSum1 = np.sum(obj1.GetColumnByName('c_pe1'))
-    fltSum0 = np.sum(obj0.GetColumnByName('c_pe1'))
-    lstLattice.append(np.mean(obj1.GetLatticeAtoms()[:,intPECol]))
-    lstPE.append(fltSum1-fltSum0 + lstAtoms[-1]*lstLattice[-1])
-print(max(lstPE))
-np.savetxt(strDirectory + 'Values.txt',np.array([lstPE,lstAtoms,lstLattice]))
+    arrRow = np.zeros(8)
+    i = np.mod(j,10) 
+    intDir = int((j-i)/10)
+    arrRow[0] = intDir
+    arrRow[1] = i
+    objData = LT.LAMMPSData(strDirectory+ str(intDir) + '/readGB' +str(i) + '.lst',1,4.05, LT.LAMMPSGlobal)
+    objGB = objData.GetTimeStepByIndex(-1)
+    objData = LT.LAMMPSData(strDirectory+ str(intDir) + '/readTJ' + str(i) + '.lst',1,4.05, LT.LAMMPSGlobal)
+    objTJ = objData.GetTimeStepByIndex(-1)
+    intPECol = objTJ.GetColumnIndex('c_pe1')
+    arrRow[2] = np.sum(objTJ.GetColumnByName('c_pe1'))
+    arrRow[3] = np.sum(objGB.GetColumnByName('c_pe1'))
+    arrRow[4] = np.mean(objTJ.GetLatticeAtoms()[:,intPECol])
+    arrRow[5] = np.mean(objGB.GetLatticeAtoms()[:,intPECol])
+    arrRow[6] = objTJ.GetNumberOfAtoms()
+    arrRow[7] = objGB.GetNumberOfAtoms()
+    lstStacked.append(arrRow)
+np.savetxt(strDirectory + 'Values.txt',np.vstack(lstStacked))

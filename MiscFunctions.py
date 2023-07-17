@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 from scipy import stats
+from scipy import optimize
 import GeometryFunctions as gf
 
 def UpdateTemplate(lstOriginal: list, lstNew: list, strOldFilename: str,strNewFilename: str):
@@ -350,6 +351,58 @@ def BootStrapRows(intLength: int,intSamples: int): #n is the number of repetitio
     if len(arrRows) > 0:
         arrPositions = np.delete(arrPositions,arrRows,axis= 0)
     return arrPositions.astype('int')
+def FitLine(x, a, b):
+    return a*x + b
+
+def BlockBootstrapEstimate(lstX, lstY, fitFunction=None):
+    lstValues = []
+    lstAllX = []
+    lstAllY = []
+    intN = min(list(map(lambda x: len(x), lstX)))
+    for i in range(len(lstX)):
+        inX = lstX[i]
+        inY = lstY[i]
+        arrPositions = BootStrapRows(intN, 1)[0]
+        arrX = np.array(inX)[arrPositions]
+        arrY = np.array(inY)[arrPositions]
+        lstAllX.append(arrX)
+        lstAllY.append(arrY)
+    arrAllX = np.vstack(lstAllX)
+    arrAllY = np.vstack(lstAllY)
+    if fitFunction is None:
+        fitFunction = FitLine
+    lstValues.append(list(map(lambda k: optimize.curve_fit(
+        fitFunction, arrAllX[:, k], arrAllY[:, k])[0][0], list(range(intN)))))
+    return lstValues
+
+def BootstrapEstimate(inX, inY, intN, fitFunction=None):
+    lstValues = []
+    if fitFunction is None:
+        fitFunction = FitLine
+    arrPositions = BootStrapRows(len(inX), intN)
+    lstValues = list(map(lambda k: optimize.curve_fit(
+        fitFunction, np.array(inX)[k], np.array(inY)[k])[0][0], arrPositions))
+    # for k in arrPositions:
+    # popt,pop = optimize.curve_fit(FitLine,np.array(inX)[k],np.array(inY)[k])
+    # lstValues.append(popt[0])
+    return lstValues
+def DoubleBootstrapEstimate(inX1, inY1, inX2, inY2, intN, fitFunction = None):
+    if fitFunction is None:
+        fitFunction = FitLine
+    arrPositions = BootStrapRows(len(inX1), intN)
+    lstValues1 = list(map(lambda k: optimize.curve_fit(
+        fitFunction, np.array(inX1)[k], np.array(inY1)[k])[0][0], arrPositions))
+    lstValues2 = list(map(lambda k: optimize.curve_fit(
+        fitFunction, np.array(inX2)[k], np.array(inY2)[k])[0][0], arrPositions))
+    return lstValues1, lstValues2
+def RelativeError(inValues: np.array, inAbsoluteErrors: np.array):
+    arrRelativeErrors = inAbsoluteErrors/inValues
+    arrQuadrature = np.sqrt(np.dot(arrRelativeErrors,arrRelativeErrors))
+    return arrQuadrature
+
+
+
+
 
 
 

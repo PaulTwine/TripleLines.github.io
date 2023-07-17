@@ -13,17 +13,17 @@ from mpl_toolkits.mplot3d import Axes3D
 ###in LAMMPS two orient/eco fixes mean grain 1 is pensalied with a +u0 pe per atom and grains 2 and 3 are both energetically favoured by -u0/2 per atom. 
 
 
-strRoot = str(sys.argv[1])
+strRoot = '\home' #str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = eval(str(sys.argv[2]))
-lstSigmaAxis = eval(str(sys.argv[3]))
-intTemp = int(sys.argv[4])
-u0 = float(sys.argv[5])
+lstAxis = [1,0,1] # eval(str(sys.argv[2]))
+lstSigmaAxis = [3,9,27] # eval(str(sys.argv[3]))
+intTemp = 450 # int(sys.argv[4])
+u0 = 1 # float(sys.argv[5])
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
 intRuns = 10**5
-fltTolerance = 0.5
+fltTolerance = 0.6
 a = 4.05
 lstOrientGB = [u0,0.25,a]
 lstOrientTJ = [np.round(2*u0/3,5),0.25,a] 

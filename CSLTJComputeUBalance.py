@@ -14,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 #arrFValues the rows are the grains 1,2 and 3
 #Fix 1 is column 1
 # Fix 2 is column 2 
-strRoot = str(sys.argv[1])
+strRoot = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis001/Sigma5_5_25/Temp550/' #str(sys.argv[1])
 lstGrains = ['1G', '2G', '3G']
 arrFValues = np.zeros([3,2])
 i = 0

@@ -12,14 +12,14 @@ from scipy import optimize
 from sklearn.cluster import DBSCAN
 
 
-strDirectory =  str(sys.argv[1])
-strFile = str(sys.argv[2])
-intTimeStep = int(sys.argv[3])
+#strDirectory =  str(sys.argv[1])
+#strFile = str(sys.argv[2])
+#intTimeStep = int(sys.argv[3])
 
 a= 4.05
-# strDirectory = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp600/u03L/TJ/'
-# strFile = '1Sim86300.dmp'  # str(sys.argv[2])
-# intTimeStep = 86300  # int(sys.argv[3])
+strDirectory = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis511/Sigma9_9_9/Temp600/u03L/TJ/'
+strFile = '1Sim90000.dmp'  # str(sys.argv[2])
+intTimeStep = 90000  # int(sys.argv[3])
 objData = LT.LAMMPSData(strDirectory + strFile, 1, a, LT.LAMMPSAnalysis3D)
 objAnalysis = objData.GetTimeStepByIndex(-1)
 lstColumnNames = objAnalysis.GetColumnNames()
@@ -40,7 +40,7 @@ blnStop = False
 b = 1
 while not(blnStop) and b < 6:
     objAnalysis.ResetGrainNumbers()
-    objAnalysis.PartitionGrains(b, 250, 5*a)
+    objAnalysis.PartitionGrains(b, 75, 5*a)
     lstGrainLabels = objAnalysis.GetGrainLabels()
     if len(lstGrainLabels) > 0:
         objAnalysis.MergePeriodicGrains(25)
@@ -56,7 +56,7 @@ if blnStop:
     objAnalysis.RelabelGrainNumbers([1, 2, 3], lstMatches)
     objAnalysis.FindGrainBoundaries(3*a)
     arrTJMesh = objAnalysis.FindJunctionMesh(3*a, 3)
-    objAnalysis.FindJunctionLines(3*a, 3)
+    objAnalysis.FindJunctionLines(3*a, 3,5*a)
     for i in range(len(arrTJMesh)):
         np.savetxt(strDirectory + 'TJ' + str(i) + 'Mesh' +
                    str(intTimeStep) + '.txt', arrTJMesh[i])

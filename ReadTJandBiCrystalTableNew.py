@@ -33,7 +33,7 @@ def GBCalculation(inSGBArray: np.array,inBiArray, intSigma: int, strAxis: str):
     fltExcessGB = inSGBArray[:,2] -3.36*(inSGBArray[0,6]*np.ones(len(inSGBArray))-inSGBArray[:,6]) -(-3.36*inSGBArray[0,6]*np.ones(len(inSGBArray))) #sGB
     #fltExcess = inArray[:,3] -3.36*(inArray[0,7]*np.ones(len(inArray))-inArray[:,7]) -(-3.36*inArray[0,7]*np.ones(len(inArray))) #sTJ
     fltExcessCSL = FindCSLExcess(inBiArray)
-    return (fltExcessCSL/fltGBArea + (fltExcessGB-fltExcessCSL)/fltCylinderArea)/2
+    return (fltExcessCSL/fltGBArea + 2*(fltExcessGB-fltExcessCSL)/fltCylinderArea)/3
 def FindCSLExcess(inCSLArray: np.array):
     return (inCSLArray[:,1]+(np.ones(len(inCSLArray))*inCSLArray[0,3]-inCSLArray[:,3])*(-3.36) -inCSLArray[0,3]*np.ones(len(inCSLArray))*(-3.36))/(2*inCSLArray[0,4]) 
 
@@ -90,6 +90,10 @@ lstLowerResults = []
 lstUpperResults = []
 lstGBResults = []
 lstMinResults = []
+
+
+
+
 for strAxis in lstAxes:
     strBiDir = '/home/p17992pt/csf4_scratch/BiCrystal/'
     strTJDir = '/home/p17992pt/csf4_scratch/TJCylinder/'
@@ -293,7 +297,7 @@ if blnMod:
 ##############################################
 
 
-intP = 1
+intP = 0
 strAxis = lstAxes[intP]
 strMarker = lstMarkers[intP]
 lstColours = ['red','orange','green']

@@ -12,9 +12,25 @@ import LAMMPSTool as LT
 import LatticeDefinitions as ld
 import re
 import sys
+import sympy as sy
 
-strRoot = str(sys.argv[1])
-strType = str(sys.argv[2])
+
+
+print(gf.CubicCSLGenerator(np.array([1,0,1])))
+arrTranslation = np.array([0,0,0])
+t= 0.3
+lstTransforms = []
+arrRotate1 = np.array([[np.cos(t),np.sin(t),0],[-np.sin(t),np.cos(t),0],[0,0,1]])
+#arrRotate2 = np.array([[np.cos(-t),np.sin(-t),0],[-np.sin(-t),np.cos(-t),0],[0,0,1]])
+arrReflect = np.array([[-1,0,0],[0,-3,0],[0,0,2]]) #- np.array([[1,0,0],[0,1,0],[0,0,1]])
+#lstTransforms.append(gf.AffineTransformationMatrix(arrRotate1,arrTranslation))
+#lstTransforms.append(gf.AffineTransformationMatrix(arrReflect,arrTranslation))
+objOLattice = gf.OLattice(arrReflect,np.array([0.25,0.5,0.3]))
+print(objOLattice.GetDiscretePoints())
+print(objOLattice.GetOVectors())
+print(objOLattice.GetTranslation())
+strRoot = '/home/p17992pt/csf3_scratch/CSLGrowthCylinder/Axis100/GBSigma25/' #str(sys.argv[1])
+strType = 'C'#str(sys.argv[2])
 intDirs = 25  #number of test runs each in a separate directory
 if strType == 'C':
 	intFiles = 16
@@ -57,7 +73,7 @@ def CylindricalGrainFitting(indct: dict())->np.array:
         fltDatumPE = np.mean(indct[i].GetLatticeAtoms()[:,intPE])
         lstAtoms.append(indct[i].GetNumberOfAtoms())
         lstPE.append(np.sum(indct[i].GetColumnByName('c_pe1')))
-        lstIDs = indct[i].GetAtomIDsByOrientation(arrQuaternion,1,0.03)
+        lstIDs = indct[i].GetAtomIDsByOrientation(arrQuaternion,1,0.001)
         fltVolume = np.sum(indct[i].GetAtomsByID(lstIDs)[:,intVolume])
         lstRadii.append(np.sqrt(fltVolume/(fltHeight*np.pi)))
         if len(lstPE) ==1:
@@ -65,6 +81,7 @@ def CylindricalGrainFitting(indct: dict())->np.array:
         else:
             lstAdjustedPE.append(lstPE[-1]+fltDatumPE*(intBaseAtoms-lstAtoms[-1])-fltDatumPE*intBaseAtoms)
         intCounter +=1
+        indct[i].WriteDumpFile(strRoot + str(i)[:-3] + 'upd' )
     arrRadii = np.array(lstRadii)
     arrAdjustedPE = np.array(lstAdjustedPE)  
     return np.array([np.sort(arrRadii),arrAdjustedPE[np.argsort(arrRadii)]])
@@ -100,6 +117,7 @@ for i in range(intDirs):
       arrPE = SphericalGrainFitting(objdct)
     print(i, arrPE)
     arrValues[i] = arrPE
+    
 
 arrValues = arrValues.reshape((2*intDirs,intFiles))
 

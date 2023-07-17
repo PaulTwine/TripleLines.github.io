@@ -1,0 +1,95 @@
+#%%
+import numpy as np
+import matplotlib.pyplot as plt
+def Circle(arrCentre, fltRadius, inX):
+    return np.sqrt(fltRadius**2 - (inX -arrCentre[0])**2) + arrCentre[1]
+#def ExactLoop(a, theta,inX ):
+    return a/(2*theta)*np.arccos(np.exp(-inX*2*theta/a+0.5*(np.log(np.sin(theta)))**2)) + a*(np.pi/2-theta)/(2*theta)
+t = np.pi/2
+plt.rcParams['lines.linewidth'] = 2
+arrXRange = np.linspace(0,3,1000)
+def ExactLoop(a, theta,inX ):
+    return a/(2*theta)*np.arccos(np.sin(theta)*np.exp(-inX*2*theta/a)) - a*(np.pi/2-theta)/(2*theta)
+#%%
+R = 1
+L = 1
+d = np.sqrt(R**2-L**2)
+plt.plot(np.linspace(-1,1,1000),Circle([0,-d],R,np.linspace(-1,1,1000)),c='grey')
+plt.plot(np.linspace(1,3,1000),Circle([2,-d],R,np.linspace(1,3,1000)),c='grey')
+#plt.arrow(0,-np.sqrt(3),0,2)
+plt.axes().set_aspect('equal')
+plt.plot([-1,-1],[-np.sqrt(3),0],linestyle='dashed',c='black')
+plt.plot([1,1],[-np.sqrt(3),0],linestyle='dashed',c='black')
+plt.plot([3,3],[-np.sqrt(3),0],linestyle='dashed',c='black')
+#plt.plot([0,1],[-np.sqrt(3),0],linestyle='dashed',c='black')
+#plt.plot([2,1],[-np.sqrt(3),0],linestyle='dashed',c='black')
+plt.annotate(text='', xy=(0,-d), xytext=(0,1),c='darkblue', arrowprops=dict(arrowstyle='<->',color='darkblue'))
+plt.annotate(text='$R$', xy=(-0.2,0.5),fontsize=15,c='darkblue')
+plt.annotate(text='', xy=(2,-d), xytext=(2,1),c='darkblue', arrowprops=dict(arrowstyle='<->',color='darkblue'))
+plt.annotate(text='$R$', xy=(2.05,0.5),fontsize=15,c='darkblue')
+plt.annotate(text='', xy=(-1,0), xytext=(1,0),c='darkblue', arrowprops=dict(arrowstyle='<->',color='darkblue'))
+plt.annotate(text='$2L$', xy=(-0.1,-0.2),fontsize=15,c='darkblue')
+plt.annotate(text='', xy=(1,0), xytext=(3,0),c='darkblue', arrowprops=dict(arrowstyle='<->',color='darkblue'))
+plt.annotate(text='$2L$', xy=(1.9,-0.2),fontsize=15,c='darkblue')
+plt.ylim([-np.sqrt(3),1.1])
+plt.axis('off')
+plt.show()
+#%%
+plt.plot(np.linspace(-1,1,1000),Circle([0,-1],1,np.linspace(-1,1,1000)),c='grey')
+#plt.plot(ExactLoop(2,np.pi/3,arrXRange),-arrXRange ,c='black')
+#plt.plot(-ExactLoop(2,np.pi/3,arrXRange),-arrXRange , c='black')
+plt.plot(ExactLoop(2,np.pi/2,arrXRange),-arrXRange ,c='black')#,linestyle='dashed')
+plt.plot(-ExactLoop(2,np.pi/2,arrXRange),-arrXRange , c='black')#,linestyle='dashed')
+plt.plot([-1,-1],[-3,-1],c='grey')
+plt.plot([1,1],[-3,-1],c='grey')
+#plt.plot([0,0],[1,0],c='grey')#,linestyle='dashed')
+#plt.plot([0,0],[1,0],c='black')
+plt.ylim([-3,1])
+plt.xlim([-1.5,1.5])
+plt.axes().set_aspect('equal')
+#plt.axis('equal')
+#plt.arrow(-1,-3,2,0,length_includes_head=True,arrow_style='double')
+plt.annotate(s='', xy=(-1,-3), xytext=(1,-3),c='darkblue', arrowprops=dict(arrowstyle='<->',color='darkblue'))
+plt.annotate(text='$a$', xy=(-0.05,-2.85),fontsize=15,c='darkblue')
+#plt.annotate(text=r'$\theta$', xy=(0.1,-0.4))
+#plt.annotate(text=r'$\theta$', xy=(-0.25,-0.4))
+#plt.axis('off')
+plt.show()
+#%%
+for j in np.linspace(0,2,6):
+    plt.plot(ExactLoop(2,np.pi/3,arrXRange),-arrXRange -j,c='black',linestyle='dotted')
+    plt.plot(-ExactLoop(2,np.pi/3,arrXRange),-arrXRange -j, c='black',linestyle='dotted')
+    #plt.plot([-1,-1],[-3-j,-1-j],c='black')
+    #plt.plot([1,1],[-3-j,-1-j],c='black')
+    plt.plot([0,0],[1,-j],c='black',linestyle='dotted')
+plt.plot(ExactLoop(2,np.pi/3,arrXRange),-arrXRange ,c='black')
+plt.plot(-ExactLoop(2,np.pi/3,arrXRange),-arrXRange , c='black')
+plt.annotate(s='', xy=(-1,-3), xytext=(1,-3),c='darkblue', arrowprops=dict(arrowstyle='<->',color='darkblue'))
+plt.annotate(text='$a$', xy=(-0.05,-2.85),fontsize=15,c='darkblue')
+plt.annotate(text=r'$\theta$', xy=(0.05,-0.4),fontsize=15,color='darkblue')
+#plt.annotate(text=r'$\theta$', xy=(-0.25,-0.4),fontsize=15)
+plt.plot([0,0],[1,0],c='black')
+plt.ylim([-3,1])
+plt.xlim([-1.5,1.5])
+plt.axes().set_aspect('equal')
+#plt.axis('equal')
+plt.axis('off')
+plt.show()
+# %%
+for j in np.linspace(0,2,6):
+    plt.plot(np.linspace(-1,1,1000),Circle([0,-1-j],1,np.linspace(-1,1,1000)),c='grey',linestyle='dotted')
+    plt.plot([-1,-1],[-3-j,-1-j],c='grey')
+    plt.plot([1,1],[-3-j,-1-j],c='grey')
+    plt.plot([0,0],[1,-j],c='grey',linestyle='dotted')
+plt.plot(np.linspace(-1,1,1000),Circle([0,-1],1,np.linspace(-1,1,1000)),c='grey')
+plt.annotate(s='', xy=(-1,-3), xytext=(1,-3),c='darkblue', arrowprops=dict(arrowstyle='<->',color='darkblue'))
+plt.annotate(text='$a$', xy=(-0.05,-2.85),fontsize=15,c='darkblue')
+plt.plot([0,0],[1,0],c='grey')
+plt.ylim([-3,1])
+plt.xlim([-1.5,1.5])
+plt.axes().set_aspect('equal')
+#plt.axis('equal')
+plt.axis('off')
+plt.show()
+
+# %%

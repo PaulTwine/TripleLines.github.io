@@ -6,7 +6,7 @@ import GeneralLattice as gl
 import LatticeDefinitions as ld
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import itertools
+import itertools as it
 
 #%%
 class CSLConjugateBases(object):
@@ -48,7 +48,8 @@ class CSLConjugateBases(object):
                     lstTemp.append(arrVectors[j])
                     lstTemp.append(arrVectors[k])
                     arrMatrix = np.vstack(lstTemp)
-                    if np.round(np.linalg.det(arrMatrix),10) !=0:
+                    arrPrimitive = np.matmul(arrMatrix, np.linalg.inv(ld.FCCPrimitive))
+                    if np.all(np.round(arrPrimitive,10) == np.round(arrPrimitive,0)):
                         lstMatrices.append(np.vstack(lstTemp))
         return lstMatrices    
     def FindSigmaFactors(self, inCSLBasis: np.array):
@@ -59,17 +60,20 @@ class CSLConjugateBases(object):
         #lstReducedVectors = np.unique(lstReducedVectors,axis=0)
         arrReducedVectors = self.FindPossibleAxes(inCSLBasis)
         lstReducedVectors = list(map(lambda x: x/np.gcd.reduce(x.astype('int')),2*arrReducedVectors))
+        arrReducedVectors = np.unique(np.array(lstReducedVectors), axis=0)
         intSigma = int(np.abs(np.round(np.linalg.det(inCSLBasis)/np.linalg.det(ld.FCCPrimitive))))
         lstFactors = mf.Factorize(intSigma)
         setFactors = set(lstFactors)
         lstTransforms = []
         lstR = []
-        for j in lstReducedVectors:
+        arrRows = np.where(np.linalg.norm(arrReducedVectors, axis=1)**2 <= 4*intSigma)[0]
+        arrReducedVectors = arrReducedVectors[arrRows]
+        for j in arrReducedVectors:
             objSigma = gl.SigmaCell(j,ld.FCCCell)
             arrSigmaValues = objSigma.GetSigmaValues(200,False)
             lstSigmaValues = arrSigmaValues[:,0].astype('int').tolist()
-            setOverlap = setFactors.intersection(lstSigmaValues)
-            for f in setOverlap:
+            lstOverlap = list(setFactors.intersection(lstSigmaValues))
+            for f in lstOverlap:
                 arrRows = np.where(arrSigmaValues[:,0] == f)[0]
                 for a in arrRows:
                     fltAngle = arrSigmaValues[a,1]
@@ -78,6 +82,12 @@ class CSLConjugateBases(object):
                     if np.all(np.round(2*arrR,0) == np.round(2*arrR,10)):
                          lstTransforms.append(arrMatrix)
                          lstR.append(arrR)
+            for i in [1,-1]:
+                arrMatrix = gf.GetMatrixFromAxisAngle(j, i*np.pi)
+                arrR = np.matmul(inCSLBasis, np.linalg.inv(arrMatrix))
+                if np.all(np.round(2*arrR,0) == np.round(2*arrR,10)):
+                    lstTransforms.append(arrMatrix)
+                    lstR.append(arrR)
         return lstTransforms, lstR
     def FindReducedBases(self, inCSLBasis: np.array):
         lstAllAxes = []
@@ -96,7 +106,9 @@ class CSLConjugateBases(object):
                 arrMatrix[1] = j 
                 for k in lstAllAxes[2]:
                     arrMatrix[2] = k
-                    lstAllBases.append(np.copy(arrMatrix))
+                    arrPrimitive = np.matmul(inCSLBasis, np.linalg.inv(ld.FCCPrimitive))
+                    if np.all(np.round(arrPrimitive,10) == np.round(arrPrimitive,0)):
+                        lstAllBases.append(np.copy(arrMatrix))
         return lstAllBases
     def FindPossibleAxes(self, inCSLBasis):
         lstAllAxes = []
@@ -117,15 +129,14 @@ class CSLConjugateBases(object):
         #lstSigmaMatrices = self.FindSigmaFactors(inCSLBasis)
         #self.FindPossibleAxes(inCSLBasis)
         arrStandardBasis = gf.StandardBasisVectors(3)
-        #lstCSLBases = self.DerivedCSL(inCSLBasis)
-        #for j in lstCSLBases:
-        #    lstSigmaMatrices.extend(self.#FindSigmaFactors(inCSLBasis))
-        #lstCSLBases = [arrStandardBasis, arrStandardBasis[[1,0,2]], arrStandardBasis[[0,2,1]], arrStandardBasis[[2,0,1]],arrStandardBasis[[2,0,1]], arrStandardBasis[[1,2,0]]]
-        #lstSwapMatrices.append(arrStandardBasis)
+      
         lstUnitMatrices,lstTranslations = self.DiagonalUnitEigenMatrices(inCSLBasis)
         lstConjugateBases = []
         #arrReducedVectors = self.FindPossibleAxes(inCSLBasis)
         lstBases = self.FindReducedBases(inCSLBasis)
+        # lstBases = []
+        # for i in lstReducedBases:
+        #     lstBases.extend(self.DerivedCSL(i))
         lstSigmaMatrices = []
         lstIntegerMatrix =[]
         for j in lstBases:
@@ -159,14 +170,65 @@ class CSLConjugateBases(object):
         else:
             print('error no conjugates found')
             return []
+#%%
+def FindPossibleAxes(inCSLBasis, lstFactors):
+    intMax = np.max(lstFactors)
+    lstPermutations = it.combinations([0,1,2],3)
+    lstUsedFactors = []
+    # for i in range(-intMax,intMax,1):
+    #     for j in range(-intMax,intMax,1):
+    #         for k in range(-intMax,intMax):
+    #             arrAxis = i*inCSLBasis[0] + j*inCSLBasis[1]+k*inCSLBasis[2]
+    #             if np.all(np.mod(arrAxis, intMax*np.ones(3)) == np.zeros(3)):  
+    #                 print(arrAxis/np.gcd.reduce(arrAxis.astype('int')), intMax)
+    for l in lstPermutations:
+        dctAxes = dict()
+        for i in range(-intMax,intMax,1):
+            for j in range(-intMax,intMax,1):
+                arrAxis = inCSLBasis[l[0]] + i*inCSLBasis[l[1]]+j*inCSLBasis[l[2]]
+                for s in lstFactors:
+                    if np.all(np.mod(arrAxis, s*np.ones(3)) == np.zeros(3)):
+                        arrCurrent = (arrAxis/s)/np.gcd.reduce((arrAxis/s).astype('int'))
+                        if s in dctAxes:
+                            if np.max(np.abs(arrCurrent)) <  np.max(np.abs(dctAxes[s])):
+                                dctAxes[s] = arrCurrent
+                        else:
+                            dctAxes[s] = arrCurrent
+                        lstUsedFactors.append(intMax/s)
+    print(np.unique(lstUsedFactors))
+    return dctAxes            
 #%%            
-objCSL = gl.CSLTripleLine(np.array([4,1,1]), ld.FCCCell)
+objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(200)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[9,27,27],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[21,21,49],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex,False)
 arrCellBasis = objCSL.GetCSLPrimitiveVectors()
+dctAxes = FindPossibleAxes(2*arrCellBasis, [3,7,21,49,147])
+arrR = gf.FindReciprocalVectors(arrCellBasis)
+
+
+
+# arrBasis1 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(0))
+# arrBasis2 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(2))
+# arrBasis3 = 4.05*np.matmul(ld.FCCPrimitive,objCSL.GetOriginalBasis(1))
+
+# objOrient = gf.EcoOrient(4.05,0.25)
+# flt1E13 = objOrient.GetOrderParameter(arrBasis1, arrBasis1,arrBasis3)
+# flt2E13 = objOrient.GetOrderParameter(arrBasis2, arrBasis1,arrBasis3)
+# flt3E13 =  objOrient.GetOrderParameter(arrBasis3, arrBasis1,arrBasis3)
+# flt1E12 = objOrient.GetOrderParameter(arrBasis1, arrBasis1,arrBasis2)
+# flt2E12 = objOrient.GetOrderParameter(arrBasis2, arrBasis1,arrBasis2)
+# flt3E12 =  objOrient.GetOrderParameter(arrBasis3, arrBasis1,arrBasis2)
+# print(flt1E13,flt2E13,flt3E13,flt1E12,flt2E12,flt3E12)
+# u0 = 0.02
+# r = (1+ flt3E12)/(1+flt2E13)
+# u1 = u0/(2+r*(1-flt2E13))
+# u2 = r*u1
+#objS = gl.SigmaCell(np.array([1,1,1]),ld.FCCCell)
+#objS.MakeCSLCell(147,False)
+#arrCellBasis = objS.GetCSLPrimitiveVectors()
 objCSLConjugate = CSLConjugateBases(gf.StandardBasisVectors(3))
 arrOut = objCSLConjugate.FindConjugates(arrCellBasis)
 a = 4.05
@@ -204,7 +266,7 @@ for i in range(len(arrOut)):
         #arrPoints = arrGrain1.GetAtomPositions()
         #lstPoints.append(arrGrain1.GetAtomPositions())
         lstPoints.append(arrPoints)
-        objSimulationCell.WrapAllAtomsIntoSimulationCell()
+        objSimulationCell.RemoveAtomsOnOpenBoundaries()
         ax.scatter(*tuple(zip(*lstPoints[-1])))
         objSimulationCell.WriteLAMMPSDataFile('/home/p17992pt/' + str(intTransform+1) + '.dmp')
         objSimulationCell.RemoveAllGrains()

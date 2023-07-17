@@ -12,10 +12,17 @@ import copy as cp
 from scipy import spatial
 from scipy import optimize
 import AxisSigmaDeltaStores as AS
+import MiscFunctions as mf
+#%%
+strRoot = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma5/0/'
+objData = LT.LAMMPSData(strRoot + 'TJ0P.lst', 1, 4.05, LT.LAMMPSAnalysis3D)
+objLT = objData.GetTimeStepByIndex(-1)
+print(objLT.GetColumnNames())
 #%%
 plt.rc('text', usetex=True)
 plt.rc('text.latex', preamble=r'\usepackage{amsmath} \usepackage{bm}')
 plt.rcParams['figure.dpi'] = 300
+plt.rcParams.update({'font.size': 20})
 dctColours = dict()
 dctColours['Triple lines'] = 'gray'
 dctColours['Cylinders'] = 'darkolivegreen'
@@ -26,8 +33,11 @@ dctColours['Bicrystal'] = 'purple'
 strMeanPotentialEnergyPerVolume ='Mean excess potential energy density in eV \AA$^{-3}$'
 strMeanExcessPotentialEnergyPerUnitArea = 'Mean excess potential energy per unit area in eV \AA$^{-2}$' 
 strMeanExcessVolumePerAtom = 'Mean excess volume per atom in \AA$^{3}$'
-strMeanPotentialEnergyPerAtom ='Mean excess potential energy per atom in eV \AA$^{-3}$'
+strMeanPotentialEnergyPerAtom ='Mean excess potential energy per atom in eV '
 strEnergyProportion = 'Proportion of the total excess energy'
+strMeanExcessPotentialEnergyPerUnitAreaGibbsian = 'Gibbsian calculation of $\gamma$ in eV \AA$^{-2}$' 
+strMeanExcessPotentialEnergyPerUnitAreaConstantWidth = 'Constant width approximation of $\gamma$ in eV \AA$^{-2}$' 
+
 #%%
 dctLabels = dict()
 dctLabels['Grains'] = 'Grains'
@@ -96,6 +106,7 @@ dctCSLs['001'] = dctCSL001
 dctCSLs['101'] = dctCSL101
 dctCSLs['111'] = dctCSL111
 #%%
+lstAxes = ['001','101','111']
 dctTJAxes = dict()
 dctGBAxes = dict()
 dctSigma = dict()
@@ -120,120 +131,7 @@ objStoreGB = AS.PopulateSigmaStoreByFile(21, np.array([1,1,1]),'/home/p17992pt/c
 #print(objDeltaStore.GetValues('PE')[1])
 #%%
 fig, ax = plt.subplots()
-#%%
-##Per atom graphs of excess PE, excess volume and hydrostatc stress
-strDeltaAxis = r'$\bm{\delta_{i}}$'
-strDMinAxis = r'$10d_{\mathrm{min}}/r_0$'
-#fltDatum = 4.05**3/4 
-#fltDatum = -3.36
-fltDatum = 0
-#strType = 'V' 
-#strType = 'PE'
-strType = 'S'
-#lstColours = ['b', 'c', 'r', 'g', 'm','y','k','w']
-lstColours = ['black','darkolivegreen','darkgoldenrod']
-intDeltaMax = 10
-intDeltaMin = 0
-lstAllTJs = []
-for j in range(10): #directories
-    objDirGB = objStoreGB.GetDirStore(j)
-    objDirTJ = objStoreTJ.GetDirStore(j) 
-    for i in range(intDeltaMin,intDeltaMax): #delta values
-        objDeltaTJ = objDirTJ.GetDeltaStore(i)
-        lstValuesTJ = objDeltaTJ.GetValues(strType)
-        intCol = 0
-        lstAllTJs.extend(np.concatenate(lstValuesTJ,axis=0))
-        for l in lstValuesTJ[1:]:
-            plt.scatter(i,(np.mean(l)-fltDatum),c=lstColours[0],label='Tripleline')
-            intCol +=1
-        objDeltaGB = objDirGB.GetDeltaStore(i)
-        lstValuesGB = objDeltaGB.GetValues(strType)
-        intCol = 0
-        arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGB)))
-        # if len(arrLengths) != 3:
-        #     print(len(arrLengths),i,j)
-        for k in arrLengths:
-            arrValues = lstValuesGB[k]
-            # if np.mean(arrValues)-fltDatum < 0.01:
-            #      print(i,j, len(arrValues))
-            if intCol ==0:
-                plt.scatter(i-0.1,(np.mean(arrValues)-fltDatum),c=lstColours[1],label = 'Cylinder')
-            elif intCol ==1:
-                plt.scatter(i+0.1,(np.mean(arrValues)-fltDatum),c=lstColours[1],label = 'Cylinder')
-                
-            elif intCol ==2:
-                plt.scatter(i,(np.mean(arrValues)-fltDatum),c=lstColours[2],label = 'CSL')
-            #else:
-            #plt.scatter(i,np.mean(k)-(4.05**3/4),c= 'b') #c =lstColours[intCol])
-                #print(i,j)
-               # plt.scatter(i/10,(np.mean(arrValues)-fltDatum),c='b',label = 'Grain')#c =lstColours[intCol])
-            
-            intCol +=1 
-   # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
-   #plt.scatter(arrDeltaMeanTJ, i/10, c='black', marker='x')
-a = plt.gca().get_legend_handles_labels()  # a = [(h1 ... h2) (l1 ... l2)]  non unique
-b = {l:h for h,l in zip(*a)}        # b = {l1:h1, l2:h2}             unique
-c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
-d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
-plt.legend(*d)
-if strType == 'V':
-    strYlabel = 'Mean excess volume per atom in $\AA^{3}$'   
-elif strType == 'PE':
-    strYlabel = 'Mean excess potential energy per atom in eV'
-elif strType =='S':
-    strYlabel = 'Mean hydrostatic stress per atom in eV $\AA^{-3}$'
-plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
-#plt.ylim([0.0, 0.06])
-plt.ylabel(strYlabel)
-plt.xlabel(strDMinAxis)
-plt.tight_layout()
-plt.show()
 
-# %%
-strType = 'PE'
-fltDatum = -3.36 #4.05**3/4#
-for j in range(10): #directories
-    objDirGB = objStoreGB.GetDirStore(j)
-    objDirTJ = objStoreTJ.GetDirStore(j) 
-    for i in range(intDeltaMin,intDeltaMax): #delta values
-        objDeltaTJ = objDirTJ.GetDeltaStore(i)
-        lstValuesTJ = objDeltaTJ.GetValues(strType)
-        intCol = 0
-        for l in lstValuesTJ[1:]:
-            plt.scatter(i,(np.sum(l)-len(l)*fltDatum),c=lstColours[0],label='Tripleline')
-            intCol +=1
-        objDeltaGB = objDirGB.GetDeltaStore(i)
-        lstValuesGB = objDeltaGB.GetValues(strType)
-        intCol = 0
-        arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGB)))
-        # if len(arrLengths) != 3:
-        #     print(len(arrLengths),i,j)
-        arrGValues = objDeltaTJ.GetValues('GE')[0]
-        arrExcess = arrGValues[1]-arrGValues[0]*fltDatum
-        plt.scatter(i-0.1,arrExcess, c='navy',label='TJ Grain')
-        # arrGValues = objDeltaGB.GetValues('GE')[0]
-        # arrExcess = arrGValues[1]-arrGValues[0]*fltDatum
-        # plt.scatter(i+0.1,arrExcess, c='darkgoldenrod',label='GB Grain')
-         
-   # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
-   #plt.scatter(arrDeltaMeanTJ, i/10, c='black', marker='x')
-a = plt.gca().get_legend_handles_labels()  # a = [(h1 ... h2) (l1 ... l2)]  non unique
-b = {l:h for h,l in zip(*a)}        # b = {l1:h1, l2:h2}             unique
-c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
-d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
-plt.legend(*d)
-if strType == 'V':
-    strYlabel = 'Excess volume per atom in $\AA^{3}$ per atom'   
-elif strType == 'PE':
-    strYlabel = 'Excess potential energy in eV'
-elif strType =='S':
-    strYlabel = 'Hydrostatic stress per atom in eV $\AA^{-3}$ per atom'
-plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
-#plt.ylim([0.0, 0.06])
-plt.ylabel(strYlabel)
-plt.xlabel(strDMinAxis)
-plt.tight_layout()
-plt.show()
 #%%
 def PlotEnergyProportions(inStoreGBorTJ: AS.DirStore, strType: str, indctColours: dict(),indctLabels: dict(),inDeltaMax=10):
     strDeltaAxis = r'$\bm{\delta_{i}}$'
@@ -344,11 +242,12 @@ def PlotExcessEnergyPerAtom(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indct
     return lstAllTJs, lstAllCylinders,lstAllCSLs
 
 #%%
-def PlotHydrostaticStress(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColours: dict(), inDeltaMax = 10):
+def PlotHydrostaticStress(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColours: dict(),indctLabels: dict(), inDeltaMax = 10, blnAdjustDatum = False):
     strDeltaAxis = r'$\bm{\delta_{i}}$'
     strDMinAxis = r'$10d_{\mathrm{min}}/r_0$'
     intDeltaMax = inDeltaMax
     intDeltaMin = 0
+    fltDatum = 0
     lstAllTJs = []
     lstAllCSLs = []
     lstAllCylinders = []
@@ -357,30 +256,51 @@ def PlotHydrostaticStress(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctCo
         objDirTJ = inStoreTJ.GetDirStore(j) 
         for i in range(intDeltaMin,intDeltaMax): #delta values
             objDeltaTJ = objDirTJ.GetDeltaStore(i)
-            lstValuesTJV = objDeltaTJ.GetValues('S')
+            lstValuesTJS = objDeltaTJ.GetValues('S')
+            lstValuesTJV = objDeltaTJ.GetValues('V')
+            objDeltaGB = objDirGB.GetDeltaStore(i)
+            lstValuesGBS = objDeltaGB.GetValues('S')
+            lstValuesGBV = objDeltaGB.GetValues('V')
+            if lstValuesGBS[-1] == lstValuesGBS[-2]:
+                lstValuesGBS.pop()
+            if lstValuesTJS[-1] == lstValuesTJS[-2]:
+                lstValuesTJS.pop()
+            if blnAdjustDatum:
+                lstGBGrainValues = objDeltaGB.GetValues('GE')[0]
+                fltDatum = lstGBGrainValues[-1]/(3*lstGBGrainValues[0])
+                #Stress is given in pressure*volume units in LAMMPS
+                # lstStress = []
+                # lstStress.extend(mf.FlattenList(lstValuesGBS))
+                # intAtoms = lstGBGrainValues[0] + len(lstStress)
+                # lstStress.append(lstGBGrainValues[-1])
+                # fltDatum = np.sum(lstStress)/intAtoms
             intCol = 0
             intL = len(lstValuesTJV)
             for l in range(intL):
-                arrValues = np.mean(lstValuesTJV[l])
-                plt.scatter(i,arrValues,c=indctColours['Triple line'],label='Tripleline')
+                #arrTrueStress = np.divide(lstValuesTJS[l],lstValuesTJV[l])/3
+                #arrTrueStress = np.sum(lstValuesTJS[l])/(3*np.sum(lstValuesTJV[l]))
+                #arrValues = np.mean(lstValuesTJS[l])/3 -fltDatum
+                arrValues = np.mean(np.divide(lstValuesTJS[l],lstValuesTJV[l])/3)
+                #arrValues = np.mean(arrTrueStress)-fltDatum
+                #arrValues = np.mean(lstValuesTJS[l])-fltDatum
+                plt.scatter(i,arrValues,c=indctColours['Triple lines'],label=indctLabels['Triple lines'])
                 lstAllTJs.append(arrValues)
                 intCol +=1
-            objDeltaGB = objDirGB.GetDeltaStore(i)
-            lstValuesGBV = objDeltaGB.GetValues('S')
             intCol = 0
-            arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGBV)))
+            arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGBS)))
             for k in arrLengths:
-                arrValues = np.mean(lstValuesGBV[k])
+                arrTrueStress = np.divide(lstValuesGBS[k],lstValuesGBV[k])/3
+                arrValues = np.mean(arrTrueStress)
                 # if np.mean(arrValues)-fltDatum < 0.01:
                 #      print(i,j, len(arrValues))
                 if intCol ==0:
-                    plt.scatter(i-0.1,arrValues,c=indctColours['Cylinder'],label = 'Cylinder')
+                    plt.scatter(i-0.1,arrValues,c=indctColours['Cylinders'],label = indctLabels['Cylinders'])
                     lstAllCylinders.append(arrValues)
                 elif intCol ==1:
-                    plt.scatter(i+0.1,arrValues,c=indctColours['Cylinder'],label = 'Cylinder')
+                    plt.scatter(i+0.1,arrValues,c=indctColours['Cylinders'],label = indctLabels['Cylinders'])
                     lstAllCylinders.append(arrValues)
                 elif intCol ==2:
-                    plt.scatter(i,arrValues,c=indctColours['CSL'],label = 'CSL')     
+                    plt.scatter(i,arrValues,c=indctColours['CSLs'],label = indctLabels['CSLs'])     
                     lstAllCSLs.append(arrValues)
                 intCol +=1 
     # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
@@ -390,7 +310,7 @@ def PlotHydrostaticStress(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctCo
     c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
     d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
     plt.legend(*d)
-    strYlabel = 'Excess volume per atom in $\AA^{3}$'   
+    strYlabel = 'Hydrostatic stress per atom in eV $\AA^{-3}$'   
     plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
     plt.ylabel(strYlabel)
     plt.xlabel(strDMinAxis)
@@ -399,43 +319,55 @@ def PlotHydrostaticStress(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctCo
     return lstAllTJs, lstAllCylinders,lstAllCSLs
 
 #%%
-def PlotExcessVolumes(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColours: dict(), inDeltaMax = 10):
+def PlotExcessVolumes(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColours: dict(),indctLabels: dict(), inDeltaMax = 10,blnAdjustDatum = False):
     strDeltaAxis = r'$\bm{\delta_{i}}$'
     strDMinAxis = r'$10d_{\mathrm{min}}/r_0$'
     fltDatum = 4.05**3/4
     intDeltaMax = inDeltaMax
     intDeltaMin = 0
     lstAllTJs = []
-    lstAllGBs = []
+    lstGBCSLs = []
+    lstGBCylinders = []
     for j in range(10): #directories
         objDirGB = inStoreGB.GetDirStore(j)
         objDirTJ = inStoreTJ.GetDirStore(j) 
         for i in range(intDeltaMin,intDeltaMax): #delta values
             objDeltaTJ = objDirTJ.GetDeltaStore(i)
             lstValuesTJV = objDeltaTJ.GetValues('V')
+            objDeltaGB = objDirGB.GetDeltaStore(i)
+            lstValuesGBV = objDeltaGB.GetValues('V')
+            if blnAdjustDatum:
+                lstGBGrainValues = objDeltaGB.GetValues('GE')[0]
+                lstVolume = []
+                lstVolume.extend(mf.FlattenList(lstValuesGBV))
+                intAtoms = lstGBGrainValues[0] + len(lstVolume)
+                lstVolume.append(lstGBGrainValues[2])
+                fltDatum = np.sum(lstVolume)/intAtoms
             intCol = 0
             intL = len(lstValuesTJV)
             for l in range(intL):
                 arrValues = np.mean(lstValuesTJV[l])-fltDatum
-                plt.scatter(i,arrValues,c=indctColours['Triple line'],label='Tripleline')
+                if arrValues < 0:
+                    print(i,j)
+                plt.scatter(i,arrValues,c=indctColours['Triple lines'],label=indctLabels['Triple lines'])
                 lstAllTJs.append(arrValues)
                 intCol +=1
-            objDeltaGB = objDirGB.GetDeltaStore(i)
-            lstValuesGBV = objDeltaGB.GetValues('V')
             intCol = 0
             arrLengths  = np.argsort(list(map(lambda x: len(x),lstValuesGBV)))
             for k in arrLengths:
                 arrValues = np.mean(lstValuesGBV[k])-fltDatum
-                lstAllGBs.append(arrValues)
+                #lstAllGBs.append(arrValues)
                 # if np.mean(arrValues)-fltDatum < 0.01:
                 #      print(i,j, len(arrValues))
                 if intCol ==0:
-                    plt.scatter(i-0.1,arrValues,c=indctColours['Cylinder'],label = 'Cylinder')
+                    plt.scatter(i-0.1,arrValues,c=indctColours['Cylinders'],label = indctLabels['Cylinders'])
+                    lstGBCylinders.append(arrValues)
                 elif intCol ==1:
-                    plt.scatter(i+0.1,arrValues,c=indctColours['Cylinder'],label = 'Cylinder')
-                    
+                    plt.scatter(i+0.1,arrValues,c=indctColours['Cylinders'],label = indctLabels['Cylinders'])
+                    lstGBCylinders.append(arrValues)
                 elif intCol ==2:
-                    plt.scatter(i,arrValues,c=indctColours['CSL'],label = 'CSL')     
+                    plt.scatter(i,arrValues,c=indctColours['CSLs'],label = indctLabels['CSLs'])
+                    lstGBCSLs.append(arrValues)     
                 intCol +=1 
     # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
     #plt.scatter(arrDeltaMeanTJ, i/10, c='black', marker='x')
@@ -444,13 +376,13 @@ def PlotExcessVolumes(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColour
     c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
     d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
     plt.legend(*d)
-    strYlabel = 'Excess volume per atom in $\AA^{3}$'   
+    strYlabel = 'Mean excess volume per atom in $\AA^{3}$'   
     plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
     plt.ylabel(strYlabel)
     plt.xlabel(strDMinAxis)
     plt.tight_layout()
     plt.show()
-    return lstAllTJs, lstAllGBs
+    return lstAllTJs, lstGBCylinders,lstGBCSLs
 # %%
 def PlotEnergyDensities(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColours: dict(),indctLabels: dict(), inDeltaMax = 10):
     strDeltaAxis = r'$\bm{\delta_{i}}$'
@@ -461,6 +393,8 @@ def PlotEnergyDensities(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColo
     intDeltaMin = 0
     lstAllTJs = []
     lstAllGBs = []
+    lstAllCylinders = []
+    lstAllCSLs = []
     for j in range(10): #directories
         objDirGB = inStoreGB.GetDirStore(j)
         objDirTJ = inStoreTJ.GetDirStore(j) 
@@ -487,11 +421,13 @@ def PlotEnergyDensities(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColo
                 #      print(i,j, len(arrValues))
                 if intCol ==0:
                     plt.scatter(i-0.1,(arrValues-fltDatum),c=indctColours['Cylinders'],label =indctLabels['Cylinders'])
+                    lstAllCylinders.append(arrValues-fltDatum)
                 elif intCol ==1:
                     plt.scatter(i+0.1,(arrValues-fltDatum),c=indctColours['Cylinders'],label =indctLabels['Cylinders'])
-                    
+                    lstAllCylinders.append(arrValues-fltDatum)
                 elif intCol ==2:
                     plt.scatter(i,(arrValues-fltDatum),c=indctColours['CSLs'],label = indctLabels['CSLs'])
+                    lstAllCSLs.append(arrValues-fltDatum)
                 #else:
                 #plt.scatter(i,np.mean(k)-(4.05**3/4),c= 'b') #c =lstColours[intCol])
                     #print(i,j)
@@ -511,7 +447,7 @@ def PlotEnergyDensities(inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColo
     plt.xlabel(strDMinAxis)
     plt.tight_layout()
     plt.show()
-    return lstAllTJs, lstAllGBs
+    return lstAllCylinders,lstAllCSLs, lstAllTJs
 #%%
 def PlotGBEnergyPerArea(inStoreGB, fltWidth: float, inDeltaMax: int,indctColours: dict(),indctLabels: dict(),arrCSLValues = None):
     strDeltaAxis = r'$\bm{\delta_{i}}$'
@@ -563,8 +499,8 @@ def PlotGBEnergyPerArea(inStoreGB, fltWidth: float, inDeltaMax: int,indctColours
     b = {l:h for h,l in zip(*a)}        # b = {l1:h1, l2:h2}             unique
     c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
     d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
-    plt.legend(*d)
-    strYlabel = 'Excess potential energy per unit area in eV $\AA^{2}$'   
+    plt.legend(*d,fontsize=12,loc='upper right')
+    strYlabel = '$\gamma$ in eV $\AA^{-2}$'   
     plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
     plt.ylabel(strYlabel)
     plt.xlabel(strDMinAxis)
@@ -578,17 +514,21 @@ def PlotTJLineTension(inStoreTJ, fltRadius: float, inDeltaMax: int,indctColours:
     fltDatum = -3.36
     intDeltaMax = inDeltaMax
     intDeltaMin = 0
-    lstBiCrystal = []
-    lstCSL = []
-    lstCylinder = []
+    lstTJsinFours = []
     for j in range(10): #directories
         objDirGB = inStoreTJ.GetDirStore(j) 
         for i in range(intDeltaMin,intDeltaMax): #delta values
             objDeltaTJ = objDirGB.GetDeltaStore(i)
             lstValuesTJPE = objDeltaTJ.GetValues('PE')
             lstValuesTJV = objDeltaTJ.GetValues('V')
-            arrValues = np.sum(lstValuesTJPE)/np.sum(lstValuesTJV)*np.pi*fltRadius**2
-            plt.scatter(i,arrValues,c=indctColours['Triple lines'], label=indctLabels['Triple lines'])    
+            lstGroup = []
+            if len(lstValuesTJPE) != 4:
+                print(j,i,objDeltaTJ)
+            for t in range(len(lstValuesTJPE)):
+                arrValues = np.sum(lstValuesTJPE[t]-np.ones(len(lstValuesTJPE[t]))*fltDatum)/(np.sum(lstValuesTJV[t]))*np.pi*fltRadius**2
+                plt.scatter(i,arrValues,c=indctColours['Triple lines'], label=indctLabels['Triple lines'])
+                lstGroup.append(arrValues)
+            lstTJsinFours.append(lstGroup)
     # arrDeltaMeanTJ = np.mean(lstAllTJs)-fltDatum
     #plt.scatter(arrDeltaMeanTJ, i/10, c='black', marker='x')
     a = plt.gca().get_legend_handles_labels()  # a = [(h1 ... h2) (l1 ... l2)]  non unique
@@ -596,13 +536,13 @@ def PlotTJLineTension(inStoreTJ, fltRadius: float, inDeltaMax: int,indctColours:
     c = [*zip(*b.items())]              # c = [(l1 l2) (h1 h2)]
     d = c[::-1]                         # d = [(h1 h2) (l1 l2)]
     plt.legend(*d)
-    strYlabel = 'Triple line tension in eV $\AA^{-1}$'   
+    strYlabel = 'Line tension in eV $\AA^{-1}$'   
     plt.xticks(np.array(list(range(intDeltaMin,intDeltaMax))))
     plt.ylabel(strYlabel)
     plt.xlabel(strDMinAxis)
     plt.tight_layout()
     plt.show()
-    return lstCylinder,lstCSL,lstBiCrystal
+    return lstTJsinFours
 
 #%%
 
@@ -634,28 +574,30 @@ for a in lstAxes:
     # lst101TJs.extend(lstTJs)
     # lst101GBs.extend(lstGBs)
 #%%
-
+lstBinsEP = (np.linspace(0,1,100)).tolist()
 #plt.hist(lstAllTJs,bins=15,color='darkgrey')
 #plt.hist(np.array(lstAllGrainsTJ)-np.array(lstAllGrainsGB),color='grey',bins=20,alpha=0.75)
 #plt.hist(lstAllGrainsTJ,bins=15,color='darkred')
-plt.hist(lstAllG1,bins=15,color=dctColours['Grains'])
-plt.hist(lstAllGB1,bins=15,color=dctColours['Grain boundaries'])
-
+plt.hist(lstAllG2,bins=lstBinsEP,density=True,color=dctColours['Grains'])
+plt.hist(lstAllGB2,bins=lstBinsEP,density=True,color=dctColours['Grain boundaries'])
+#plt.hist(lstAllTJ1,bins=15,color='darkred')
 #plt.legend(['Triple line', 'Grains'])
 plt.legend([dctLabels['Grains'], dctLabels['Grain boundaries']])
+plt.ylim([0,60])
 plt.xticks(np.array(list(range(11)))/10)
 plt.xlabel('Proportion of the total excess energy')
 plt.show()
-print(np.mean(lstAllTJ1), np.std(lstAllTJ1))
+print(np.mean(lstAllG2), np.std(lstAllG2))
 print(np.mean(lstAllGB2), np.std(lstAllGB2))
 #%%
-plt.hist(lstAllG1,bins=15,density=True,color=dctColours['Grains'])
-plt.hist(lstAllTJ1,bins=15,density=True,color=dctColours['Triple lines'])
-plt.hist(lstAllGB1,bins=15,density=True,color=dctColours['Grain boundaries'])
+plt.hist(lstAllG1,bins=lstBinsEP,density=True,color=dctColours['Grains'])
+plt.hist(lstAllGB1,bins=lstBinsEP,density=True,color=dctColours['Grain boundaries'])
+plt.hist(lstAllTJ1,bins=lstBinsEP,density=True,color=dctColours['Triple lines'])
 #plt.legend(['Triple line', 'Grains'])
-plt.legend([dctLabels['Grains'], dctLabels['Triple lines'], dctLabels['Grain boundaries']])
+plt.legend([dctLabels['Grains'], dctLabels['Grain boundaries'],dctLabels['Triple lines']])
 plt.xticks(np.array(list(range(11)))/10)
 plt.xlabel('Proportion of the total excess energy')
+plt.ylim([0,60])
 plt.show()
 print(np.mean(lstAllG1), np.std(lstAllG1))    
 print(np.mean(lstAllTJ1),np.std(lstAllTJ1))
@@ -664,8 +606,10 @@ print(np.mean(lstAllGB1), np.std(lstAllGB1))
 # print(len(arrRows)/len(lstAllGrainsTJ))
 # %%
 ##Energy densities
-lstAllTJs = []
-lstAllGBs = []
+lstAllTJEDs = []
+lstAllGBEDs = []
+lstAllCylinderEDs = []
+lstAllCSLEDs = []
 lstAxes = ['001','101','111']
 for a in lstAxes:
     objTJ = dctTJAxes[a]
@@ -676,18 +620,55 @@ for a in lstAxes:
         print(a, lstSigma[j])
         objStoreTJ = objTJ.GetSigmaStore(lstSigma[j])
         objStoreGB = objGB.GetSigmaStore(lstSigma[j])
-        lstTJs,lstGBs = PlotEnergyDensities(objStoreGB,objStoreTJ,dctColours,8)
-        lstAllTJs.extend(lstTJs)
-        lstAllGBs.extend(lstGBs)
+        lstCylinders,lstCSLs,lstTJs= PlotEnergyDensities(objStoreGB,objStoreTJ,dctColours,dctLabels,8)
+        lstAllTJEDs.extend(lstTJs)
+        lstAllCylinderEDs.extend(lstCylinders)
+        lstAllCSLEDs.extend(lstCSLs)
         j +=1
 #%%
-plt.hist(lstAllGBs,bins=25,color=dctColours['Both GBs'],density=True)
-plt.hist(lstAllTJs,bins=25,color = dctColours['Triple line'],alpha =0.8,density=True)
+lstBinsED = (np.linspace(0,12,25)/1000).tolist()
+plt.xlim([0,0.012])
+plt.ylim([0,650])
+lstAllGBEDs = []
+lstAllGBEDs.extend(lstAllCylinderEDs)
+lstAllGBEDs.extend(lstAllCSLEDs)
+lstAllGBEDs.extend(lstAllCSLEDs)
+plt.hist(lstAllGBEDs,bins=lstBinsED,color=dctColours['Grain boundaries'],density=True)
+plt.hist(lstAllTJEDs,bins=lstBinsED,color = dctColours['Triple lines'],alpha =0.8, density=True)
 plt.xlabel(strMeanPotentialEnergyPerVolume)
-plt.legend(['Grain boundary','Triple line'])
+plt.legend([dctLabels['Grain boundaries'],dctLabels['Triple lines']])
 plt.show()
-print(np.mean(lstAllTJs),np.std(lstAllTJs))
-print(np.mean(lstAllGBs),np.std(lstAllGBs))
+print(np.mean(lstAllTJEDs),np.std(lstAllTJEDs))
+print(np.mean(lstAllGBEDs),np.std(lstAllGBEDs))
+#%%
+lstBinsED = (np.linspace(0,12,25)/1000).tolist()
+plt.xlim([0,0.012])
+plt.ylim([0,650])
+plt.xlabel(strMeanPotentialEnergyPerVolume)
+plt.hist(lstAllCSLEDs,bins=lstBinsED,color = dctColours['CSLs'],alpha =1,density=True)
+plt.legend([dctLabels['CSLs']])
+plt.show()
+#%%
+plt.xlim([0,0.012])
+plt.ylim([0,650])
+plt.xlabel(strMeanPotentialEnergyPerVolume)
+plt.hist(lstAllCylinderEDs,bins=lstBinsED,color=dctColours['Cylinders'],alpha = 1,density=True)
+plt.legend([dctLabels['Cylinders']])
+plt.show()
+#%%
+plt.xlim([0,0.012])
+plt.ylim([0,650])
+plt.xlabel(strMeanPotentialEnergyPerVolume)
+plt.hist(lstAllTJEDs,bins=lstBinsED,color = dctColours['Triple lines'],alpha =1,density=True)
+plt.legend([dctLabels['Triple lines']])
+plt.show()
+#%%
+print(np.mean(lstAllTJEDs),np.std(lstAllTJEDs))
+print(np.mean(lstAllCSLEDs),np.std(lstAllCSLEDs))
+print(np.mean(lstAllCylinderEDs),np.std(lstAllCylinderEDs))
+print(np.mean(lstAllGBEDs),np.std(lstAllGBEDs))
+#%%
+l
 #%%
 ##Hydrostatic stress
 lstAllTJs = []
@@ -703,25 +684,27 @@ for a in lstAxes:
         print(a, lstSigma[j])
         objStoreTJ = objTJ.GetSigmaStore(lstSigma[j])
         objStoreGB = objGB.GetSigmaStore(lstSigma[j])
-        lstTJs,lstCylinders,lstCSLs = PlotHydrostaticStress(objStoreGB,objStoreTJ,dctColours,8)
+        lstTJs,lstCylinders,lstCSLs = PlotHydrostaticStress(objStoreGB,objStoreTJ,dctColours,dctLabels,8,False)
         lstAllTJs.extend(lstTJs)
         lstAllCylinders.extend(lstCylinders)
         lstAllCSLs.extend(lstCSLs)
         j +=1
 #%%
-lstAllGBs= []
-lstAllGBs.extend(lstAllCylinders)
-lstAllGBs.extend(lstAllCSLs)
-plt.hist(lstAllGBs,bins=25,density=True,color=dctColours['Both GBs'])
-plt.hist(lstAllTJs,bins=25,color = dctColours['Triple line'],alpha =0.8,density=True)
+lstAllGBH= []
+lstAllGBH.extend(lstAllCylinders)
+lstAllGBH.extend(lstAllCSLs)
+plt.hist(lstAllGBH,bins=20,density=True,color=dctColours['Grain boundaries'])
+plt.hist(lstAllTJs,bins=20,color = dctColours['Triple lines'],alpha =0.8,density=True)
 plt.xlabel('Mean hydrostatic stress per atom in eV \AA$^{-3}$')
-plt.legend(['Grain boundaries','Triple lines'])
+plt.legend([dctLabels['Grain boundaries'],dctLabels['Triple lines']])
 plt.show()
 
 #%%
-plt.hist(lstAllCylinders,bins=25,density=True,color=dctColours['Cylinder'])
-plt.hist(lstAllCSLs,bins=25,density=True,color=dctColours['CSL'])
-plt.hist(lstAllTJs,bins=25,color = dctColours['Triple line'],alpha =0.8,density=True)
+lstTJBins = (np.linspace(0,8,25)/10).tolist()
+lstGBBins = (np.linspace(0,4,13)/10).tolist()
+plt.hist(lstAllCylinders,bins=25,density=True,color=dctColours['Cylinders'])
+plt.hist(lstAllCSLs,bins=25,density=True,color=dctColours['CSLs'])
+plt.hist(lstAllTJs,bins=25,color = dctColours['Triple lines'],alpha =0.8,density=True)
 plt.xlabel('Mean hydrostatic stress per atom in eV \AA$^{-3}$')
 plt.legend(['CSL','Cylindrical','Triple line'])
 plt.show()
@@ -739,8 +722,9 @@ plt.hist(np.array(lstDifferences)*10**(-6))
 plt.show()
 # %%
 ##Excess volumes
-lstAllTJs = []
-lstAllGBs = []
+lstAllTJVs = []
+lstAllCSLVs = []
+lstAllCylinderVs = []
 lstAxes = ['001','101','111']
 for a in lstAxes:
     objTJ = dctTJAxes[a]
@@ -751,22 +735,74 @@ for a in lstAxes:
         print(a, lstSigma[j])
         objStoreTJ = objTJ.GetSigmaStore(lstSigma[j])
         objStoreGB = objGB.GetSigmaStore(lstSigma[j])
-        lstTJs,lstGBs = PlotExcessVolumes(objStoreGB,objStoreTJ,dctColours,8)
-        lstAllTJs.extend(lstTJs)
-        lstAllGBs.extend(lstGBs)
+        lstTJs,lstCylinders,lstCSLs = PlotExcessVolumes(objStoreGB,objStoreTJ,dctColours,dctLabels,8,True)
+        lstAllTJVs.append(lstTJs)
+        lstAllCSLVs.append(lstCSLs)
+        lstAllCylinderVs.append(lstCylinders)
         j +=1
 #%%
-plt.hist(lstAllGBs,bins=25,density=True,color=dctColours['Both GBs'])
-plt.hist(lstAllTJs,bins=25,color = dctColours['Triple line'],alpha =0.8,density=True)
-plt.xlabel('Excess volume per atom in \AA$^{3}$')
-plt.legend(['Grain boundary','Triple line'])
+lstTJBins = (np.linspace(0,8,25)/10).tolist()
+lstGBBins = (np.linspace(0,4,13)/10).tolist()
+lstAllGBVs = []
+lstAllGBVs.extend(mf.FlattenList(lstAllCSLVs))
+lstAllGBVs.extend(mf.FlattenList(lstAllCSLVs))
+lstAllGBVs.extend(mf.FlattenList(lstAllCylinderVs))
+plt.hist(lstAllGBVs,bins=lstGBBins,density=True,color=dctColours['Grain boundaries'])
+plt.hist(mf.FlattenList(lstAllTJVs),color = dctColours['Triple lines'],bins=lstTJBins,alpha =0.8,density=True)
+plt.xlabel('Mean excess volume per atom in \AA$^{3}$')
+plt.legend([dctLabels['Grain boundaries'],dctLabels['Triple lines']])
+plt.tight_layout()
 plt.show()
 #%%
+fltMeanTJV = np.mean(np.concatenate(lstAllTJVs))
+fltStdTJV = np.std(np.concatenate(lstAllTJVs))
+fltMeanGBV = np.mean(lstAllGBVs)
+fltStdGBV = np.std(lstAllGBVs)
+fltMeanCSLV = np.mean(lstAllCSLVs)
+fltStdCSLV = np.std(lstAllCSLVs)
+fltMeanCylinderV = np.mean(lstAllCylinderVs)
+fltStdCylinderV = np.std(lstAllCylinderVs)
+print(fltMeanTJV,fltStdTJV,fltMeanGBV,fltStdGBV)
+print(fltMeanCSLV,fltStdCSLV,fltMeanCylinderV,fltStdCylinderV)
+#%%
+lstBinsVPerAtom = (np.linspace(0,7,25)/10).tolist()
+lstAllGBEs = []
+lstAllGBEs.extend(mf.FlattenList(lstAllCSLVs))
+lstAllGBEs.extend(mf.FlattenList(lstAllCSLVs))
+lstAllGBEs.extend(mf.FlattenList(lstAllCylinderVs))
+plt.hist(lstAllGBVs,density=True,color=dctColours['Grain boundaries'], bins=lstBinsVPerAtom)
+plt.hist(mf.FlattenList(lstAllTJVs),density=True,color=dctColours['Triple lines'], bins=lstBinsVPerAtom,alpha=0.8)
+plt.xlabel(strMeanExcessVolumePerAtom)
+plt.xlim([0,0.7])
+plt.legend([dctLabels['Grain boundaries'], dctLabels['Triple lines']])
+plt.show()
+#%%
+plt.hist(mf.FlattenList(lstAllCSLVs),density=True,color=dctColours['CSLs'], bins=lstBinsVPerAtom)
+plt.xlabel(strMeanExcessVolumePerAtom)
+plt.xlim([0,0.7])
+plt.ylim([0,13])
+plt.legend([dctLabels['CSLs']])
+plt.show()
+#%%
+plt.hist(mf.FlattenList(lstAllCylinderVs),density=True,color=dctColours['Cylinders'], bins=lstBinsVPerAtom)
+plt.xlabel(strMeanExcessVolumePerAtom)
+plt.xlim([0,0.7])
+plt.ylim([0,13])
+plt.legend([dctLabels['Cylinders']])
+plt.show()
+#%%
+plt.hist(mf.FlattenList(lstAllTJVs),density=True,color=dctColours['Triple lines'], bins=lstBinsVPerAtom)
+plt.xlabel(strMeanExcessVolumePerAtom)
+plt.xlim([0,0.7])
+plt.ylim([0,13])
+plt.legend([dctLabels['Triple lines']])
+plt.show()
+
 #%%
 ###Excess energy per atom 
-lstAllTJ = []
-lstAllCylinder = []
-lstAllCSL = []
+lstAllTJE = []
+lstAllCylinderE = []
+lstAllCSLE = []
 lstAxes = ['001','101','111']
 for a in lstAxes:
     dctCSL = dctCSLs[a]
@@ -780,21 +816,84 @@ for a in lstAxes:
         objStoreTJ = objTJ.GetSigmaStore(lstSigma[j])
         objStoreGB = objGB.GetSigmaStore(lstSigma[j])
         lstTJ,lstCylinder,lstCSL = PlotExcessEnergyPerAtom(objStoreGB,objStoreTJ,dctColours,dctLabels,8)
-        lstAllCSL.extend(lstCSL)
-        lstAllCylinder.extend(lstCylinder)
-        lstAllTJ.extend(lstTJ)
+        lstAllCSLE.append(lstCSL)
+        lstAllCylinderE.append(lstCylinder)
+        lstAllTJE.append(lstTJ)
         j +=1
 #inStoreGB: AS.DirStore, inStoreTJ: AS.DirStore,indctColours: dict(), inDeltaMax = 10)
 #%%
-lstAllGBs = []
-lstAllGBs.extend(lstAllCSL)
-lstAllGBs.extend(lstAllCylinder)
-plt.hist(lstAllGBs,density=True,color=dctColours['Grain boundaries'], bins=20)
-plt.hist(lstAllTJ,density=True,color=dctColours['Triple lines'], bins=20,alpha=0.8)
+lstBinsPEPerAtom = (np.linspace(0,6,25)/100).tolist()
+lstAllGBEs = []
+lstAllGBEs.extend(mf.FlattenList(lstAllCSLE))
+lstAllGBEs.extend(mf.FlattenList(lstAllCSLE))
+lstAllGBEs.extend(mf.FlattenList(lstAllCylinderE))
+plt.hist(lstAllGBEs,density=True,color=dctColours['Grain boundaries'], bins=lstBinsPEPerAtom)
+plt.hist(mf.FlattenList(lstAllTJE),density=True,color=dctColours['Triple lines'], bins=lstBinsPEPerAtom,alpha=0.8)
 plt.xlabel(strMeanPotentialEnergyPerAtom)
-plt.legend([dctLabels['Triple lines'], dctLabels['Grain boundaries']])
+plt.legend([dctLabels['Grain boundaries'], dctLabels['Triple lines']])
 plt.show()
-print(np.mean(np.array(lstAllGBs)), np.mean(np.array(lstAllTJ)))
+print(np.mean(np.array(lstAllGBEs)), np.mean(np.array(lstAllTJE)))
+#%%
+plt.xlim([0,0.06])
+plt.ylim([0,165])
+plt.xlabel(strMeanPotentialEnergyPerAtom)
+plt.hist(mf.FlattenList(lstAllTJE),bins=lstBinsPEPerAtom,color = dctColours['Triple lines'],alpha =1,density=True)
+plt.legend([dctLabels['Triple lines']])
+plt.show()
+#%%
+plt.xlim([0,0.06])
+plt.ylim([0,165])
+plt.xlabel(strMeanPotentialEnergyPerAtom)
+plt.hist(mf.FlattenList(lstAllCSLE),bins=lstBinsPEPerAtom,color = dctColours['CSLs'],alpha =1,density=True)
+plt.legend([dctLabels['CSLs']])
+plt.show()
+#%%
+plt.xlim([0,0.06])
+plt.ylim([0,165])
+plt.xlabel(strMeanPotentialEnergyPerAtom)
+plt.hist(mf.FlattenList(lstAllCylinderE),bins=lstBinsPEPerAtom,color = dctColours['Cylinders'],alpha =1,density=True)
+plt.legend([dctLabels['Cylinders']])
+plt.show()
+#%%
+plt.xlim([0,0.06])
+plt.ylim([0,150])
+plt.xlabel(strMeanPotentialEnergyPerVolume)
+plt.hist(lstAllCylinderE,bins=lstBinsPEPerAtom,color=dctColours['Cylinders'],alpha = 1,density=True)
+plt.legend([dctLabels['Cylinders']])
+plt.show()
+#%%
+plt.xlim([0,0.012])
+plt.ylim([0,650])
+plt.xlabel(strMeanPotentialEnergyPerVolume)
+plt.hist(lstAllTJEDs,bins=lstBinsED,color = dctColours['Triple lines'],alpha =1,density=True)
+plt.legend([dctLabels['Triple lines']])
+plt.show()
+
+
+
+#%%
+##Correlations between excess volume and energy
+# for i in range(len(lstAllCylinderVs)):
+#     plt.scatter(lstAllCylinderVs[i],lstAllCylinderE[i])
+#     print(np.corrcoef(lstAllCylinderVs[i],lstAllCylinderE[i]))
+#     plt.show()
+plt.scatter(np.concatenate(lstAllCSLVs),np.concatenate(lstAllCSLE),c=dctColours['CSLs'])
+plt.xlabel(strMeanExcessVolumePerAtom,fontsize=16)
+plt.ylabel(strMeanPotentialEnergyPerAtom,fontsize=16)
+plt.legend([dctLabels['CSLs']])
+plt.show()
+#%%
+fltMeanTJE = np.mean(np.concatenate(lstAllTJE))
+fltStdTJE = np.std(np.concatenate(lstAllTJE))
+fltMeanGBE = np.mean(lstAllGBEs)
+fltStdGBE = np.std(lstAllGBEs)
+fltMeanCSLE = np.mean(lstAllCSLE)
+fltStdCSLE = np.std(lstAllCSLE)
+fltMeanCylinderE = np.mean(lstAllCylinderE)
+fltStdCylinderE = np.std(lstAllCylinderE)
+print(fltMeanTJE, fltStdTJE, fltMeanGBE, fltStdGBE)
+print(fltMeanCSLE,fltStdCSLE,fltMeanCylinderE,fltStdCylinderE)
+
 # %%
 ###Energy per unit area and compared with CSL bicrystal data
 lstAllCSL = []
@@ -815,12 +914,28 @@ for a in lstAxes:
         lstAllCylinder.extend(lstCylinder)
         lstAllBiCrystal.extend(lstBiCrystal)
         j +=1
-
+#%%
+lstAllGBs= []
+lstAllGBs.extend(lstAllCSL)
+lstAllGBs.extend(lstAllCSL)
+lstAllGBs.extend(lstAllCylinder)
+#plt.gca().set_aspect('equal')
+plt.axline((0,0),slope=1,c='black',linestyle ='dashed')
+plt.scatter(lstAllCSL,lstAllBiCrystal,s=12,c='black')
+plt.xlabel(strMeanExcessPotentialEnergyPerUnitAreaConstantWidth)
+plt.ylabel(strMeanExcessPotentialEnergyPerUnitAreaGibbsian)
+plt.show()
+print(np.where(np.array(lstAllCSL) > 0.0438))
 # %%
-plt.hist(lstAllBiCrystal,density=True,color=dctColours['Bicrystal'], bins=20)
-plt.hist(lstAllCSL,density=True,color=dctColours['Grain boundaries'], bins=20,alpha=0.8)
-plt.xlabel(strMeanExcessPotentialEnergyPerUnitArea)
-plt.legend(['Constant width approximation', 'Gibbsian approach'])
+lstBinsGandCSL = (np.linspace(0,5,25)/100).tolist()
+plt.hist(lstAllBiCrystal,density=True,color=dctColours['Bicrystal'], bins=lstBinsGandCSL,alpha=1)
+plt.hist(lstAllCSL,density=True,color=dctColours['Grain boundaries'], bins=lstBinsGandCSL,alpha=0.8)
+plt.xlim([0,0.05])
+plt.ylim([0,120])
+plt.xlabel('$\gamma$ in eV \AA$^{-2}$')
+plt.legend(['Gibbsian approach', 'Constant width'],loc='upper left',fontsize=17)
+#plt.legend(['Gibbsian approach'])
+#plt.legend(['Constant width approximation'])
 plt.show()
 print(np.mean(np.array(lstAllCSL)), np.mean(np.array(lstAllBiCrystal)))
 #%%
@@ -829,7 +944,7 @@ lstAllGBs.extend(lstAllCSL)
 lstAllGBs.extend(lstAllCylinder)
 plt.hist(lstAllGBs, density = True, color=dctColours['Grain boundaries'], bins =25)
 plt.legend([dctLabels['Grain boundaries']])
-plt.xlabel(strMeanExcessPotentialEnergyPerUnitArea)
+plt.xlabel('$\gamma$ in eV \AA$^{-2}$')
 # %%
 arrErrors = (np.array(lstAllCSL))/np.array(lstAllBiCrystal)
 plt.hist(arrErrors,bins=40,density =True)
@@ -841,6 +956,7 @@ print(np.corrcoef(np.array(lstAllBiCrystal),np.array(lstAllCSL)))
 print(len(np.where(arrErrors < 0.85)[0])+len(np.where(arrErrors > 1.05)[0]))
 # %%
 ##Line tensions
+lstTJsinFours = []
 for a in lstAxes:
     objTJ = dctTJAxes[a]
     lstSigma = dctSigma[a]
@@ -848,7 +964,24 @@ for a in lstAxes:
     while j  < len(lstSigma):
         print(a, lstSigma[j])
         objStoreTJ = objTJ.GetSigmaStore(lstSigma[j])
-        PlotTJLineTension(objStoreTJ,3*4.05,8,dctColours,dctLabels)
+        lstTJs = PlotTJLineTension(objStoreTJ,3*4.05,8,dctColours,dctLabels)
+        lstTJsinFours.extend(lstTJs)
         j +=1
+
+# %%
+plt.hist(np.concatenate(lstTJsinFours),bins=20,density=True,color=dctColours['Triple lines'],label=dctLabels['Triple lines'])
+plt.legend([dctLabels['Triple lines']])
+plt.xlabel('Line tension in eV $\AA^{-1}$')
+plt.show()
+#%%
+lstDeviations = list(map(lambda x: np.std(x),lstTJsinFours))
+plt.hist(lstDeviations,bins=20,density= True,color=dctColours['Triple lines'])
+plt.xlabel(r'Standard deviation of the four lines tensions for each $S_{\text{TJ}}$ in eV \AA$^{-1}$')
+plt.legend([dctLabels['Triple lines']])
+# %%
+np.median(lstDeviations)
+# %%
+np.mean(np.concatenate(lstTJsinFours))
+np.std(np.concatenate(lstTJsinFours))
 
 # %%

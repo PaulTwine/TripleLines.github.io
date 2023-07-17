@@ -8,12 +8,12 @@ import copy as cp
 import MiscFunctions
 
 
-strDirectory = str(sys.argv[1])
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
 intHeight = 1 #int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = eval(str(sys.argv[2]))
-lstSigmaAxis = eval(str(sys.argv[3]))
-lstGrainPE = eval(str(sys.argv[5]))
-intTemp =  int(sys.argv[4])
+lstAxis = [2,2,1] #eval(str(sys.argv[2]))
+lstSigmaAxis = [9,9,9] # eval(str(sys.argv[3]))
+lstGrainPE = [1,2] #eval(str(sys.argv[5]))
+intTemp =  500 # int(sys.argv[4])
 intRuns = 100000
 
 arrAxis = np.array(lstAxis)
@@ -31,7 +31,7 @@ arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-s = np.round(np.sqrt(2*10**5/(intHeight*np.linalg.det(arrBasis))))
+s = np.round(np.sqrt(4*10**5/(intHeight*np.linalg.det(arrBasis))))
 intRound = 10
 arrGrainBasis1 = np.round(objCSL.GetLatticeBasis(0),intRound) 
 arrGrainBasis2 = np.round(objCSL.GetLatticeBasis(2),intRound)

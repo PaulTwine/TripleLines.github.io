@@ -39,6 +39,10 @@ for t in range(intLow,intHigh+intStep,intStep):
     else:
         arrIDs = objAnalysis.GetGrainAtomIDsByEcoOrient('f_1[2]',1)
     if len(arrIDs) > 0:
+        arrPoints = objAnalysis.GetAtomsByIDs(arrIDs)
+    else:
+        blnSplitGrains = True
+    if len(arrIDs) > 0:
         fltVolume = np.sum(objAnalysis.GetAtomsByID(arrIDs)[:,intVColumn])
     else: 
         fltVolume = 0

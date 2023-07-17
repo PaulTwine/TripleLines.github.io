@@ -22,6 +22,9 @@ intTemp = int(sys.argv[2])
 intSteps = int(sys.argv[3])
 intLimit = int(sys.argv[4])
 
+
+intGrainSize = 500
+
 fltKeV = 8.617333262e-5
 lstAllTimes = []
 lstAllPoints = []
@@ -43,7 +46,7 @@ objInitialTree = gf.PeriodicWrapperKDTree(arrInitialMeans,objLT.GetCellVectors()
 strDir = strRoot  + '2Min.lst'
 objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
 objLT = objData.GetTimeStepByIndex(-1)
-objLT.PartitionGrains(0.99, 25)
+objLT.PartitionGrains(0.99, intGrainSize)
 objLT.MergePeriodicGrains(25)
 fltNearest = 4.05/np.sqrt(2)
 ids = objLT.FindMeshAtomIDs([1,2,3])
@@ -64,7 +67,7 @@ for k in range(0,intLimit+intSteps,intSteps):
     strDir = strRoot + '1Sim' + str(k) + '.dmp'
     objData = LT.LAMMPSData(strDir,1,4.05,LT.LAMMPSAnalysis3D)
     objLT = objData.GetTimeStepByIndex(-1)
-    objLT.PartitionGrains(0.99,25)
+    objLT.PartitionGrains(0.99,intGrainSize)
     objLT.MergePeriodicGrains(5)
     ids2 = objLT.FindMeshAtomIDs([1,2,3])
     if len(ids2):

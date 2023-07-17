@@ -9,12 +9,12 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy as cp
 from scipy import spatial
 
-strDirectory = str(sys.argv[1])
-strFilename = strDirectory + 'ReadTJ.dat'
-intHeight = int(sys.argv[2]) #numbers of repeated CSL layers
-fltMerge = float(sys.argv[3])
-lstAxis = eval(str(sys.argv[4]))
-intSigma = int(sys.argv[5])
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+strFilename = strDirectory + 'readTJ.dat'
+intHeight = 2 #int(sys.argv[2]) #numbers of repeated CSL layers
+fltMerge = 0.3# float(sys.argv[3])
+lstAxis = [2,2,1] #eval(str(sys.argv[4]))
+intSigma = 9#int(sys.argv[5])
 arrAxis = np.array(lstAxis)
 a = 4.05
 t = np.pi/11
@@ -30,6 +30,7 @@ arrSR = arrR+arrUR+arrULC-arrURC +arrDR
 objSigma9 = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma9.MakeCSLCell(intSigma)
 fltAngle1, fltAngle2 = objSigma9.GetLatticeRotations()
+fltTurn = abs(fltAngle1) + abs(fltAngle2)
 arrBasis = objSigma9.GetBasisVectors()
 
 s0 = np.linalg.norm(arrBasis[0])
@@ -39,9 +40,18 @@ s2 = np.linalg.norm(arrBasis[2])
 fltAngle, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
 arrBasisVectors = gf.RotateVectors(fltAngle, arrRotation,gf.StandardBasisVectors(3))
 h = intHeight*a*s2
-objHex1 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(fltAngle1,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),np.zeros(3))
-objHex2 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(fltAngle2,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s0*(arrDR+arrR))
-objHex3 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(2*np.pi-(abs(fltAngle1)+abs(fltAngle1)),np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s0*(arrUR+arrR))
+objHex1 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(np.pi/2,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),np.zeros(3))
+objHex2 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(np.pi,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s0*(arrDR+arrR))
+objHex3 = gl.ExtrudedRegularPolygon(10*s0*a,h,6,gf.RotateVectors(0,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),10*a*s0*(arrUR+arrR))
+
+lstBases = []
+lstBases.append(gf.RotateVectors(np.pi/2,np.array([0,0,1]),arrBasisVectors))
+lstBases.append(gf.RotateVectors(np.pi,np.array([0,0,1]),arrBasisVectors))
+lstBases.append(gf.RotateVectors(np.pi/2,np.array([0,0,1]),arrBasisVectors))
+
+
+
+gf.TripleLineTensor(np.array([0,0,1]),lstBases, [0,2*np.pi/3,4*np.pi/3])
 
 
 # objHex1 = gl.IrrregularExtrudedGrain(20*a*np.array([arrR, arrURC, arrULC,-arrR,-arrURC,-arrULC]),h,gf.RotateVectors(0,np.array([0,0,1]),arrBasisVectors),ld.FCCCell,a*np.ones(3),np.zeros(3))
@@ -57,13 +67,13 @@ objSimulationCell.AddGrain(objHex2)
 objSimulationCell.AddGrain(objHex3)
 objSimulationCell.MergeTooCloseAtoms(fltMerge*objHex1.GetNearestNeighbourDistance(),1)
 objSimulationCell.WriteLAMMPSDataFile(strFilename)
-fIn = open(strDirectory +  'TemplateMobTJ.in', 'rt')
-fData = fIn.read()
-fData = fData.replace('read.dat', strFilename)
-fData = fData.replace('read.dmp', strFilename[:-3] + 'dmp')
-fData = fData.replace('read.lst', strFilename[:-3] + 'lst')
-fData = fData.replace('logfile', strFilename[:-3] + 'log')
-fIn.close()
-fIn = open(strDirectory + 'TemplateMobTJ.in', 'wt')
-fIn.write(fData)
-fIn.close()
+# fIn = open(strDirectory +  'TemplateMobTJ.in', 'rt')
+# fData = fIn.read()
+# fData = fData.replace('read.dat', strFilename)
+# fData = fData.replace('read.dmp', strFilename[:-3] + 'dmp')
+# fData = fData.replace('read.lst', strFilename[:-3] + 'lst')
+# fData = fData.replace('logfile', strFilename[:-3] + 'log')
+# fIn.close()
+# fIn = open(strDirectory + 'TemplateMobTJ.in', 'wt')
+# fIn.write(fData)
+# fIn.close()

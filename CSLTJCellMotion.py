@@ -13,11 +13,11 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 
-strDirectory = str(sys.argv[1])
-lstAxis = eval(str(sys.argv[2]))
-lstSigmaAxis = eval(str(sys.argv[3]))
-intTemp = int(sys.argv[4])
-intHeight = int(sys.argv[5]) #numbers of repeated CSL layers
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+lstAxis = [2,2,1] #eval(str(sys.argv[2]))
+lstSigmaAxis = [9,9,9] #eval(str(sys.argv[3]))
+intTemp = 700 # int(sys.argv[4])
+intHeight = 1 # int(sys.argv[5]) #numbers of repeated CSL layers
 
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
@@ -35,7 +35,7 @@ arrBasis = a*objCSL.GetSimulationCellBasis()
 arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 
-s = np.round(np.sqrt(10**5/(intHeight*np.linalg.det(arrBasis))))
+s = np.round(np.sqrt(4*10**5/(intHeight*np.linalg.det(arrBasis))))
 
 arrGrainBasis1 = objCSL.GetLatticeBasis(1)
 arrGrainBasis2 = objCSL.GetLatticeBasis(0)

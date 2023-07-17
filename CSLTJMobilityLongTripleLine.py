@@ -15,12 +15,12 @@ from mpl_toolkits.mplot3d import Axes3D
 # between grains 1 and 2. 
 
 
-strRoot = str(sys.argv[1])
-intHeight = 10# int(sys.argv[2]) #numbers of repeated CSL layers
-lstAxis = eval(str(sys.argv[2]))
-lstSigmaAxis = eval(str(sys.argv[3]))
-intTemp = int(sys.argv[4])
-u0 = float(sys.argv[5])
+strRoot = '/home/p17992pt/' # str(sys.argv[1])
+intHeight = 5# int(sys.argv[2]) #numbers of repeated CSL layers
+lstAxis = [1,1,1] # eval(str(sys.argv[2]))
+lstSigmaAxis = [21,21,49] #eval(str(sys.argv[3]))
+intTemp = 650 #int(sys.argv[4])
+u0 = -0.3 #float(sys.argv[5])
 arrAxis = np.array(lstAxis)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
@@ -36,7 +36,7 @@ arrMatrix = objCSL.GetRotationMatrix()
 intTJSigma = objCSL.GetTJSigmaValue(arrCSL)
 intRatio = np.round(np.linalg.norm(arrBasis[0])/np.linalg.norm(arrBasis[1]))
 
-intNumberOfAtoms = 5*10**6 #choose approximate numbers of atoms here
+intNumberOfAtoms = 2.5*10**6 #choose approximate numbers of atoms here
 intAtomsPerVolume = 4 # 4 for FCC and 2 for BCC
 #s = np.round(np.sqrt(intNumberOfAtoms/(intAtomsPerCell*intTJSigma))/4) #
 fltVolumeScale = np.linalg.det(arrBasis)*4.05**(-3)

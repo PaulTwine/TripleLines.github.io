@@ -9,9 +9,13 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy as cp
 from scipy import spatial
 
-strDirectory = str(sys.argv[1])
-intSigma = int(sys.argv[2])
-lstAxis = eval(str(sys.argv[3]))
+#objRealCell = gl.RealCell(ld.FCCCell,4.05*np.ones(3))
+#print(objRealCell.GetQuaternionSymmetries())
+
+
+strDirectory = '/home/p17992pt/LAMMPSData/' #str(sys.argv[1])
+intSigma = 5 #int(sys.argv[2])
+lstAxis = [1,0,0] #eval(str(sys.argv[3]))
 arrAxis = np.array(lstAxis)
 objSigma = gl.SigmaCell(arrAxis,ld.FCCCell)
 objSigma.MakeCSLCell(intSigma)
@@ -36,7 +40,7 @@ h = a*np.round(intHeight/s3,0)
 arrX = w*arrSigmaBasis[0]
 arrXY = l*arrSigmaBasis[1]
 z = h*arrSigmaBasis[2]
-if np.all(arrAxis == np.array([1,0,0])):
+if np.all(arrAxis == np.array([0,0,1])):
     arrBasisVectors = gf.StandardBasisVectors(3)
 else:
     fltAngle3, arrRotation = gf.FindRotationVectorAndAngle(arrAxis,np.array([0,0,1]))
@@ -60,12 +64,16 @@ MySimulationCell.AddGrain(objBaseRight)
 fltj = objFullCell1.GetNearestNeighbourDistance() 
 lstj = [] 
 lstAtoms = []  
-for j in range(intSteps):
+for j in range(9,intSteps):
     lstAtoms.append(MySimulationCell.GetUpdatedAtomNumbers())
-    MySimulationCell.RemoveAtomsOnOpenBoundaries()
-    MySimulationCell.RemovePeriodicDuplicates()
-    MySimulationCell.RemoveTooCloseAtoms(j*fltj/intSteps)
+    MySimulationCell.RemoveGrainPeriodicDuplicates()
+    #MySimulationCell.RemoveAtomsOnOpenBoundaries()
+    MySimulationCell.MergeTooCloseAtoms(j*fltj/intSteps,1)
+   # MySimulationCell.RemoveTooCloseAtoms(j*fltj/intSteps)
+    #MySimulationCell.FinalAtomPositionCheck(j*fltj/intSteps)
     MySimulationCell.WrapAllAtomsIntoSimulationCell()
+    #MySimulationCell.RemoveNonGrainAtomPositons()
+    pts = MySimulationCell.GetDuplicatePoints()
     lstAtoms.append(MySimulationCell.GetUpdatedAtomNumbers())
     if lstAtoms[-1] != lstAtoms[-2]:
         MySimulationCell.WriteLAMMPSDataFile(strDirectory + 'read' + str(j) + '.dat')

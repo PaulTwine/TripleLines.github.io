@@ -1,46 +1,75 @@
+# %%
 import numpy as np
-#from mpl_toolkits.mplot3d import Axes3D
-#import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 #from sklearn.neighbors import NearestNeighbors
-#import GeometryFunctions as gf
+import GeometryFunctions as gf
 #import GeneralLattice as gl
-import LAMMPSTool as LT 
+import LAMMPSTool as LT
 #import LatticeDefinitions as ld
-import sys 
+import sys
 #import MiscFunctions as mf
 #import itertools as it
 #from sklearn.cluster import DBSCAN
-
-#fig = plt.figure()
-#ax = fig.add_subplot(projection='3d')
-
-#strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis001/TJSigma13/' #str(sys.argv[1])
-strDirectory = str(sys.argv[1])
-intDir = int(sys.argv[2])
-intDelta =   int(sys.argv[3])
-strType = str(sys.argv[4])
+import itertools as it
+# %%
+# str(sys.argv[1])
+strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis111/TJSigma31/'
+#strDirectory = str(sys.argv[1])
+intDir = 0  # int(sys.argv[2])
+intDelta = 0  # int(sys.argv[3])
+strType = 'GB'  # str(sys.argv[4])
 strFile = strDirectory + str(intDir) + '/' + strType + str(intDelta) + '.lst'
-objData = LT.LAMMPSData(strFile,1,4.05, LT.LAMMPSGlobal)
+objData = LT.LAMMPSData(strFile, 1, 4.05, LT.LAMMPSGlobal)
 lstGrainLabels = []
 intCount = 0
 a = 1
 blnStop = False
 objTJ = objData.GetTimeStepByIndex(-1)
 while not(blnStop) and a <= 10:
-    objTJ.ResetGrainNumbers()   
-    objTJ.PartitionGrains(a,25,25)
+    objTJ.ResetGrainNumbers()
+    objTJ.PartitionGrains(a, 25, 25)
     lstGrainLabels = objTJ.GetGrainLabels()
-    if len(lstGrainLabels) > 0 :
+    if len(lstGrainLabels) > 0:
         objTJ.MergePeriodicGrains(30)
         lstGrainLabels = objTJ.GetGrainLabels()
     fltWidth = objTJ.EstimateLocalGrainBoundaryWidth()
     if lstGrainLabels == list(range(5)) and fltWidth > 0 and fltWidth < 50:
         blnStop = True
     a += 1
-
+# %%
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
 print(fltWidth)
-fltWidth = np.min([fltWidth,50])
-objTJ.FindGrainBoundaries(3*4.05)
+lstAllMeshPoints = []
+fltWidth = np.min([fltWidth, 50])
+lstGBMeshPoints = objTJ.FindGrainBoundaries(3*4.05)
+intGB = len(lstGBMeshPoints)
+#fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+#ax.set_box_aspect((1,1,1))
+ax.set_axis_off()
+lstAllMeshPoints.extend(lstGBMeshPoints)
+if strType == 'TJ':
+    lstTJMeshPoints = objTJ.FindJunctionMesh(2*4.05,3)
+    lstAllMeshPoints.extend(lstTJMeshPoints)
+intCounter = 0
+arrLengths = list(map(lambda x: len(x), lstAllMeshPoints))
+arrOrder = np.argsort(arrLengths)[::-1]
+for i in arrOrder:
+    j = lstAllMeshPoints[i]
+   # j = objTJ.WrapVectorIntoSimulationBox(j)
+    if intCounter < intGB:
+        ax.plot(*tuple(zip(*j)), alpha=0.3,
+                linestyle='None', marker='.', markersize=10)
+    else:
+        plt.plot(*tuple(zip(*j)), alpha=1, linestyle='None',
+                 marker='.', markersize=10, c='black')
+    intCounter += 1
+
+gf.EqualAxis3D(ax)
+ax.set_zlim3d([0,20])
+plt.show()
+# %%
 # lstTJs = []
 # lstpts = objTJ.FindJunctionMesh(2*4.05,3)
 # for i in lstpts:
@@ -55,8 +84,9 @@ objTJ.FindGrainBoundaries(3*4.05)
 #         ax.scatter(*tuple(zip(*pts)))
 # plt.show()
 if strType == 'TJ':
-       objTJ.FindJunctionLines(3*4.05, 3)
-objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' + strType + str(intDelta) + 'P.lst')
+    objTJ.FindJunctionLines(3*4.05, 3)
+objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' +
+                    strType + str(intDelta) + 'P.lst')
 
 # if len(pts) > 0:
 #     ax.scatter(*tuple(zip(*pts)),c='r')
@@ -101,5 +131,3 @@ objTJ.WriteDumpFile(strDirectory+str(intDir) + '/' + strType + str(intDelta) + '
 #     intGB = objTJ.GetColumnIndex('GrainBoundary')
 #     objTJ.SetColumnByIDs(lstAllTJIDs,intGB,0*np.ones(len(lstAllTJIDs)))
 #    objTJ.WriteDumpFile(strDirectory+str(intDir) + '/TJ' + str(intDelta) + 'P.lst')
-
-

@@ -43,4 +43,4 @@ for j in lstNames:
     lstExcessPE.append(fltNewPE-fltBasePE+fltLatticePE*(intBaseAtoms-intAtoms))
 
 fltFactor = lstj[np.argmin(lstExcessPE)]/intSteps
-np.savetxt(strDirectory+'fltFactor.txt',np.array([fltFactor])
+np.savetxt(strDirectory+'fltFactor.txt',np.array([fltFactor]))

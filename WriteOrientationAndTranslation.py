@@ -15,10 +15,10 @@ import sys
 
 
 
-strDirectory = str(sys.argv[1]) #'/home/p17992pt/csf4_scratch/TJ/Axis111/TJSigma7/'
-lstAxis = eval(str(sys.argv[2]))
-intSigma = int(sys.argv[3])
-fltTolerance = 1-np.cos(np.pi/120)
+strDirectory = '/home/p17992pt/csf4_scratch/TJ/Axis111/TJSigma7/'
+lstAxis = [1,1,1] # eval(str(sys.argv[2]))
+intSigma = 7 #int(sys.argv[3])
+fltTolerance = 1-np.cos(np.pi/180)
 arrAxis = np.array(lstAxis)
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
