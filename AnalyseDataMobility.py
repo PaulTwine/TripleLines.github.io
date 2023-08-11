@@ -22,7 +22,7 @@ plt.rcParams['figure.dpi'] = 300
 strTime = 'Time in fs'
 strPotentialEnergy = 'Potential energy in eV'
 strVolume =r'Volume in \AA$^{3}$'
-plt.rcParams.update({'font.size': 18})
+plt.rcParams.update({'font.size': 16})
 #%%
 def DataMobilityConversion(inMob):
     fltC = 1.602176634*10**(-19)
@@ -33,12 +33,12 @@ print(DataMobilityConversion(0.5))
 #%%
 arrValues = np.loadtxt('/home/p17992pt/147PsPtBV12.txt')
 print(np.shape(arrValues))
-fltArea = 2*np.unique(arrValues[2,:]/arrValues[1,:])[0]
+fltArea = 2*np.unique(arrValues[2,:]/arrValues[0,:])[0]
 intEnd = 200
 intStart = 0
-plt.scatter(arrValues[1,intStart:intEnd]**2/4,arrValues[3,intStart:intEnd])
+plt.scatter(arrValues[0,intStart:intEnd],arrValues[3,intStart:intEnd])
 popt,pop =optimize.curve_fit(FitLine,(arrValues[1,intStart:intEnd])**2/4, arrValues[3,intStart:intEnd])
-plt.plot((arrValues[1,intStart:intEnd])**2/4,FitLine((arrValues[1,intStart:intEnd])**2/4,*popt),c='black')
+#plt.plot((arrValues[1,intStart:intEnd])**2/4,FitLine((arrValues[1,intStart:intEnd])**2/4,*popt),c='black')
 # lstValues = BootstrapEstimate((arrValues[1,:-600]/2)**2,arrValues[3,:-600],400)
 print(1/popt[0])
 plt.show()
@@ -126,12 +126,13 @@ def PlotMobilities(lstTemp, lstTJ, lst12BV, lst13BV, lstTJE, lst12BVE, lst13BVE,
 # plt.scatter(lstNewTemp,arrMins)
     plt.legend(lstLegend)
     plt.xlabel('Temperature in K')
-    plt.ylabel('$m_{t}$ in $\AA^4$ eV$^{-1}$ fs$^{-1}$')
+    plt.ylabel('$m_{t}$ in \AA$^4$ eV$^{-1}$ fs$^{-1}$')
 #plt.legend(['TJ 7-7-49', 'TJ 21-21-49'])
 #plt.legend(['TJ','Min of 12BV 13BV'])
 # plt.ylim([0.1,0.5])
     if lstYlim is not None:
         plt.ylim(lstYlim)
+    plt.xticks(lstTemp)
     plt.show()
     plt.clf()
     plt.cla()
@@ -411,16 +412,20 @@ def MakeTJandBCDictionaries(strDir, lstinTemp, lstinU):
     return dctTJ, dct12BV, dct13BV
 # %%
 lstTemp = [450, 500, 550, 600, 650, 700, 750]
-#lstU = [0.01, 0.02, 0.03, 0.04]
-lstU = [0.005,0.0075,0.01,0.0125]#,0.015]
-#strRoot9_9_9 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis511/Sigma9_9_9/Temp'
-strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
+lstU = [0.01, 0.02, 0.03, 0.04]
+#lstU = [0.005,0.0075,0.01,0.0125]#,0.015]
+strRoot9_9_9 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis511/Sigma9_9_9/Temp'
+#strRoot7_7_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma7_7_49/Temp'
 #strRoot21_21_49 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis111/Sigma21_21_49/Temp'
-dctTJ, dctBV12, dctBV13 = MakeTJandBCDictionaries(strRoot7_7_49, lstTemp, lstU)
+dctTJ, dctBV12, dctBV13 = MakeTJandBCDictionaries(strRoot9_9_9, lstTemp, lstU)
 
 # %%
-
-
+#with open('/home/p17992pt/dct7_7_49BV13All', 'wb') as fp:
+#    pickle.dump(dctBV13, fp)
+#%%
+with open('/home/p17992pt/dct21_21_49BV12All', 'rb') as fp:    
+    dctBV12 = pickle.load(fp)
+#%%
 def QuickMobilityEstimate(strRoot: str, lstTemp: list, lstU: list, strType1: str) -> dict():
     dctReturn = dict()
     for T in lstTemp:
@@ -656,7 +661,7 @@ def WriteSyntheticMobilityValues(lstInTemp, dctAny: dict(), lstU: list):
         # plt.plot(np.array(tupValues[0]),FitLine(np.array(tupValues[0]),popt[0],popt[1]))
         # lstMobility.append(popt[0])
         #lstValues = BlockBootstrapEstimate(tupValues[0],tupValues[1])
-        lstValues = BlockBootstrapEstimate(lstSyntheticU, tupValues[1],FitLine)
+        lstValues = BlockBootstrapEstimate(lstSyntheticU, tupValues[1],FitProportional)
         lstMobility.append(np.mean(lstValues))
         lstMobilityStd.append(2*np.std(lstValues))
     return lstMobility, lstMobilityStd
@@ -670,7 +675,7 @@ def WriteMobilityValues(lstInTemp, dctAny: dict, uLower: float, uUpper: float, b
             tupValues = PartitionByTemperature(
             dctAny, j, uLower, 0.03, blnSyntheticUOnly)
         else:
-            tupValues = PartitionByTemperatureSimple(
+            tupValues = PartitionByTemperature(
             dctAny, j, uLower, uUpper, blnSyntheticUOnly)
         for i in range(len(tupValues[0])):
             # plt.title(str(j))
@@ -685,27 +690,30 @@ def WriteMobilityValues(lstInTemp, dctAny: dict, uLower: float, uUpper: float, b
         # plt.plot(np.array(tupValues[0]),FitLine(np.array(tupValues[0]),popt[0],popt[1]))
         # lstMobility.append(popt[0])
         lstValues = BlockBootstrapEstimate(
-            tupValues[0], tupValues[1], FitLine)
+            tupValues[0], tupValues[1], FitProportional)
         #lstValues = BootstrapEstimate(tupValues[0],tupValues[1],100)
         plt.hist(lstValues)
         plt.xlabel('$m_t$')
         lstMobility.append(np.mean(lstValues[0]))
         lstMobilityStd.append(2*np.std(lstValues[0]))
     return lstMobility, lstMobilityStd
-
+#%%
+with open('/home/p17992pt/dct7_7_49TJAll', 'rb') as fp:    
+    dctTJ = pickle.load(fp)
 
 # %%
-#lstU = [0.005, 0.0075, 0.01, 0.0125,0.015]
+lstTemp =[450,500,550,600,650,700,750]
+#lstU = [0.005, 0.0075, 0.01, 0.0125]#,0.015]
 lstU = [0.01, 0.02, 0.03, 0.04]
-lstMobTJ, lstErrorTJ = WriteMobilityValues(lstTemp, dctTJ, lstU[1],lstU[-1])
+lstMobTJ, lstErrorTJ = WriteMobilityValues(lstTemp, dctTJ, lstU[0],lstU[-1])
 #lstMobTJ21 = WriteMobilityValues(lstNewTemp, dctTJ21)
 # %%
-lstMobBV12, lstErrorBV12 = WriteMobilityValues(
-    lstTemp, dctBV12, lstU[1],lstU[-1])
+lstMobBV12, lstErrorBV12 = WriteSyntheticMobilityValues(
+    lstTemp, dctBV12, lstU)
 
 # %%
-lstMobBV13, lstErrorBV13 = WriteMobilityValues(
-    lstTemp, dctBV13, lstU[1],lstU[-1])
+lstMobBV13, lstErrorBV13 = WriteSyntheticMobilityValues(
+    lstTemp, dctBV13, lstU)
 
 
 # %%
@@ -720,13 +728,13 @@ arrMins = np.min(arrBV, axis=0)
 
 # %%
 PlotMobilities(lstTemp, lstMobTJ, lstMobBV12, lstMobBV13, np.array(
-    lstErrorTJ), np.array(lstErrorBV12), np.array(lstErrorBV13),[0.35,0.85])
+    lstErrorTJ), np.array(lstErrorBV12), np.array(lstErrorBV13),[0.2,2.5])
 # %%
 PlotMobilities(lstTemp[:], lstMobTJ[:], [], [],
                np.array(lstErrorTJ[:]), [], [])
 # %%
-PlotMobilities(lstTemp, lstMobTJ, lstMobBV12, [], np.array(
-    lstErrorTJ), np.array(lstErrorBV12), [0.5, 1.0])
+PlotMobilities(lstTemp, lstMobTJ, [], [], np.array(
+    lstErrorTJ), [], [0.5, 1.0])
 
 # %%
 PlotArrhenius(lstTemp[:-3], lstMobTJ[:-3], True)
@@ -738,13 +746,14 @@ lstAllValues.append(np.array(lstMobBV13))
 lstAllValues.append(np.array(lstErrorTJ))
 lstAllValues.append(np.array(lstErrorBV12))
 lstAllValues.append(np.array(lstErrorBV13))
-np.savetxt('/home/p17992pt/FinalSigma9_9_9u01tou03.txt', np.vstack(lstAllValues))
+#%%
+np.savetxt('/home/p17992pt/Sigma7_7_49u00tou0125SProp.txt', np.vstack(lstAllValues))
 # %%
 lstTemp = [450, 500, 550, 600, 650, 700, 750]
-arr21 = np.loadtxt('/home/p17992pt/FinalSigma9_9_9u01tou03.txt')
+arr21 = np.loadtxt('/home/p17992pt/Sigma9_9_9u01tou03Prop.txt')
 # %%
 PlotMobilities(lstTemp, arr21[0], arr21[1], arr21[2],
-               arr21[3], arr21[4], arr21[5],[0.35,0.85])
+               arr21[3], arr21[4], arr21[5],[0.3,0.7])
 # %%
 PlotAllArhenius(lstTemp[:], arr21[0], True)
 # %%

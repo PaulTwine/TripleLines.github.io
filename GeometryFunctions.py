@@ -987,8 +987,8 @@ def PrimitiveToOrthogonalVectors(inPrimitiveVectors, inAxis): #trys to find orth
                 lstAllVectors.append(arrAllVectors + a)
                 lstAllVectors.append(arrAllVectors -a)
                 arrAllVectors = np.vstack(lstAllVectors)
-        arrAllVectors = np.unique(arrAllVectors, axis=0)
-        arrDeleteRows = np.where(np.all(arrAllVectors == np.zeros(3),axis=1))[0]
+        arrAllVectors = np.unique(np.round(arrAllVectors,10), axis=0)
+        arrDeleteRows = np.where(np.all(np.round(arrAllVectors,10) == np.zeros(3),axis=1))[0]
         arrPlane = np.delete(arrAllVectors, arrDeleteRows, axis=0)
         arrRows = np.where(np.abs(np.matmul(arrPlane, np.transpose(inAxis)))< 1e-5)[0]
         arrPlane = arrPlane[arrRows]

@@ -1,7 +1,7 @@
 # %%
-from locale import normalize
-from tkinter import N
-from turtle import color, colormode, pos
+#from locale import normalize
+#from tkinter import N
+#from turtle import color, colormode, pos
 import numpy as np
 import os
 from mpl_toolkits.mplot3d import Axes3D
@@ -21,6 +21,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 import MiscFunctions as mf
 from pickle import FALSE
 from scipy.optimize import curve_fit
+import pickle
 
 # Assumes columns are 2: GBPE, 3: TJPE, 4: GB Lattice Atoms PE 5: TJLattice Atoms, 6: Number of GB atoms, 7 Number of TJ atoms,, 8 Number of PTM GB Atoms, 9 Number of PTM TJ Atoms, 10 is TJ Length
 
@@ -462,12 +463,11 @@ class TJAndGBData(object):
     
 def FitLine(x, a, b):
     return a*x + b
-
-
+#%%
 for strAxis in lstAxes:
     strBiDir = '/home/p17992pt/csf4_scratch/BiCrystal/'
     #strTJDir = '/home/p17992pt/csf4_scratch/TJCylinder/'
-    strTJDir = '/home/p17992pt/csf4_scratch/TJ/'
+    strTJDir = '/home/p17992pt/csf4_scratch/TJ3/'
     arrAxis = np.zeros(3)
     for j in range(3):
         arrAxis[j] = int(strAxis[j-3])
@@ -491,15 +491,20 @@ for strAxis in lstAxes:
         objTJAndGBData.SetTranslationAndOrientationData(arrTranslationAndOrientation)
         dctAllGB[strDMINKey] = objCSL
         dctAllTJ[strDMINKey] = objTJAndGBData
+#%%
 lstMarkers = ['o', 'v', 's']
 
 arrAxes = np.array(
     [np.array([0, 0, 1]), np.array([1, 0, 1]), np.array([1, 1, 1])])
 lstAxisNames = ['Axis [001]', 'Axis [101]', 'Axis [111]']
-
+#%%
+with open('/home/p17992pt/dctFirstPaperTJAll', 'rb') as fp:
+    dctAllTJ = pickle.load(fp)
+# %%
+with open('/home/p17992pt/dctFirstPaperGBAll', 'wb') as fp:
+    pickle.dump(dctAllGB, fp)
 
 # %%
-# TJ std (or change to mean) for against disorientation angle
 lstAngles = []
 lstStd = []
 for a in dctAllTJ.keys():
@@ -540,8 +545,7 @@ for a in dctAllTJ.keys():
     arrRows = np.where(np.array(lstValues) < 0.25)[0]
     arrValues = np.array(lstValues)[arrRows]
     lstAllValues.append(arrValues)
-    arrSigma = np.ones(len(arrValues)) * \
-        lstSigmas[i].index(dctAllTJ[a].GetSigma())
+    arrSigma = np.ones(len(arrValues))*lstSigmas[i].index(dctAllTJ[a].GetSigma())
     axs[i].scatter(arrSigma, arrValues, c=lstColours[i],
                    marker=lstMarkers[i], label='Small')
     axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrValues), 1.96 *
@@ -597,7 +601,7 @@ for i in range(3):
     axs[i].set_xticklabels(lstSigmas[i])
     axs[i].set_xlabel(strSigmaAxis)
     axs[i].set_xlabel(strSigmaAxis)
-    axs[i].legend([lstLegendAxes[i]])
+    axs[i].legend([lstLegendAxes[i]],loc='lower center')
 axs[0].set_ylabel(strFAxis)
 plt.show()
 plt.scatter(lstNumberOfValues,lstLargerThanFL)
@@ -693,7 +697,7 @@ arrValues = np.concatenate(lstValues)
 print(np.mean(arrValues), np.std(arrValues))
 #%%
 for a in dctAllTJ.keys():
-        if np.all(dctAllTJ[a].GetAxis() == arrAxes[0]):
+        if np.all(dctAllTJ[a].GetAxis() == arrAxes[2]):
             arrTJ = dctAllTJ[a].GetTJExcessPerLength()
             print(np.mean(arrTJ),np.std(arrTJ),dctAllTJ[a].GetSigma())
 # %%
@@ -806,14 +810,14 @@ for a in dctAllTJ.keys():
 for i in range(3):
     axs[i].set_xticks(list(range(len(lstSigmas[i]))))
     axs[i].set_xticklabels(lstSigmas[i])
-    axs[i].legend([lstAxes[i]], loc='lower left')
+    axs[i].legend([lstLegendAxes[i]], loc='lower left')
     axs[i].set_xlabel(strSigmaAxis)
 axs[0].set_ylabel(strCurved)
 fig.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
-# %%
+2# %%
 # excess mean GB energies with a scatter plot for each axis
 fig, axs = plt.subplots(1, 3, sharey=True)
 lstTJ = []
@@ -858,9 +862,10 @@ for a in dctAllTJ.keys():
 for i in range(3):
     axs[i].set_xticks(list(range(len(lstSigmas[i]))))
     axs[i].set_xticklabels(lstSigmas[i])
-    axs[i].legend([lstAxes[i]], loc='upper left')
+    axs[i].legend([lstLegendAxes[i]], loc='upper left')
     axs[i].set_xlabel(strSigmaAxis)
     axs[i].axhline(y=0, c='black', linestyle='--')
+    axs[i].set_ylim([-0.42,0.525])
 axs[0].set_ylabel(strTJAxis)
 fig.tight_layout()
 plt.show()

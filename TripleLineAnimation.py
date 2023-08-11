@@ -22,6 +22,7 @@ import os
 # from scipy.signal import hilbert
 from scipy.signal import butter
 from scipy.signal import filtfilt
+import pickle
 # from sympy import Matrix
 # from sympy.matrices.normalforms import smith_normal_form
 #%%
@@ -130,13 +131,13 @@ arrCellVectors = objLAMMPSDat.GetCellVectors()
 arrTJPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[2]+arrCellVectors[1]),0.5*(arrCellVectors[2]+arrCellVectors[0]),0.5*(arrCellVectors[2]+arrCellVectors[1]+arrCellVectors[0])])
 objTJAnimation = TripleLineAnimation(strDirectory1, arrCellVectors,arrTJPositions)
 dct21_21_49Points = dict()
-#with open('/home/p17992pt/dct212149L.dct', 'rb') as f:
-#    dct21_21_49Points = pickle.load(f)
-for j in range(4):
-    objTJAnimation.TripleLinesToAnimate([j])
-    objTJAnimation.WriteFile('/home/p17992pt/STJSigma21_21_49_' +str(j)+ '.gif',1000,0,100)
-    dct21_21_49Points[j] = objTJAnimation.GetPointsDictionary()
-    objTJAnimation.ClearPointsDictionary()
+with open('/home/p17992pt/dct212149L.dct', 'rb') as f:
+    dct21_21_49Points = pickle.load(f)
+# for j in range(4):
+#     objTJAnimation.TripleLinesToAnimate([j])
+#     objTJAnimation.WriteFile('/home/p17992pt/STJSigma21_21_49_' +str(j)+ '.gif',1000,0,100)
+#     dct21_21_49Points[j] = objTJAnimation.GetPointsDictionary()
+#     objTJAnimation.ClearPointsDictionary()
 #%%
 
 #%%
@@ -146,13 +147,13 @@ arrCellVectors = objLAMMPSDat.GetCellVectors()
 arrTJPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[2]+arrCellVectors[1]),0.5*(arrCellVectors[2]+arrCellVectors[0]),0.5*(arrCellVectors[2]+arrCellVectors[1]+arrCellVectors[0])])
 objTJAnimation = TripleLineAnimation(strDirectory2, arrCellVectors,arrTJPositions)
 dct7_7_49Points = dict()
-#with open('/home/p17992pt/dct7749L.dct', 'rb') as f:
-#    dct7_7_49Points = pickle.load(f)
-for j in range(4):
-    objTJAnimation.TripleLinesToAnimate([j])
-    objTJAnimation.WriteFile('/home/p17992pt/MTJSigma7_7_49_' +str(j)+ '.gif',1000,0,100)
-    dct7_7_49Points[j] = objTJAnimation.GetPointsDictionary()
-    objTJAnimation.ClearPointsDictionary()
+with open('/home/p17992pt/dct7749L.dct', 'rb') as f:
+    dct7_7_49Points = pickle.load(f)
+# for j in range(4):
+#     objTJAnimation.TripleLinesToAnimate([j])
+#     objTJAnimation.WriteFile('/home/p17992pt/MTJSigma7_7_49_' +str(j)+ '.gif',1000,0,100)
+#     dct7_7_49Points[j] = objTJAnimation.GetPointsDictionary()
+#     objTJAnimation.ClearPointsDictionary()
 #%%
 strDirectory3 = '/home/p17992pt/csf4_scratch/CSLTJMobility/Axis511/Sigma9_9_9/Temp600/u03L/TJ/'
 objLAMMPSDat = LT.LAMMPSDat(strDirectory3 + 'TJ.dat')
@@ -168,7 +169,7 @@ for j in range(4):
     dct9_9_9Points[j] = objTJAnimation.GetPointsDictionary()
     objTJAnimation.ClearPointsDictionary()
 #%%
-dctCurrent = dct21_21_49Points
+dctCurrent = dct7_7_49Points
 #%%
 ##distance travelled
 c=0
@@ -205,8 +206,8 @@ plt.legend(lstLegend)
 plt.show()
 #%%
 ## distance time graphs
-intTimeStop = 350
-intTimeStart = 100
+intTimeStop = 1000
+intTimeStart = 0
 arrTJPositions = np.array([0.5*arrCellVectors[2],0.5*(arrCellVectors[2]+arrCellVectors[1]),0.5*(arrCellVectors[2]+arrCellVectors[0]),0.5*(arrCellVectors[2]+arrCellVectors[1]+arrCellVectors[0])])
 dctCurrentDistances = dict()
 dctCurrentSpeeds = dict()
@@ -314,24 +315,29 @@ for k in dctCurrent:
     arrProjection = FitLine(np.array(lstTimeSteps), *popt)
     plt.plot(lstTimeSteps,arrProjection,c='black',linestyle='dashed')
     #plt.plot(lstTimeSteps[:], np.mean(lstRadialDistances[:])*np.ones(len(lstRadialDistances[:])),c='black')
-    plt.plot(lstTimeSteps, arrAllRadialDistances,c=lstColours[c])
+    plt.plot(lstTimeSteps, arrAllRadialDistances,c=lstColours[c],alpha=0.7)
     plt.plot(lstTimeSteps, arrSmooth,c='black')
     #plt.plot(lstTimeSteps, savgol_filter(lstRadialDistances,21,5),c='grey')
     print(np.mean(lstRadialDistances),np.std(lstRadialDistances))
     plt.xlim([0,100000])
-    #plt.ylim([0.5,3])
+    plt.ylim([0.5,3])
+    intLimit = np.max(np.ceil(dctCurrentDistances[c]/y)).astype('int')
+    for k in range(1,intLimit):
+        intPoint = np.argmin(np.abs(dctCurrentDistances[c]/y-k*np.ones(len(dctCurrentDistances[c]))))
+        plt.axvline(lstTimeSteps[intPoint],c='black',linestyle='dotted')
     plt.show()
     #plt.show()
     dctCurrentRadial[c]=arrAllRadialDistances
     dctCurrentRadialSmooth[c] = arrSmooth-arrProjection
     c +=1
+    
     #print(k, np.mean(lstDistances), np.std(lstDistances))
     #plt.plot(lstTimeSteps[50:],lstDisplacement[50:])
     #plt.axis('equal')
     #plt.xlim([0,arrCellVectors[0,0]/2])
     #plt.ylim([0,arrCellVectors[1,1]/2])
     #plt.plot(np.vstack(lstPositions)[50:,0],np.vstack(lstPositions)[50:,1])
-
+    
 #plt.legend(lstLegend)
 #plt.show()
 #%%
@@ -348,9 +354,9 @@ plt.ylim([-np.max(dctCurrentRadialSmooth[n]),np.max(dctCurrentRadialSmooth[n])])
 plt.show()
 
 #%%
-objCSL = gl.CSLTripleLine(np.array([5,1,1]), ld.FCCCell)
+objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(200)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[9,9,9],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[7,7,49],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex,True)

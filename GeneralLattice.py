@@ -1270,8 +1270,8 @@ class SigmaCell(object):
             arrBasis2 = gf.RotateVectors(fltSigma,self.__RotationAxis,gf.StandardBasisVectors(3))
             self.__OriginalBasis = arrBasis2
             arrBasisMedian = gf.RotateVectors(fltSigma/2,self.__RotationAxis,gf.StandardBasisVectors(3))
-            objFirstLattice = ExtrudedRectangle(l,l,h,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
-            objSecondLattice = ExtrudedRectangle(l,l,h,arrBasis2,self.__CellType,np.ones(3),np.zeros(3))
+            objFirstLattice = ExtrudedRectangle(l,l,l,arrBasis1, self.__CellType, np.ones(3),np.zeros(3))
+            objSecondLattice = ExtrudedRectangle(l,l,l,arrBasis2,self.__CellType,np.ones(3),np.zeros(3))
             arrPoints1 = objFirstLattice.GetRealPoints()
             arrPoints2 = objSecondLattice.GetRealPoints()
             objTree1 = KDTree(arrPoints1)
@@ -1286,6 +1286,8 @@ class SigmaCell(object):
             self.__CSLPrimitiveInverse = np.linalg.inv(arrPrimitiveVectors)    
             if blnUnitCell:
                 arrReturnVectors = gf.PrimitiveToOrthogonalVectors(arrPrimitiveVectors,self.__RotationAxis)
+                #arrReturnVectors = gf.PrimitiveToOrthogonalVectorsGrammSchmdit(arrPrimitiveVectors,ld.FCCPrimitive)
+                #arrReturnVectors = gf.OrthogonalVectorsFromPrimitiveVectors(arrPrimitiveVectors)
                 arrReturnVectors, arrTransformation = gf.ConvertToLAMMPSBasis(arrReturnVectors)
             else: 
                 arrReturnVectors, arrTransformation = gf.ConvertToLAMMPSBasis(arrPrimitiveVectors)

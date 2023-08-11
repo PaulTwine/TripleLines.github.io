@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import MiscFunctions as mf
 #%%
-intFontSize = 16
+intFontSize = 18
 plt.rc('text', usetex=True)
 plt.rc('text.latex', preamble=r'\usepackage{amsmath} \usepackage{bm}')
 plt.rcParams['figure.dpi'] = 300
@@ -61,11 +61,11 @@ def NormalValuesList(arrValues :np.array, arrStd: np.array, intSize :int):
     return np.transpose(arrReturn)
 #%%
 intStart = 0
-intEnd = 3
+intEnd = 4
 slcRange = slice(intStart,intEnd+1,1)
-arr9 = np.loadtxt('/home/p17992pt/FinalSigma7_7_49u005tou0125.txt')
+arr9 = np.loadtxt('/home/p17992pt/Sigma21_21_49u01tou04Prop.txt')
 lstTemp = [450,500,550,600,650,700,750]
-PlotMobilities(lstTemp,arr9[0],arr9[1],arr9[2],arr9[3],arr9[4],arr9[5],[-0.3,2.3])
+PlotMobilities(lstTemp,arr9[0],arr9[1],arr9[2],arr9[3],arr9[4],arr9[5],[0.5,1.1])
 #%%
 #
 #lstTemp = [450,500,600,650,700,750]
@@ -99,15 +99,15 @@ for j in range(3):
     fltM = np.mean(lstPopt0)
     fltC = np.mean(lstPopt1)
     #plt.scatter(arrITemp[slcRange],np.mean(arrLogOut,axis=0),c=lstColours[j])
-    if j in [0]:
+    if j in [0,1]:
         plt.plot(arrITemp,FitLine(arrITemp,fltM,fltC),c=lstColours[j])
     plt.errorbar(arrITemp[arrRows],np.log(arr9[j,:][arrRows]),arrStd,c=lstColours[j],ls='none',capsize=5)
     print(np.mean(lstPopt0),np.std(lstPopt0))
 plt.axvline(arrITemp[intStart],c='black',ls='dashed')
 plt.axvline(arrITemp[intEnd],c='black',ls='dashed') 
 plt.xlabel('Inverse temperature K$^{-1}$')
-plt.ylabel('$\ln(m_t)$')
-plt.ylim([-1,1]) 
+plt.ylabel('$\ln(m_s)$')
+plt.ylim([-1.2,-0.3]) 
 plt.tight_layout()
 plt.show()
 
