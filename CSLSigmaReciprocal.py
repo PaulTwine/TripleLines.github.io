@@ -177,6 +177,12 @@ for j in lstTransforms:
     lstBases.append(gf.FindPrimitiveCellVectors(j))
 print('pause!')
 #%%
+for j in arrOut:
+    eig = np.linalg.eig(np.matmul(arrOut[i], arrTransform))
+    arrRows = np.where(np.round(np.imag(eig[0]),5)==0)[0]
+    for k in arrRows:
+        print(gf.recover_integer_vector(np.real(eig[1][:,k])))
+#%%
 objData = LT.LAMMPSData('/home/p17992pt/csf4_scratch/CSLTJMobility/Axis511/Sigma9_9_9/Temp550/u04/TJ/1Sim50000.dmp',1,4.05, LT.LAMMPSGlobal)
 objTJ = objData.GetTimeStepByIndex(-1)
 #%%

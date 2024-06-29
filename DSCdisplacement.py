@@ -20,9 +20,9 @@ plt.rc('text', usetex=True)
 plt.rc('text.latex', preamble=r'\usepackage{amsmath} \usepackage{bm}')
 plt.rcParams['figure.dpi'] = 300
 #%%
-objCSL = gl.CSLTripleLine(np.array([5,1,1]), ld.FCCCell)
+objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(200)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[9,9,9],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[7,7,49],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex,True)
@@ -30,12 +30,13 @@ arrCellBasis = objCSL.GetCSLBasisVectors()
 arrEdgeVectors, arrTransform = gf.ConvertToLAMMPSBasis(arrCellBasis)
 #%%
 #lstGrainColours = ['goldenrod','blue','green']
-n=2 # scale factors
+n=1 # scale factors
 dctPoints = dict()
 lstPoints = []
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 objSimulationCell = gl.SimulationCell(n*arrEdgeVectors)
+lstOrder =[1,0,2]
 for i in lstOrder:
     arrGrain1 = gl.ParallelopiedGrain(n*arrEdgeVectors,objCSL.GetLatticeBasis(i),ld.FCCCell,np.ones(3), np.zeros(3))
     objSimulationCell.AddGrain(arrGrain1,str(i))
@@ -45,7 +46,7 @@ for i in lstOrder:
     #arrPoints = arrPoints[arrRows]
     arrPoints = np.unique(np.round(arrPoints,5) ,axis=0)
     dctPoints[i] = arrPoints
-    arrPoints[:,2]= arrPoints[:,2]
+    arrPoints[:,2]= 8.5*arrPoints[:,2]
     lstPoints.append(arrPoints)
     ax.scatter(*tuple(zip(*arrPoints)),s=8,c=lstGrainColours[lstOrder[i]])
 ax.set_xlabel('x')
@@ -219,6 +220,8 @@ else:
     arrExactCoincideTJ = []
 
 
+
+
 #arrCoincide23 = gf.MergeTooCloseAtoms(arrCoincide23,arrEdgeVectors,0.15)
 blnNearTJ = False # True
 blnNear12 = False #True
@@ -296,14 +299,32 @@ if len(arrExactCoincideTJ) > 0 and blnExactTJ:
     arrExactWrappedTJ = gf.AddPeriodicWrapper(arrExactCoincideTJ[:,:2],arrEdgeVectors[:2,:2],fltWrapper,False)
     plt.plot(*tuple(zip(*arrExactWrappedTJ)),c=lstCoincidenceColours[3],linestyle='None',marker=strCSLMarker,markersize=1.2*intS)
     plt.plot(*tuple(zip(*(arrExactWrappedTJ+arrTranslate))),c=lstCoincidenceColours[3],linestyle='None',marker=strCSLMarker,markersize=1.2*intS)
-plt.ylim([-1,arrEdgeVectors[1,1]+0.5])
+#plt.ylim([-0.5,arrEdgeVectors[1,1]+1])
+#plt.ylim([-1,arrEdgeVectors[1,1]])
 ax = plt.gca()
+ax.set_ylim([-1,arrEdgeVectors[1,1]+0.5])
 ax.set_aspect('equal', adjustable='box')
 #plt.axis('equal')
 plt.axis('off')
+#plt.annotate(text='$r_0$', xy=(0.4,-1),ha='center',fontsize=12,c='black')
+#plt.arrow(0,-0.5, np.sqrt(2)/2, 0, head_width=0.05,length_includes_head=True,color='black')
+#plt.arrow(np.sqrt(2)/2,-0.5, -np.sqrt(2)/2, 0, head_width=0.05,length_includes_head=True,color='black')
+
 #plt.xlim([arrEdgeVectors[0,0],2*a*arrEdgeVectors[0,1]])
 #plt.ylim([arrEdgeVectors[1,0],a*arrEdgeVectors[1,1]])
 #plt.annotate(text='', xy=(0,-0.5), xytext=(np.sqrt(2)/2,-0.5),c='black',fontsize=5, arrowprops={'arrowstyle':'<->'},color='black')
+plt.plot(*tuple(zip(*(arrWrapped12C[14:6:-6]+arrTranslate))),c=lstCoincidenceColours[0])
+plt.plot(*tuple(zip(*(arrWrapped12C[6:15:6]+arrTranslate))),c=lstCoincidenceColours[0])
+plt.plot(*tuple(zip(*(arrWrapped12C[12:15:2]+arrTranslate))),c=lstCoincidenceColours[0])
+plt.plot(*tuple(zip(*(arrWrapped12C[6:9:2]+arrTranslate))),c=lstCoincidenceColours[0])
+plt.plot(*tuple(zip(*(arrExactWrapped13C[6:10:3]+arrTranslate))),c=lstCoincidenceColours[1])
+plt.plot(*tuple(zip(*(arrExactWrapped13C[4:8:3]+arrTranslate))),c=lstCoincidenceColours[1])
+plt.plot(*tuple(zip(*(arrExactWrapped13C[7:10:2]+arrTranslate))),c=lstCoincidenceColours[1])
+plt.plot(*tuple(zip(*(arrExactWrapped13C[4:7:2]+arrTranslate))),c=lstCoincidenceColours[1])
+plt.plot(*tuple(zip(*arrExactWrappedTJ)),c=lstCoincidenceColours[3],linestyle='None',marker=strCSLMarker,markersize=1.2*intS)
+plt.plot(*tuple(zip(*(arrExactWrappedTJ+arrTranslate))),c=lstCoincidenceColours[3],linestyle='None',marker=strCSLMarker,markersize=1.2*intS)
+
+
 plt.annotate(text='$r_0$', xy=(0.4,-1),ha='center',fontsize=24,c='black')
 plt.arrow(0,-0.5, np.sqrt(2)/2, 0, head_width=0.05,length_includes_head=True,color='black')
 plt.arrow(np.sqrt(2)/2,-0.5, -np.sqrt(2)/2, 0, head_width=0.05,length_includes_head=True,color='black')
@@ -460,7 +481,7 @@ plt.annotate(text='$r_0$', xy=(0.4,-0.75),ha='center',fontsize=12,c='black')
 plt.show()
 
 # %%
-%matplotlib inline
+#%matplotlib inline
 lstCoincidenceColours = ['darkolivegreen','saddlebrown','darkblue','black']
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')

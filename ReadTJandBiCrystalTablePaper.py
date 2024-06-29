@@ -360,6 +360,17 @@ class TJAndGBData(object):
                         arrCurrentValues[k] - arrCurrentValues[k-1])
             lstValues.append(np.array(lstCurrentValues))
         return lstValues
+    def GetTJForLeastPressure(self):
+        intIdealAtoms = self.GetIdealAtoms()
+        lstValues = []
+        lstDMinPosition = []
+        arrTJExcess = self.GetTJExcessPerLength()
+        for j in range(self.__DeltaRange):
+            arrRows = np.where(self.__Values[:, 0].astype('int') == j)[0]
+            arrCurrentValues = arrTJExcess[arrRows]
+            lstValues.append(arrCurrentValues)
+            lstDMinPosition.append(self.__Values[arrRows, 1])
+        return lstValues
     def GetTJForEachDelta(self):
         lstValues = []
         lstDMinPosition = []
@@ -459,8 +470,13 @@ class TJAndGBData(object):
                 lstTemp.append(np.array(lstRows2))
                 arrValues = np.vstack(lstTemp)
                 lstValueRows.append(arrValues)
-        return lstValueRows   
-    
+        return lstValueRows
+    def GetIdealAtoms(self):
+        arrDim = self.GetDimensions()
+        fltVolume = arrDim[0]*arrDim[1]*arrDim[2]
+        return int(np.round(fltVolume*4.05**(-3)*4,5))
+
+#%%    
 def FitLine(x, a, b):
     return a*x + b
 #%%
@@ -498,11 +514,11 @@ arrAxes = np.array(
     [np.array([0, 0, 1]), np.array([1, 0, 1]), np.array([1, 1, 1])])
 lstAxisNames = ['Axis [001]', 'Axis [101]', 'Axis [111]']
 #%%
-with open('/home/p17992pt/dctFirstPaperTJAll', 'rb') as fp:
+with open('/home/p17992pt/DropboxLocalBackup/dctFirstPaperTJAll', 'rb') as fp:
     dctAllTJ = pickle.load(fp)
 # %%
-with open('/home/p17992pt/dctFirstPaperGBAll', 'wb') as fp:
-    pickle.dump(dctAllGB, fp)
+with open('/home/p17992pt/DropboxLocalBackup/dctFirstPaperGBAll', 'rb') as fp:
+    dctAllGB = pickle.load(fp)
 
 # %%
 lstAngles = []
@@ -533,7 +549,18 @@ arrValues = dctAllTJ['Axis111,7'].GetValues()
 intMin = np.argmin(arrTJ)
 intMax = np.argmax(arrTJ)
 print(arrValues[intMin], arrValues[intMax])
-
+#%%
+for a in dctAllTJ.keys():
+    arrTJ =  dctAllTJ[a]
+    intIdealAtoms = arrTJ.GetIdealAtoms()
+    arrValues = arrTJ.GetValues()
+    for i in range(10):
+        arrAtoms = arrValues[arrValues[:,0]==i][:,[6,7]]
+        arrOut = arrAtoms - intIdealAtoms
+        arrMin = np.abs(arrMin)
+        print(arrOut,a)
+        tup = np.unravel_index(arrMin.argmin(),arrMin.shape)
+    #print(arrValues[tup[0],:])
 # %%
 # TJ energy gradient
 fig, axs = plt.subplots(1, 3, sharey=True)
