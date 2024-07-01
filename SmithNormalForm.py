@@ -149,7 +149,7 @@ class SmithNormalForm(object):
             blnReturn = True
         return blnReturn
 #%%
-class GeneralCSL(SmithNormalForm):
+class GenericCSLandDSC(SmithNormalForm):
     def __init__(self, inTransition,inBasis):
         arrConjugate = np.matmul(np.linalg.inv(inBasis), np.matmul(inTransition,inBasis))
         blnInt = False
@@ -159,7 +159,7 @@ class GeneralCSL(SmithNormalForm):
             arrTest = n*arrConjugate
             if np.all(np.round(arrTest,0) == np.around  (arrTest,10)):
                 blnInt=True
-        self.__ConjugateSigma = n
+        self.__RationalDenominator = n
         self.__IntegerTransition = np.round(n*arrConjugate)
         SmithNormalForm.__init__(self,n*arrConjugate)
         (self.__IntegerTransition)
@@ -170,12 +170,25 @@ class GeneralCSL(SmithNormalForm):
     def GetCSLPrimtiveCell(self):
         if not(self.IsDiagonal()):
             self.FindSmithNormal()
-        lstFactors = []
+        lstLeftFactors = []
+        lstRightFactors = []
         for j in range(3):
-            lstFactors.append(np.gcd(int(self.GetDiagonalMatrix()[j,j]),int(self.__ConjugateSigma)))
-        self.__Scaling = np.diag(lstFactors)
-    def GetScaling(self):
-        return self.__Scaling
+            intDiagonal = int(self.GetDiagonalMatrix()[j,j])
+            lstLeftFactors.append(intDiagonal/np.gcd(intDiagonal,int(self.__RationalDenominator)))
+            lstRightFactors.append(self.__RationalDenominator/np.gcd(intDiagonal,int(self.__RationalDenominator)))
+        self.__LeftScaling = np.diag(lstLeftFactors)
+        self.__RightScaling = np.diag(lstRightFactors)
+        self.__Sigma = np.prod(np.array(lstLeftFactors))
+    def GetLeftScaling(self):
+        return self.__LeftScaling
+    def GetRightScaling(self):
+        return self.__RightScaling
+    def GetSigma(self):
+        return self.__Sigma
+    def GetLeftCoordinates(self):
+        return np.linalg.inv(self.GetLeftMatrix())
+    def GetRightCoordinates(self):
+        return np.linalg.inv(self.GetRightMatrix())
         
 #%%
 arrTest =     np.array([[4,3,0],[-3,4,0],[0,0,5]])
@@ -193,6 +206,7 @@ print(np.matmul(np.linalg.inv(objSmith.GetLeftMatrix()),np.matmul(objSmith.GetDi
 #%%
 import GeneralLattice as gl
 import LatticeDefinitions as ld
+#%%
 objSigma = gl.SigmaCell(np.array([1,1,1]),ld.FCCCell)
 objSigma.MakeCSLCell(49)
 # %%
@@ -214,10 +228,10 @@ objSmith3 = SmithNormalForm(arrCheck)
 objSmith3.FindSmithNormal()
 #np.linalg.det(2*ld.FCCPrimitive)
 # %%
-objCon = GeneralCSL(arrMatrix, 2*np.transpose(ld.FCCPrimitive))
+objCon = GenericCSLandDSC(arrMatrix, 2*np.transpose(ld.FCCPrimitive))
 objCon.FindSmithNormal()
 objCon.GetCSLPrimtiveCell()
-objCon.GetScaling()
+print(objCon.GetRightScaling(),objCon.GetSigma())
 np.linalg.det(objCon.GetDiagonalMatrix()/49)
 # %%
 blnInt = False
