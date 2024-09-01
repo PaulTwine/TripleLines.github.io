@@ -20,7 +20,7 @@ plt.rcParams['figure.dpi'] = 300
 #%%
 objCSL = gl.CSLTripleLine(np.array([1,1,1]), ld.FCCCell)
 arrCell = objCSL.FindTripleLineSigmaValues(200)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[21,21,49],axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')==[7,7,49],axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 objCSL.GetTJBasisVectors(intIndex,True)
@@ -155,7 +155,7 @@ def GetBicrystalAtomicLayer(inlstPoints: list,arrCoincidence: np.array,inEdgeVec
 lstGrainColours = ['goldenrod','darkcyan','purple']
 lstCoincidenceColours = ['darkolivegreen','saddlebrown','black']
 arrTranslate = arrEdgeVectors[0,:2]
-intLayer = 1
+intLayer = 0
 lstGrains1 = [0,1]
 lstBiPoints1, arrCoincide1 = GetBicrystalAtomicLayer(np.array(lstPoints)[lstGrains1],dctCoincidence[tuple(lstGrains1)],arrEdgeVectors,intLayer,3)
 
@@ -173,16 +173,17 @@ lstExactBiPoints2, arrExactCoincide2 = GetBicrystalAtomicLayer(np.array(lstPoint
 
 #arrCoincide2 = gf.MergeTooCloseAtoms(arrCoincide2,arrEdgeVectors,0.15)
 
-lstEmpty, arrCoincide3 = GetBicrystalAtomicLayer([],arrTJ,arrEdgeVectors,intLayer,3)
+#lstEmpty, arrCoincide3 = GetBicrystalAtomicLayer([],arrTJ,arrEdgeVectors,intLayer,3)
 
-lstEmpty, arrExactCoincide3 = GetBicrystalAtomicLayer([],arrExactTJ,arrEdgeVectors,intLayer,3)
+#lstEmpty, arrExactCoincide3 = GetBicrystalAtomicLayer([],arrExactTJ,arrEdgeVectors,intLayer,3)
 
 
 #arrCoincide3 = gf.MergeTooCloseAtoms(arrCoincide3,arrEdgeVectors,0.15)
-blnTJ = True
+arrCoincide3 = []
+blnTJ = False
 bln12 = True
-bln13 = True
-intS = 5
+bln13 = False
+intS = 10
 #arrTranslate = np.zeros(2)
 if bln12:
     for p in range(len(lstBiPoints1)):
@@ -195,11 +196,11 @@ if bln13:
         plt.plot(*tuple(zip(*(arrWrapped13))),c=lstGrainColours[lstGrains2[p]],linestyle='None',marker='o',markersize=intS)
 if len(arrCoincide1) > 0 and bln12:
     arrWrapped12C = gf.AddPeriodicWrapper(arrCoincide1[:,:2],arrEdgeVectors[:2,:2],0.1,False)
-    plt.plot(*tuple(zip(*(arrWrapped12C+arrTranslate))),c=lstCoincidenceColours[0],linestyle='None',marker='o',markersize=1.2*intS)
+    plt.plot(*tuple(zip(*(arrWrapped12C+arrTranslate))),c=lstCoincidenceColours[0],linestyle='None',marker='s',markersize=1.2*intS)
     #plt.scatter(*tuple(zip(*(arrCoincide1[:,:2]))),s=6,c=lstCoincidenceColours[0])
 if len(arrCoincide2) > 0 and bln13:
     arrWrapped13C = gf.AddPeriodicWrapper(arrCoincide2[:,:2],arrEdgeVectors[:2,:2],0.1,False)
-    plt.plot(*tuple(zip(*(arrWrapped13C))),c=lstCoincidenceColours[1],linestyle='None',marker='o',markersize=1.2*intS)
+    plt.plot(*tuple(zip(*(arrWrapped13C))),c=lstCoincidenceColours[1],linestyle='None',marker='s',markersize=1.2*intS)
  #   plt.scatter(*tuple(zip(*(arrCoincide2[:,:2]+arrTranslate))),s=6,c=lstCoincidenceColours[1])
 if blnTJ:
     plt.xlim([-0.5,2*arrEdgeVectors[0,0]+0.5])
@@ -211,9 +212,16 @@ if len(arrCoincide3) > 0 and blnTJ:
     arrWrappedTJ = gf.AddPeriodicWrapper(arrCoincide3[:,:2],arrEdgeVectors[:2,:2],0.1,False)
     plt.plot(*tuple(zip(*arrWrappedTJ)),c=lstCoincidenceColours[2],linestyle='None',marker='o',markersize=1.2*intS)
     plt.plot(*tuple(zip(*(arrWrappedTJ+arrTranslate))),c=lstCoincidenceColours[2],linestyle='None',marker='o',markersize=1.2*intS)
+plt.plot(*tuple(zip(*(arrWrapped12C[1:3]+arrTranslate))),c=lstCoincidenceColours[0])
+plt.plot(*tuple(zip(*(arrWrapped12C[3:5]+arrTranslate))),c=lstCoincidenceColours[0])
+plt.plot(*tuple(zip(*(arrWrapped12C[2:5:2]+arrTranslate))),c=lstCoincidenceColours[0])
+plt.plot(*tuple(zip(*(arrWrapped12C[1:4:2]+arrTranslate))),c=lstCoincidenceColours[0])
 plt.ylim([-0.5,arrEdgeVectors[1,1]+0.5])
 ax = plt.gca()
 ax.set_aspect('equal', adjustable='box')
+# plt.annotate(text='$r_0$', xy=(0.4+arrTranslate[0],-1),ha='center',fontsize=24,c='black')
+# plt.arrow(np.sqrt(2)/2+arrTranslate[0],-0.5, np.sqrt(2)/2, 0, head_width=0.05,length_includes_head=True,color='black')
+#plt.arrow(np.sqrt(2)/2,-0.5, -np.sqrt(2)/2, 0, head_width=0.05,length_includes_head=True,color='black')
 plt.axis('off')
 #plt.xlim([arrEdgeVectors[0,0],2*a*arrEdgeVectors[0,1]])
 #plt.ylim([arrEdgeVectors[1,0],a*arrEdgeVectors[1,1]])

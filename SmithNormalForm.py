@@ -1,5 +1,6 @@
 #%%
 import numpy as np
+import LatticeDefinitions as ld
 import GeometryFunctions as gf
 #%%
 class IntegerMatrix(object):
@@ -243,11 +244,25 @@ class GenericCSLandDSC(SmithNormalForm):
         return np.linalg.inv(self.GetRightMatrix())
         
 #%%
-arrTest =     np.array([[591,591,0,945,-797,751,572,91,121],[591,0,591,210,131,-53,63,27,17],[0,591,591,839,69,21,-155,13,79]])
+arrAxis = np.array([7,1,3])
+arrOut1 = gf.CubicCSLGenerator(arrAxis,5)[5,:2]
+arrMatrix1 = arrOut1[0]*gf.GetMatrixFromAxisAngle(arrAxis,arrOut1[1])
+arrOut2 = gf.CubicCSLGenerator(arrAxis,5)[2,:2]
+arrMatrix2 = arrOut2[0]*gf.GetMatrixFromAxisAngle(arrAxis,arrOut2[1])
+print(arrOut1,arrOut2)
+
+#print(arrOut[0]*gf.FindReciprocalVectors(arrMatrix))
+arrIdentity = np.identity(3)*arrOut1[0]#*arrOut2[0]/3
+#%%
+#arrTest =     np.append(arrIdentity,np.append(arrMatrix1,arrMatrix2,axis=1),axis=1)
+#arrTest =     np.append(arrIdentity,arrMatrix1,axis=1)
+arrTest =     np.append(gf.FindReciprocalVectors(np.transpose(ld.FCCPrimitive)),gf.FindReciprocalVectors(np.matmul(arrMatrix1,np.transpose(ld.FCCPrimitive))),axis=1)
+
 print(arrTest)
 #print(np.linalg.det(arrTest))
 objSmith = SmithNormalForm(arrTest)
-print(objSmith.FindLowerTriangular())
+print(objSmith.FindLowerTriangular()[:3,:3])
+print(gf.FindReciprocalVectors(objSmith.FindLowerTriangular()[:3,:3]/237))
 print(np.linalg.det(objSmith.GetRightMatrix()))
 #print(objSmith.FindPivot(np.array([0,1,1,-1,2,3])))
 #print(objSmith.FindSmithNormal())
