@@ -875,7 +875,8 @@ class SimulationCell(object):
             self.SetFileHeader('Something')
             self.WrapAllAtomsIntoSimulationCell()
             self.WriteLAMMPSDataFile(strDirectory + 'read.dat')
-            objLammps = lammps.PyLammps()
+         #   objLammps = lammps.PyLammps()
+            objLammps = None
             objLammps.file(strDirectory + strTemplate) #must potential energy
             if len(lstj) ==1: 
                 lstAdjusted.append(0)

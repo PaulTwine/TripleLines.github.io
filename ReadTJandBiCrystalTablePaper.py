@@ -514,10 +514,10 @@ arrAxes = np.array(
     [np.array([0, 0, 1]), np.array([1, 0, 1]), np.array([1, 1, 1])])
 lstAxisNames = ['Axis [001]', 'Axis [101]', 'Axis [111]']
 #%%
-with open('/home/p17992pt/DropboxLocalBackup/dctFirstPaperTJAll', 'rb') as fp:
-    dctAllTJ = pickle.load(fp)
+#with  as fp:
+dctAllTJ = pickle.load(open('/home/paul-twine/ThesisDct/dctFirstPaperTJAll','rb'))
 # %%
-with open('/home/p17992pt/DropboxLocalBackup/dctFirstPaperGBAll', 'rb') as fp:
+with open('/home/paul-twine/ThesisDct/dctFirstPaperGBAll','rb') as fp:
     dctAllGB = pickle.load(fp)
 
 # %%
@@ -616,11 +616,11 @@ for a in dctAllTJ.keys():
     lstNumberOfValues.append(len(arrValues))
     #arrSigma = np.ones(len(arrValues))*arrMaxGB
     axs[i].scatter(arrSigma, arrValues, c=lstColours[i],
-                   marker=lstMarkers[i], label='Small')
+                   marker=lstMarkers[i], label='Small',alpha=0.6)
     axs[i].scatter(arrSigma[0], arrMaxGB, c='black',
-                   marker="_", label='Small')
+                   marker="_", label='large', s=200, linewidths=2)
     axs[i].scatter(arrSigma[0], arrHerringGB, c='black',
-                   marker="1", label='Small')
+                   marker="1", label='Small',s=200, linewidths =2)
     axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrValues), 1.96 *
                     np.std(arrValues), c=lstColours[i], linestyle='', capsize=5, marker='+')
 for i in range(3):
@@ -812,7 +812,7 @@ for a in dctAllGB.keys():
     arrSigma = np.ones(len(arrGB))*lstSigmas[i].index(dctAllGB[a].GetSigmaValue())
     axs[i].scatter(arrSigma, arrGB, c=lstColours[i],
                    marker=lstMarkers[i], label='Small')
-    axs[i].scatter(arrSigmaRemoved,lstRemoved, marker ='x', c='black')
+    axs[i].scatter(arrSigmaRemoved,lstRemoved, marker ='x',s=100, c='black')
 for i in range(3):
      axs[i].set_xticks(list(range(len(lstSigmas[i]))))
      axs[i].set_xticklabels(lstSigmas[i])

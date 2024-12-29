@@ -2,6 +2,7 @@
 import numpy as np
 import LatticeDefinitions as ld
 import GeometryFunctions as gf
+import GeneralLattice as gl
 #%%
 class IntegerMatrix(object):
     def __init__(self,inMatrix: np.array):
@@ -273,8 +274,6 @@ print(np.linalg.det(objSmith.GetRightMatrix()))
 #print(np.matmul(np.linalg.inv(objSmith.GetLeftMatrix()),np.matmul(objSmith.GetTransformedMatrix(),np.linalg.inv(objSmith.GetRightMatrix()))))
 
 #%%
-import GeneralLattice as gl
-import LatticeDefinitions as ld
 #%%
 objSigma = gl.SigmaCell(np.array([1,1,1]),ld.FCCCell)
 objSigma.MakeCSLCell(49)
@@ -297,22 +296,21 @@ objSmith3 = SmithNormalForm(arrCheck)
 objSmith3.FindSmithNormal()
 #np.linalg.det(2*ld.FCCPrimitive)
 # %%
-objCon = GenericCSLandDSC(arrMatrix, np.transpose(ld.FCCPrimitive))
-print(objCon.FindSmithNormal())
-print(objCon.GetCSLPrimtiveCell())
+#objCon = GenericCSLandDSC(arrMatrix, np.transpose(ld.FCCPrimitive))
+objCon = GenericCSLandDSC(arrMatrix, np.array([[1,1,0],[1,0,1],[0,1,1]]))
+objCon.FindSmithNormal()
+objCon.GetCSLPrimtiveCell()
 print(objCon.GetRightScaling(),objCon.GetSigma(),
-objCon.GetTransformedMatrix()/49)
+objCon.GetTransformedMatrix()/objCon.GetSigma())
 # %%
-blnInt = False
-n = 0
-while not(blnInt) and n <50000:
-    n +=1
-    arrTest = n*arrCheck
-    if np.all(np.round(arrTest,0) == np.around(arrTest,10)):
-        blnInt=True
-        print(n)
+arrLeft = objCon.GetLeftMatrix()
+arrLeftScale = objCon.GetLeftScaling()
+arrCell = np.array([[1,1,0],[1,0,1],[0,1,1]])
+# %%
+# %%
+arrDiag7= np.diag([1/7,1,7])
+arrLeftCoods = np.diag([7,1,7])
+print(arrDiag7,arrLeftScale)
+arrResult = np.matmul(arrCell, np.matmul(arrLeft,np.matmul(arrDiag7,np.matmul(arrLeftCoods,np.matmul(arrLeftScale,np.linalg.inv(arrCell))))))
 
-print(n)
-# %%
-objSmith.FindLowerTriangular()
 # %%
