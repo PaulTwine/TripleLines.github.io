@@ -65,10 +65,10 @@ class IntegerMatrix(object):
                     arrRow[i] = 1
                 else:
                     arrRow[i] = -np.round(arrOriginalRow[i]/arrOriginalRow[intStep])
-        arrReduce = np.copy(self.__Identity)
-        arrReduce[:,intStep] = arrRow
-        self.__TransformedMatrix = np.round(np.matmul(arrReduce,self.__TransformedMatrix))
-        self.__LeftMatrix = np.round(np.matmul(arrReduce,self.__LeftMatrix))
+            arrReduce = np.copy(self.__Identity)
+            arrReduce[:,intStep] = arrRow
+            self.__TransformedMatrix = np.round(np.matmul(arrReduce,self.__TransformedMatrix))
+            self.__LeftMatrix = np.round(np.matmul(arrReduce,self.__LeftMatrix))
     def ReduceByFirstCol(self,intStep):
         arrOriginalCol = np.copy(self.__TransformedMatrix[intStep,:])
         arrCol = np.zeros(len(arrOriginalCol))
@@ -78,10 +78,10 @@ class IntegerMatrix(object):
                     arrCol[i]= 1
                 else:
                     arrCol[i] = -np.round(arrOriginalCol[i]/arrOriginalCol[intStep])
-        arrReduce = np.copy(self.__Identity)
-        arrReduce[intStep,:] = arrCol
-        self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,arrReduce))
-        self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,arrReduce))
+            arrReduce = np.copy(self.__Identity)
+            arrReduce[intStep,:] = arrCol
+            self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,arrReduce))
+            self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,arrReduce))
     def SwapColumns(self,i,j):
         self.__TransformedMatrix[:,[i,j]] = self.__TransformedMatrix[:,[j,i]]
     def SwapRows(self,i,j):
@@ -213,7 +213,7 @@ class GenericCSLandDSC(SmithNormalForm):
         while not(blnInt) and n <50000:
             n +=1
             arrTest = n*arrConjugate
-            if np.all(np.round(arrTest,0) == np.around  (arrTest,10)):
+            if np.all(np.around(arrTest,0) == np.around(arrTest,10)):
                 blnInt=True
         self.__RationalDenominator = n
         self.__IntegerTransition = np.round(n*arrConjugate)
@@ -286,9 +286,10 @@ print(arrMatrix)
 print(str(arrMatrix[0,0].as_integer_ratio()))
 print(arrMatrix)
 # %%
-objSmith1 = SmithNormalForm(arrMatrix)
-objSmith1.FindSmithNormal().astype('int')
-np.linalg.inv(objSmith1.GetLeftMatrix())
+objMatrix = gf.SigmaRotationMatrix(421)
+arrMatrix = objMatrix.FindSigmaMatrices()[0]
+objSmith1 = SmithNormalForm(421*arrMatrix)
+objSmith1.FindSmithNormal()
 # %%
 arrCheck = np.matmul(np.linalg.inv(np.transpose(ld.FCCPrimitive)),arrMatrix,np.transpose(ld.FCCPrimitive))
 print(arrCheck)
@@ -297,11 +298,13 @@ objSmith3.FindSmithNormal()
 #np.linalg.det(2*ld.FCCPrimitive)
 # %%
 #objCon = GenericCSLandDSC(arrMatrix, np.transpose(ld.FCCPrimitive))
-objCon = GenericCSLandDSC(arrMatrix, np.array([[1,1,0],[1,0,1],[0,1,1]]))
-objCon.FindSmithNormal()
+arrRBasis = np.array([[1,0,1],[0,1,1],[0,0,-2]])
+objCon = GenericCSLandDSC(arrMatrix, arrRBasis)
+print(objCon.FindSmithNormal())
 objCon.GetCSLPrimtiveCell()
-print(objCon.GetRightScaling(),objCon.GetSigma(),
+print(objCon.GetSigma(),
 objCon.GetTransformedMatrix()/objCon.GetSigma())
+print(objCon.GetTransformedMatrix(),arrMatrix*421)
 # %%
 arrLeft = objCon.GetLeftMatrix()
 arrLeftScale = objCon.GetLeftScaling()
@@ -309,8 +312,15 @@ arrCell = np.array([[1,1,0],[1,0,1],[0,1,1]])
 # %%
 # %%
 arrDiag7= np.diag([1/7,1,7])
+print(arrDiag7)
 arrLeftCoods = np.diag([7,1,7])
-print(arrDiag7,arrLeftScale)
-arrResult = np.matmul(arrCell, np.matmul(arrLeft,np.matmul(arrDiag7,np.matmul(arrLeftCoods,np.matmul(arrLeftScale,np.linalg.inv(arrCell))))))
-
+#print(arrDiag7,arrLeftScale)
+#arrResult = np.matmul(arrCell, np.matmul(arrLeft,np.matmul(arrDiag7,np.matmul(arrLeftCoods,np.matmul(arrLeftScale,np.linalg.inv(arrCell))))))
+arrResult = np.matmul(arrCell,np.matmul(arrLeft,np.matmul(arrDiag7,np.linalg.inv(np.matmul(arrCell,arrLeft)))))
+print(np.matmul(arrResult,np.transpose(arrResult)))
+# %%
+arrValues = gf.CubicCSLGenerator(np.array([1,2,3]),10)
+print(arrValues[-1])
+# %%
+arrMatrix = gf.GetMatrixFromAxisAngle(np.array([1,2,3]),arrValues[-1,1])
 # %%
