@@ -286,25 +286,20 @@ print(arrMatrix)
 print(str(arrMatrix[0,0].as_integer_ratio()))
 print(arrMatrix)
 # %%
-objMatrix = gf.SigmaRotationMatrix(421)
-arrMatrix = objMatrix.FindSigmaMatrices()[0]
-objSmith1 = SmithNormalForm(421*arrMatrix)
-objSmith1.FindSmithNormal()
+objMatrix = gf.SigmaRotationMatrix(147)
+lstMatrix = objMatrix.FindSigmaMatrices()
+arrMatrix = lstMatrix[-5]
+print(len(lstMatrix))
+#objSmith1 = SmithNormalForm(421*arrMatrix)
+#objSmith1.FindSmithNormal()
 # %%
-arrCheck = np.matmul(np.linalg.inv(np.transpose(ld.FCCPrimitive)),arrMatrix,np.transpose(ld.FCCPrimitive))
-print(arrCheck)
-objSmith3 = SmithNormalForm(arrCheck)
-objSmith3.FindSmithNormal()
-#np.linalg.det(2*ld.FCCPrimitive)
-# %%
-#objCon = GenericCSLandDSC(arrMatrix, np.transpose(ld.FCCPrimitive))
-arrRBasis = np.array([[1,0,1],[0,1,1],[0,0,-2]])
+arrRBasis = np.array([[1,1,0],[0,1,1],[1,0,1]])
 objCon = GenericCSLandDSC(arrMatrix, arrRBasis)
-print(objCon.FindSmithNormal())
-objCon.GetCSLPrimtiveCell()
+#print(objCon.FindSmithNormal())
+print(objCon.GetCSLPrimtiveCell())
 print(objCon.GetSigma(),
-objCon.GetTransformedMatrix()/objCon.GetSigma())
-print(objCon.GetTransformedMatrix(),arrMatrix*421)
+objCon.GetTransformedMatrix()/objCon.GetSigma(),np.linalg.det(arrRBasis))
+print(np.gcd.reduce(np.unique(arrMatrix*999).astype('int')))
 # %%
 arrLeft = objCon.GetLeftMatrix()
 arrLeftScale = objCon.GetLeftScaling()

@@ -1478,7 +1478,7 @@ class SigmaRotationMatrix():
             lstMatrix.append(arrVector2)
             lstMatrix.append(arrVector3)
             arrMatrix = np.vstack(lstMatrix)
-            if len(set(np.abs(np.unique(arrMatrix))).difference([0.0,1.0])) > 0:
+            if (len(set(np.abs(np.unique(arrMatrix))).difference([0.0,1.0])) > 0) and (np.gcd.reduce(np.unique(arrMatrix*self.__intSigma).astype('int')) ==1):
                 lstMatrices.append(arrMatrix)
         return lstMatrices
     def SetSigmaValue(self, inSigma):
