@@ -1521,6 +1521,73 @@ class SigmaRotationMatrix():
                 j += 1
             i+=1
         return np.unique(np.vstack(lstQuadruples),axis=0)
+
+class CSLSubLatticeBases(object):
+    def __init__(self, inCSLBasis: np.array, arrPrimitiveVectors: np.array):
+        self.__SigmaValue = int(
+            np.round(np.abs(np.linalg.det(inCSLBasis)/np.linalg.det(arrPrimitiveVectors))))
+        self.__CSLBasis = inCSLBasis
+    def GetCellSigmaValue(self):
+        return self.__SigmaValue
+    def FindTransformationsByReciprocalLattice(self,blnDirectOnly = False):
+        lstTransforms = []
+        arrR = np.transpose(np.linalg.inv(
+            self.__CSLBasis))
+        lstVectors = []
+        lstOldVectors = []
+        intL1 = np.ceil(
+            1/np.abs(np.dot(arrR[:,0], NormaliseVector(np.cross(arrR[:,1], arrR[:,2]))))).astype('int')+1
+        intL2 = np.ceil(
+            1/np.abs(np.dot(arrR[:,1], NormaliseVector(np.cross(arrR[:,2], arrR[:,0]))))).astype('int')+1
+        intL3 = np.ceil(
+            1/np.abs(np.dot(arrR[:,2], NormaliseVector(np.cross(arrR[:,0], arrR[:,1]))))).astype('int')+1
+        y = arrR[:,2]
+        for a in range(-intL1, intL1):
+            for b in range(-intL2, intL2):
+                x = a*arrR[:,0]+b*arrR[:,1]
+       #         for c in range(-intL3,intL3):
+        #                arrOut = a*arrR[:,0]+b*arrR[:,1]+c*arrR[:,2]
+        #                if np.round(np.dot(arrOut,arrOut),10) ==1:
+        #                       lstOldVectors.append(arrOut)
+                        #quadratic discriminant with factor 4 removed (when square rooted this becomes 2)       
+                fltD = np.dot(x,y)**2 -np.dot(y,y)*(np.dot(x,x) -1) 
+                if  fltD >=0:
+                        #quadratic formula with factor of 2 cancelled in fraction
+                        n1 = (-np.dot(x,y) + np.sqrt(fltD))/(np.dot(y,y))
+                        if np.abs(np.round(n1,10) -n1) <1e-10:
+                                arrOut = x+np.round(n1,0)*y
+                                if np.round(np.dot(arrOut,arrOut),10) ==1:
+                                        lstVectors.append(arrOut)
+                        n2 = (-np.dot(x,y) - np.sqrt(fltD))/(np.dot(y,y))
+                        if np.abs(np.round(n2,10) -n2) <1e-10:
+                                arrOut = x+np.round(n2,0)*y
+                                if np.round(np.dot(arrOut,arrOut),10) ==1:
+                                        lstVectors.append(arrOut)
+        arrVectors = np.vstack(lstVectors)
+        arrLengths = np.linalg.norm(arrVectors, axis=1)
+        arrRows = np.where(np.round(arrLengths, 10) == 1)[0]
+        arrUnitVectors = arrVectors[arrRows]
+        arrRows2, arrCols2 = np.where(
+            np.abs(np.matmul(arrUnitVectors, np.transpose(arrUnitVectors))) < 1e-10)
+        for n in arrRows2:
+            arrCheck = np.where(arrRows2 == n)[0]
+            arrVectors2 = arrUnitVectors[arrCols2][arrCheck]
+            arrRows3, arrCols3 = np.where(
+                np.abs(np.matmul(arrVectors2, np.transpose(arrVectors2))) < 1e-10)
+            for i in range(len(arrRows3)):
+                arrMatrix = np.zeros([3, 3])
+                if arrRows3[i] < arrCols3[i]:  # check no double counting
+                    arrMatrix[0] = arrUnitVectors[n]
+                    arrMatrix[1] = arrVectors2[arrRows3][i]
+                    arrMatrix[2] = arrVectors2[arrCols3][i]
+                    if np.all(np.round(np.matmul(arrMatrix, np.transpose(arrMatrix)), 10) == np.identity(3)):
+                        fltDet = np.round(np.linalg.det(arrMatrix),10)
+                        if blnDirectOnly and fltDet ==1:
+                            lstTransforms.append(arrMatrix)
+                        else:
+                            lstTransforms.append(arrMatrix)
+        return lstTransforms
+
 #%%
               
      
