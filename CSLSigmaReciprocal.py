@@ -22,10 +22,8 @@ class CSLSubLatticeBases(object):
         self.__SigmaValue = int(
             np.round(np.abs(np.linalg.det(inCSLBasis)/np.linalg.det(arrPrimitiveVectors))))
         self.__CSLBasis = inCSLBasis
-
     def GetCellSigmaValue(self):
         return self.__SigmaValue
-
     def FindTransformationsByReciprocalLattice(self,blnDirectOnly = False):
         lstRowsPermutations = list(it.permutations((0,1,2),3))
         lstTransforms = []
@@ -39,10 +37,19 @@ class CSLSubLatticeBases(object):
             1/np.abs(np.dot(arrR[1], gf.NormaliseVector(np.cross(arrR[2], arrR[0]))))).astype('int')+1
         intL3 = np.ceil(
             1/np.abs(np.dot(arrR[2], gf.NormaliseVector(np.cross(arrR[0], arrR[1]))))).astype('int')+1
+        y = arrR[2]
         for a in range(-intL1, intL1):
             for b in range(-intL2, intL2):
-                for c in range(-intL3, intL3):
-                    lstVectors.append(a*arrR[0]+b*arrR[1]+c*arrR[2])
+              #  for c in range(-intL3, intL3):
+                x = a*arrR[0]+b*arrR[1]
+                fltD = 4*np.dot(x,y)**2 -4*(np.dot(x,x)*np.dot(y,y) -1) 
+                if  fltD >=0:
+                    n1 = (-2*np.dot(x,y) + np.sqrt(fltD))/(2*y**2)
+                    if np.round(n1,10) == n1:
+                        lstVectors.append(a*arrR[0]+b*arrR[1]+n1*arrR[2])
+                    n2 = (-2*np.dot(x,y) + np.sqrt(fltD))/(2*y**2)
+                    if np.round(n2,10) == n2:
+                        lstVectors.append(a*arrR[0]+b*arrR[1]+n1*arrR[2])
         arrVectors = np.vstack(lstVectors)
         arrLengths = np.linalg.norm(arrVectors, axis=1)
         arrRows = np.where(np.round(arrLengths, 10) == 1)[0]
