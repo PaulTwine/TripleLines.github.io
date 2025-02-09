@@ -7,10 +7,10 @@ import LatticeDefinitions as ld
 import matplotlib.pyplot as plt
 import SmithNormalForm as sn
 #%%
-objMatrix = gf.SigmaRotationMatrix(1155)
+objMatrix = gf.SigmaRotationMatrix(3123)
 lstMatrix = objMatrix.FindSigmaMatrices()
-arrMatrix = lstMatrix[-20]
-arrBasis = np.array([[1,1,0],[0,1,1],[1,0,1]])
+arrMatrix = lstMatrix[0]
+arrBasis = np.array([[1,1,3],[0,1,1],[1,0,1]])
 arrV = np.linalg.eig(arrMatrix)
 intPos = np.where(np.abs(arrV[0])==1)[0]
 arrAxis = np.round(arrV[1][:,intPos],10)
@@ -21,18 +21,19 @@ arrOut = gf.CubicCSLGenerator(np.array([0,1,5]),20)
 print(arrOut[11])
 #arrMatrix = gf.GetMatrixFromAxisAngle(np.array([0,1,5]),arrOut[11,1])
 #%%
-objSN = sn.SmithNormalForm(arrMatrix*1155)
-objSN.FindSmithNormal()
-np.matmul(np.linalg.inv(objSN.GetLeftMatrix()).astype('int'),np.matmul(objSN.GetTransformedMatrix().astype('int'),np.linalg.inv(objSN.GetRightMatrix()).astype('int')))
-#objSN.GetTransformedMatrix()
+arrTest = np.matmul(np.linalg.inv(arrBasis),np.matmul(arrMatrix,arrBasis))*3123
+print(arrTest)
+objSN = sn.SmithNormalForm(np.round(arrTest))
+objSN.FindSmithNormal(100)
+print(np.matmul(objSN.GetLeftMatrix(), np.matmul(objSN.GetOriginalMatrix(),objSN.GetRightMatrix())))
 # %%
 objCon = sn.GenericCSLandDSC(arrMatrix,arrBasis)
 objCon.GetCSLPrimtiveCell()
 arrCSLL = np.matmul(arrBasis,np.matmul(objCon.GetLeftCoordinates(),objCon.GetLeftScaling()))
 arrCSLR = np.matmul(arrMatrix,np.matmul(arrBasis, np.matmul(objCon.GetRightMatrix(),objCon.GetRightScaling())))
-print(arrCSLL,arrCSLR)
+print(arrCSLL-arrCSLR)
 # %%
-objintMatrix = sn.SmithNormalForm(np.round(arrCSLL,1).astype('int'))
+objintMatrix = sn.SmithNormalForm(np.trunc(np.round(arrCSLL,0)))
 objintMatrix.FindLowerTriangular()
 objintMatrix.ReduceByFirstCol(2)
 objintMatrix.ReduceByFirstCol(1)
@@ -43,8 +44,8 @@ len(lstTransforms)
 # %%
 lstGCDs = []
 for j in lstTransforms:
-    print(np.round(j*1155))
-    lstGCDs.append(np.gcd.reduce(np.round(np.unique(j*1155)).astype('int')))
+    print(np.round(j*3123))
+    lstGCDs.append(np.gcd.reduce(np.round(np.unique(j*3123)).astype('int')))
 print(np.unique(lstGCDs))
 # %%
 print(np.round(np.matmul(np.linalg.inv(np.matmul(arrMatrix,arrBasis)), arrCSLR),7))

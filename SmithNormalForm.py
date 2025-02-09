@@ -10,13 +10,13 @@ class IntegerMatrix(object):
         self.__intColumns = np.shape(self.__OriginalMatrix)[1]
         self.__TransformedMatrix = np.round(self.__OriginalMatrix)
         self.__MaxSize = np.max(np.shape(self.__OriginalMatrix))
-        self.__Identity = np.identity(max([self.__intColumns,self.__intRows]))
-        self.__LeftMatrix = np.copy(self.__Identity)
-        self.__RightMatrix = np.copy(self.__Identity)
+        self.__Identity = np.round(np.identity(max([self.__intColumns,self.__intRows])))
+        self.__LeftMatrix = np.round(np.copy(self.__Identity))
+        self.__RightMatrix = np.round(np.copy(self.__Identity))
     def PackWithZeros(self):
         arrZeros = np.zeros([self.__MaxSize, self.__MaxSize])
-        arrZeros[:self.__intRows,:self.__intColumns] = self.__TransformedMatrix
-        self.__TransformedMatrix = arrZeros
+        arrZeros[:self.__intRows,:self.__intColumns] = np.round(self.__TransformedMatrix)
+        self.__TransformedMatrix = np.round(arrZeros)
     def GetOriginalMatrix(self):
         return self.__OriginalMatrix
     def GetTransformedMatrix(self):
@@ -55,43 +55,36 @@ class IntegerMatrix(object):
         self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,arrInvert))
         self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,arrInvert))    
     def ReduceByFirstRow(self,intStep):
-        arrOriginalRow = np.copy(self.__TransformedMatrix[:,intStep])
+        arrOriginalRow = np.round(np.copy(self.__TransformedMatrix[:,intStep]))
         arrRow = np.zeros(len(arrOriginalRow))
-        if arrOriginalRow[intStep] != 0:
+        if np.abs(arrOriginalRow[intStep]) > 0:
             for i in range(len(arrOriginalRow)):
                 if i ==intStep:
                     arrRow[i] = 1
                 else:
-                    arrRow[i] = -np.round(arrOriginalRow[i]/arrOriginalRow[intStep])
+                    arrRow[i] = -np.trunc(np.round(arrOriginalRow[i]/arrOriginalRow[intStep],1))
             arrReduce = np.copy(self.__Identity)
-            arrReduce[:,intStep] = arrRow.astype('int')
-            self.__TransformedMatrix = np.round(np.matmul(arrReduce,self.__TransformedMatrix)).astype('int')
-            self.__LeftMatrix = np.round(np.matmul(arrReduce,self.__LeftMatrix)).astype('int')
+            arrReduce[:,intStep] = arrRow
+            self.__TransformedMatrix = np.round(np.matmul(np.round(arrReduce),self.__TransformedMatrix))
+            self.__LeftMatrix = np.round(np.matmul(np.round(arrReduce),self.__LeftMatrix))
     def ReduceByFirstCol(self,intStep):
-        arrOriginalCol = np.copy(self.__TransformedMatrix[intStep,:])
+        arrOriginalCol = np.round(np.copy(self.__TransformedMatrix[intStep,:]))
         arrCol = np.zeros(len(arrOriginalCol))
-        if arrOriginalCol[intStep] != 0:
+        if np.abs(arrOriginalCol[intStep]) > 0:
             for i in range(len(arrOriginalCol)):
                 if i == intStep:
                     arrCol[i]= 1
                 else:
-                    arrCol[i] = -np.round(arrOriginalCol[i]/arrOriginalCol[intStep])
+                    arrCol[i] = -np.trunc(np.round(arrOriginalCol[i]/arrOriginalCol[intStep],1))
             arrReduce = np.copy(self.__Identity)
-            arrReduce[intStep,:] = arrCol.astype('int')
-            self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,arrReduce)).astype('int')
-            self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,arrReduce)).astype('int')
+            arrReduce[intStep,:] = arrCol
+            self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,np.round(arrReduce)))
+            self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,np.round(arrReduce)))
     def SwapMatrix(self,i,j):
-        if i == j:
-            arrMatrix = np.identity(self.__MaxSize).astype('int')
-        else:
-            arrMatrix = np.zeros([self.__MaxSize,self.__MaxSize]).astype('int')
-            arrMatrix[i,j] = 1
-            arrMatrix[j,i] = 1
-            lstRange = list(range(self.__MaxSize))
-            lstRange.remove(i)
-            lstRange.remove(j)
-            for n in lstRange:
-                arrMatrix[n,n] =1
+        arrMatrix = np.copy(self.__Identity)
+        if i !=j:
+            arrMatrix[i] = self.__Identity[j]
+            arrMatrix[j] = self.__Identity[i]
         return arrMatrix
     def GetLeftMatrix(self):
         return self.__LeftMatrix
@@ -178,18 +171,22 @@ class SmithNormalForm(IntegerMatrix):
         self.ResetMatrices()
         n = 0
         i = 0
-        arrSwap = self.FindCurrentPivot(0) ##initially place the smallest absolute value in top left
+        #arrSwap = self.FindCurrentPivot(0) ##initially place the smallest absolute value in top left
         intRows = self.GetNumberOfRows()
-        self.SwapRows(arrSwap[0],0)
-        self.SwapColumns(arrSwap[1],0)
+        #self.SwapRows(arrSwap[0],0)
+        #self.SwapColumns(arrSwap[1],0)
         blnStop = False
         while n < intMaxIter and i < intRows-1 and not(blnStop):
             self.ReduceByFirstRow(i)
-            arrSwap = self.FindCurrentPivot(i)
-            self.SwapRows(arrSwap[0],i)
             self.ReduceByFirstCol(i)
             arrSwap = self.FindCurrentPivot(i)
+            self.SwapRows(arrSwap[0],i)
             self.SwapColumns(arrSwap[1],i)
+            #self.ReduceByFirstRow(i)
+            #arrSwap = self.FindCurrentPivot(i)
+            #self.SwapRows(arrSwap[0],i)
+            #self.SwapColumns(arrSwap[1],i)
+            #self.ReduceByFirstCol(i)
             if self.IsDiagonal(): #Check whether diagonal form is achieved
                 blnStop = True
             elif self.CheckZeros(i): # are the ith row and column all zero except at the diagonal  
@@ -224,11 +221,11 @@ class GenericCSLandDSC(SmithNormalForm):
             if np.all(np.around(arrTest,0) == np.around(arrTest,10)):
                 blnInt=True
         self.__RationalDenominator = n
-        self.__IntegerTransition = np.round(n*arrConjugate)
-        SmithNormalForm.__init__(self,n*arrConjugate)
-        (self.__IntegerTransition)
+        intMatrix = np.round(n*arrConjugate)
+        self.__IntegerTransition = intMatrix
+        SmithNormalForm.__init__(self,intMatrix)
         self.__ConjugateTransition= arrConjugate
-        self.__Basis = inBasis
+        self.__Basis = np.round(inBasis)
     def GetConjugateTransitionMatrix(self):
         return self.__ConjugateTransition
     def GetCSLPrimtiveCell(self):
@@ -250,7 +247,7 @@ class GenericCSLandDSC(SmithNormalForm):
     def GetSigma(self):
         return self.__Sigma
     def GetLeftCoordinates(self):
-        return np.linalg.inv(self.GetLeftMatrix())
+        return np.round(np.linalg.inv(self.GetLeftMatrix())).astype('int64')
     def GetRightCoordinates(self):
-        return np.linalg.inv(self.GetRightMatrix())
+        return np.round(self.GetRightMatrix()).astype('int64')
 
