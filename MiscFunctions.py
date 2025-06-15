@@ -309,7 +309,7 @@ def LogNormalConfidenceInterval(arrValues: np.array, fltAlpha: float, blnInside 
     arrPositive = np.where(arrValues > 0)[0]
     arrLog = np.log(arrValues[arrPositive])
     mu,st = stats.norm.fit(arrLog)
-    tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)
+    tupValues = stats.norm.interval(confidence=fltAlpha, loc=mu, scale=st)
     if blnInside:
         arrRows = np.where((arrLog > tupValues[0]) & (arrLog < tupValues[1]))[0]
     else:
@@ -317,7 +317,7 @@ def LogNormalConfidenceInterval(arrValues: np.array, fltAlpha: float, blnInside 
     return arrRows
 def ConfidenceInterval(arrValues: np.array, fltAlpha: float, blnInside = True)-> np.array:
     mu,st = stats.norm.fit(arrValues)
-    tupValues = stats.norm.interval(alpha=fltAlpha, loc=mu, scale=st)
+    tupValues = stats.norm.interval(confidence=fltAlpha, loc=mu, scale=st)
     if blnInside:
         arrRows = np.where((arrValues > tupValues[0]) & (arrValues < tupValues[1]))[0]
     else:

@@ -123,7 +123,7 @@ class IntegerMatrix(object):
             blnReturn = True
         return blnReturn
 
-class SmithNormalForm(IntegerMatrix):
+class HermiteNormalForm(IntegerMatrix):
     def __init__(self,inMatrix: np.array):
         IntegerMatrix.__init__(self,inMatrix)
     def IsLowerTriangular(self):
@@ -138,12 +138,6 @@ class SmithNormalForm(IntegerMatrix):
         if intNumberOfZeros <= 0 or intNumberOfZeros == 1:
             blnReturn = True
         return blnReturn
-    def egcd(self,a, b):
-        if a == 0:
-            return (b, 0, 1)
-        else:
-            g, x, y = self.egcd(b % a, a)
-            return (g, y - (b // a) * x, x)
     def FindLowerTriangular(self,intMaxIter = 100):
         self.ResetMatrices()
         n = 0
@@ -167,14 +161,22 @@ class SmithNormalForm(IntegerMatrix):
                 i = i+1 #increment to look at the next submatrix
             n +=1 
         return self.GetTransformedMatrix()                              
+    def FindHermiteNormalForm(self, intMaxIter=100):
+        self.ResetMatrices()
+        self.FindLowerTriangular(intMaxIter)
+        for j in range(1,self.GetNumberOfColumns()):
+            self.ReduceByFirstCol(j)
+        return self.GetTransformedMatrix()
+
+
+class SmithNormalForm(HermiteNormalForm):
+    def __init__(self,inMatrix: np.array):
+        HermiteNormalForm.__init__(self,inMatrix)                              
     def FindSmithNormal(self,intMaxIter = 100):
         self.ResetMatrices()
         n = 0
         i = 0
-        #arrSwap = self.FindCurrentPivot(0) ##initially place the smallest absolute value in top left
         intRows = self.GetNumberOfRows()
-        #self.SwapRows(arrSwap[0],0)
-        #self.SwapColumns(arrSwap[1],0)
         blnStop = False
         while n < intMaxIter and i < intRows-1 and not(blnStop):
             self.ReduceByFirstRow(i)
@@ -182,11 +184,6 @@ class SmithNormalForm(IntegerMatrix):
             arrSwap = self.FindCurrentPivot(i)
             self.SwapRows(arrSwap[0],i)
             self.SwapColumns(arrSwap[1],i)
-            #self.ReduceByFirstRow(i)
-            #arrSwap = self.FindCurrentPivot(i)
-            #self.SwapRows(arrSwap[0],i)
-            #self.SwapColumns(arrSwap[1],i)
-            #self.ReduceByFirstCol(i)
             if self.IsDiagonal(): #Check whether diagonal form is achieved
                 blnStop = True
             elif self.CheckZeros(i): # are the ith row and column all zero except at the diagonal  
@@ -211,8 +208,8 @@ class SmithNormalForm(IntegerMatrix):
   
 
 class GenericCSLandDSC(SmithNormalForm):
-    def __init__(self, inTransition,inBasis):
-        arrConjugate = np.matmul(np.linalg.inv(inBasis), np.matmul(inTransition,inBasis))
+    def __init__(self, inTransformation,inBasis):
+        arrConjugate = np.matmul(np.linalg.inv(inBasis), np.matmul(inTransformation,inBasis))
         blnInt = False
         n = 0
         while not(blnInt) and n <50000:
@@ -226,6 +223,7 @@ class GenericCSLandDSC(SmithNormalForm):
         SmithNormalForm.__init__(self,intMatrix)
         self.__ConjugateTransition= arrConjugate
         self.__Basis = np.round(inBasis)
+        self.__Transformation = inTransformation
     def GetConjugateTransitionMatrix(self):
         return self.__ConjugateTransition
     def GetCSLPrimtiveCell(self):
@@ -240,6 +238,7 @@ class GenericCSLandDSC(SmithNormalForm):
         self.__LeftScaling = np.diag(lstLeftFactors)
         self.__RightScaling = np.diag(lstRightFactors)
         self.__Sigma = np.prod(np.array(lstLeftFactors))
+        return np.matmul(self.__Transformation,np.matmul(self.__Basis, np.matmul(self.GetRightMatrix(),self.GetRightScaling())))
     def GetLeftScaling(self):
         return self.__LeftScaling
     def GetRightScaling(self):
@@ -247,7 +246,7 @@ class GenericCSLandDSC(SmithNormalForm):
     def GetSigma(self):
         return self.__Sigma
     def GetLeftCoordinates(self):
-        return np.round(np.linalg.inv(self.GetLeftMatrix())).astype('int64')
+        return np.round(np.linalg.inv(self.GetLeftMatrix()))
     def GetRightCoordinates(self):
-        return np.round(self.GetRightMatrix()).astype('int64')
+        return np.round(self.GetRightMatrix())
 

@@ -1545,13 +1545,7 @@ class CSLSubLatticeBases(object):
         y = arrR[:,arrSort[2]]
         for a in range(-lstLimits[arrSort[0]],lstLimits[arrSort[0]]+1):
             for b in range(-lstLimits[arrSort[1]],lstLimits[arrSort[1]]+1):
-           #     for c in range(-intL3,intL3):
-           #            lstOldVectors.append(a*arrR[:,0]+b*arrR[:,1] + c*y)
                 x = a*arrR[:,arrSort[0]]+b*arrR[:,arrSort[1]]
-       #         for c in range(-intL3,intL3):
-        #                arrOut = a*arrR[:,0]+b*arrR[:,1]+c*arrR[:,2]
-        #                if np.round(np.dot(arrOut,arrOut),10) ==1:
-        #                       lstOldVectors.append(arrOut)
                         #quadratic discriminant with factor 4 removed (when square rooted this becomes 2)       
                 fltD = np.dot(x,y)**2 -np.dot(y,y)*(np.dot(x,x) -1) 
                 if  fltD >=0:
