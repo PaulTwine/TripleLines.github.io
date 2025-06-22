@@ -1,4 +1,5 @@
 # %%
+## Libraries 
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import optimize
@@ -27,6 +28,7 @@ strMeanTJAxis = r'Mean of $\bar{\lambda}_{\mathrm{TJ}}$ in eV $\AA^{-1}$'
 strNWGBAxis = r'$\gamma_{\mathrm{NW}}$ in eV $\AA^{-2}$'
 strGBAxis = r'$\bar{\gamma}$ in eV $\AA^{-2}$'
 strDMinAxis = r'$10d_{\mathrm{min}}/r_0$'
+strTripleLineRadius = r'Triple line radius in $\AA{}'
 ##List of axes used and their plot labels
 lstAxes = ['Axis001', 'Axis101', 'Axis111']
 lstLegendAxes = ['Axis [001]', 'Axis [101]', 'Axis [111]']
@@ -36,7 +38,8 @@ lstAxis111 = [3, 7, 13, 21, 31]
 lstSigmas = [lstAxis001, lstAxis101, lstAxis111]
 lstAllSigma = []
 
-
+#%%
+##This handles the values of dmin which were excluded in the paper
 dctAllTJ = dict()
 dctCSLGB = dict()
 dctAllGB = dict()
@@ -81,7 +84,8 @@ dctDMin['Axis111,21'] = [list(range(6, 9))]
 dctDMin['Axis111,31'] = [[0, 1, 2, 3, 5, 6, 7]]
 lstColours = ['darkblue', 'purple', 'peru']
 
-
+#%%
+##This class handles the CSL grain boundary data which it imports from a data dictionary
 class CSLGBData(object):
     def __init__(self, arrAxis, intSigma, inValues):
         self.__Axis = arrAxis.astype('int')
@@ -145,7 +149,8 @@ class CSLGBData(object):
         arrDMin = 10*arrCSL[:, 0]
         return arrDMin, arrExcess
 
-
+#%%
+##This class handles the data for both the STJ and SGB simulation cells
 class TJAndGBData(object):
     def __init__(self, arrAxis, intSigma, inValues, lstDMinValues, intNumberOfTripleLines):
         self.__Axis = arrAxis.astype('int')
@@ -462,18 +467,21 @@ class TJAndGBData(object):
         return int(np.round(fltVolume*4.05**(-3)*4,5))
 
 #%%    
+## Basis linear regression function
 def FitLine(x, a, b):
     return a*x + b
 #%%
+## Markers for 001 101 111 axes 
 lstMarkers = ['o', 'v', 's']
-
 arrAxes = np.array(
     [np.array([0, 0, 1]), np.array([1, 0, 1]), np.array([1, 1, 1])])
 lstAxisNames = ['Axis [001]', 'Axis [101]', 'Axis [111]']
 #%%
+##Pickled dictionary with all the data for the Stj and Sgb simulation cells the file location will need to be updated here
 #with  as fp:
 dctAllTJ = pickle.load(open('/home/paul-twine/ThesisDct/dctFirstPaperTJAll','rb'))
 # %%
+##Pickled dictionary with all the data for the CSL grain boundary bicrystals the file location will need to be updated here
 with open('/home/paul-twine/ThesisDct/dctFirstPaperGBAll','rb') as fp:
     dctAllGB = pickle.load(fp)
 #%%
@@ -526,7 +534,7 @@ arrGB001 = np.concatenate(lstGB001)
 arrGB101 = np.concatenate(lstGB101)
 arrGB111 = np.concatenate(lstGB111)
 
-
+## Data for Table 3
 print('001', np.mean(arr001), np.std(arr001), len(arr001))
 print('101', np.mean(arr101), np.std(arr101), len(arr101))
 print('111', np.mean(arr111), np.std(arr111), len(arr111))
@@ -681,7 +689,7 @@ plt.show()
 #print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
 
 # %%
-# Figure 15
+## No longer included in the paper to save space but could be included in the supplementary material
 # CSL grain boundaries group together with one scatter plot for each axis and split by sigma value
 fig, axs = plt.subplots(1, 3, sharey=True)
 #fig.suptitle('Vertically stacked subplots')
@@ -704,7 +712,7 @@ axs[0].set_ylabel(strCSLAxis)
 #axs[0].set_ylim([0, np.max(dctAllGB['Axis001,5'].GetCSLExcessPerArea())])
 plt.show()
 # %%
-## Figure 16
+## Figure 15
 # excess cylindrical GB energies with a scatter plot for each axis
 fig, axs = plt.subplots(1, 3, sharey=True)
 lstTJ = []
@@ -728,7 +736,7 @@ plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
 # %%
-##Figure 17
+##Figure 16
 lstAllTJ = []
 lstAllGB = []
 for a in dctAllTJ.keys():
@@ -815,17 +823,19 @@ for i in range(3):
     axs[i].legend([lstLegendAxes[i]],loc='upper center')
 axs[0].set_ylabel(strFAxis)
 plt.show()
-plt.scatter(lstNumberOfValues,lstLargerThanFL)
-plt.show()
-#%%
-###Numerical proportions requires previous cell to have been run
+#plt.scatter(lstNumberOfValues,lstLargerThanFL)
+#plt.show()
 for j in range(len(lstNumberOfValues)):
     print(lstLargerThanFL[j]/lstNumberOfValues[j])
 print('Overall',np.sum(lstLargerThanFL)/np.sum(lstNumberOfValues))
 print('Overall',np.sum(lstHerringLargerThanFL)/np.sum(lstNumberOfValues))
 
+
+###After this point the diagrams below are not used in the paper but these were some
+###of the checks performed to seek out possible correlations and trends in the data
+
 # %%
-###Check 
+###Check correlation between TJ formation energy and disorientation angle
 lstAngles = []
 lstStd = []
 for a in dctAllTJ.keys():
@@ -846,50 +856,17 @@ for a in dctAllTJ.keys():
             '$\Sigma$' + str(dctAllTJ[a].GetSigma()), (fltAngle, fltStd))
 pop, popt = curve_fit(FitLine, lstAngles, lstStd)
 plt.plot(lstAngles, FitLine(np.array(lstAngles), pop[0], pop[1]))
+plt.xlabel(r'$\theta$')
 print(np.corrcoef(lstAngles, lstStd))
 plt.show()
 #%%
-for a in dctAllTJ.keys():
-    arrTJ =  dctAllTJ[a]
-    intIdealAtoms = arrTJ.GetIdealAtoms()
-    arrValues = arrTJ.GetValues()
-    for i in range(10):
-        arrAtoms = arrValues[arrValues[:,0]==i][:,[6,7]]
-        arrOut = arrAtoms - intIdealAtoms
-        arrMin = np.min(arrOut)
-        arrMin = np.abs(arrMin)
-        print(arrOut,a)
-        tup = np.unravel_index(arrMin.argmin(),arrMin.shape)
-    #print(arrValues[tup[0],:])
-# %%
-# TJ energy gradient without annotations for Herring force
-fig, axs = plt.subplots(1, 3, sharey=True)
-lstValues = []
-lstAllValues = []
-for a in dctAllTJ.keys():
-    i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    lstValues = dctAllTJ[a].GetTJEnergyGradient(4.05)[0]
-    arrRows = np.where(np.array(lstValues) < 0.25)[0]
-    arrValues = np.array(lstValues)[arrRows]
-    lstAllValues.append(arrValues)
-    arrSigma = np.ones(len(arrValues))*lstSigmas[i].index(dctAllTJ[a].GetSigma())
-    axs[i].scatter(arrSigma, arrValues, c=lstColours[i],
-                   marker=lstMarkers[i], label='Small')
-    axs[i].errorbar(np.mean(arrSigma)-0.25, np.mean(arrValues), 1.96 *
-                    np.std(arrValues), c=lstColours[i], linestyle='', capsize=5, marker='+')
-for i in range(3):
-    axs[i].set_xticks(list(range(len(lstSigmas[i]))))
-    axs[i].set_xticklabels(lstSigmas[i])
-    axs[i].set_xlabel(strSigmaAxis)
-    axs[i].legend([lstLegendAxes[i]])
-axs[0].set_ylabel(strFAxis)
-plt.show()
-#%%
-##Checking there are no size effects 
+##Checking there are no size effects based upon the cylinder radius r
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
     arrTJ = dctAllTJ[a].GetTJExcessPerLength()
     l,w,h,r = dctAllTJ[a].GetDimensions()
+    plt.xlabel(strTripleLineRadius)
+    plt.ylabel(strMeanTJAxis)
     plt.scatter(r*np.ones(len(arrTJ)),arrTJ,marker=lstMarkers[i],c=lstColours[i])
    # plt.scatter(l,np.mean(arrTJ),marker=lstMarkers[i],c=lstColours[i])
 plt.show()
@@ -1036,308 +1013,3 @@ fig.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
-
-
-# %%
-lstTJs = []
-for a in dctAllTJ.keys():
-    if np.all(dctAllTJ[a].GetAxis() == arrAxes[0]):
-        if dctAllTJ[a].GetSigma() != 7:
-            lstTJs.append(dctAllTJ[a].GetTJExcessPerLength())
-arrTJs = np.concatenate(lstTJs)
-print(np.mean(arrTJs), np.std(arrTJs))
-# %%
-## Figure 15
-# CSL grain boundaries all metastable states
-#lstHLines = []
-#lstXValues = []
-#xstart = 0
-axsI = 0
-lstWidths = []
-intAxis = 0
-for a in dctAllGB.keys():
-    i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    if i == intAxis:
-        lstWidths.append(len(dctAllGB[a].GetDMinValues(dctDMin[a])))
-print(lstWidths)
-fig, axs = plt.subplots(
-    1, 5, gridspec_kw={'width_ratios': lstWidths}, sharey=True)
-for a in dctAllGB.keys():
-    i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    if i == intAxis:
-        arrGB = dctAllGB[a].GetCSLExcessPerArea()
-        arrDMins = dctAllGB[a].GetDMinValues().astype('int')
-        arrD = list(range(len(arrDMins)))
-        axs[axsI].scatter(arrD, arrGB, c=lstColours[i],
-                          marker=lstMarkers[i], label='Small')
-        axs[axsI].set_xticks(arrD)
-        axs[axsI].set_xticklabels(arrDMins.tolist())
-        # axs[axsI].axhline(y=0,c='black',linestyle='--')
-        axs[axsI].set_title('$\Sigma$' + str(dctAllTJ[a].GetSigma()))
-        axs[axsI].set_xlabel(strDMinAxis)
-        axs[axsI].set_ylim([0, 0.06])
-        axsI += 1
-axs[0].set_ylabel(strGBAxis)
-plt.tight_layout()
-plt.show()
-# %%
-# CSL grain boundary excess energy only valid dmins
-axsI = 0
-lstWidths = []
-intAxis = 0
-for a in dctAllGB.keys():
-    i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    if i == intAxis:
-        intLength = len(dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])[0])
-        lstWidths.append(intLength)
-print(lstWidths)
-fig, axs = plt.subplots(
-    1, 5, gridspec_kw={'width_ratios': lstWidths}, sharey=True)
-for a in dctAllGB.keys():
-    i = np.where(np.all(dctAllGB[a].GetAxis() == arrAxes, axis=1))[0][0]
-    if i == intAxis:
-        arrDMins, arrGB = dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])
-        arrDMins = arrDMins.astype('int')
-        arrD = list(range(len(arrDMins)))
-        axs[axsI].scatter(arrD, arrGB, c=lstColours[i],
-                          marker=lstMarkers[i], label='Small')
-        axs[axsI].set_xticks(arrD)
-        axs[axsI].set_xticklabels(arrDMins.tolist())
-        # axs[axsI].axhline(y=0,c='black',linestyle='--')
-        axs[axsI].set_title('$\Sigma$' + str(dctAllTJ[a].GetSigma()))
-        axs[axsI].set_xlabel(strDMinAxis)
-        axs[axsI].set_ylim([0, 0.05])
-        axsI += 1
-axs[0].set_ylabel(strCSLAxis)
-plt.tight_layout()
-plt.show()
-# %%
-lstTJ = []
-lstHLines = []
-lstXValues = []
-xstart = 0
-intAxis = 2
-for a in dctAllTJ.keys():
-    i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
-    if i == intAxis:
-        arrGB = dctAllTJ[a].GetTJExcessPerLength()
-        lstDMins, lstDValue = dctAllTJ[a].GetPositionsByDMin()
-        lstHLines.append(len(lstDValue))
-        lstXValues.extend(lstDValue)
-        lstTJ.append(arrTJ)
-        for x in range(len(lstDMins)):
-            d = lstDMins[x]
-            strLabel = '.' + str(lstDValue[x])
-            plt.scatter(xstart*np.ones(len(d)),
-                        arrTJ[d], c=lstColours[i], marker=lstMarkers[i], label='Small')
-            xstart += 1
-        plt.annotate(
-            '$\Sigma$' + str(dctAllTJ[a].GetSigma()), (xstart-(lstHLines[-1]+1)/2, 0.08))
-
-arrTJ = np.concatenate(lstTJ, axis=0)
-plt.legend([lstAxes[i]], loc='upper left')
-arrHLines = np.array(lstHLines)
-for l in range(len(lstHLines)):
-    plt.axvline(x=np.sum(arrHLines[:l]), c='black', linestyle='--')
-plt.xticks(list(range(len(lstXValues))), lstXValues)
-plt.xlabel(strDMinAxis)
-plt.axhline(y=0, c='black', linestyle='--')
-axs[0].set_ylabel(strTJAxis)
-plt.ylim([np.min(arrTJ)-0.06, np.max(arrTJ) + 0.06])
-plt.tight_layout()
-plt.show()
-print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
-# %%
-# Figure 7
-fig, axs = plt.subplots(1, 3, sharey=True)
-
-for a in dctAllTJ.keys():
-    i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
-    arrTJ = dctAllTJ[a].GetTJExcessPerLength()
-    axs[i].hist(arrTJ, color=lstColours[i], 
-    bins=np.linspace(-0.4,0.2, 24), density=False, stacked=True)
-    axs[i].legend([lstAxes[i]])
-    axs[i].set_xlabel(strTJAxis)
-    axs[i].set_xlim([-0.4, 0.2])
-    axs[i].set_xticks([-0.4, -0.2, 0, 0.2])
-fig.tight_layout()
-plt.show()
-
-
-# %%
-for a in dctAllTJ.keys():
-    arrTJValues = dctAllTJ[a].GetTJExcessPerLength()
-# excess grain boundary
-    arrPositions = np.argmin(arrTJValues)
-    objCSL = dctAllGB[a]
-    arrGBValues = dctAllTJ[a].GetMeanGB(objCSL)
-    # plt.scatter(np.mean(arrGBValues),np.mean(arrTJValues))
-    plt.scatter(arrGBValues[arrPositions], arrTJValues[arrPositions])
-plt.show()
-# %%
-lstTJs = []
-lstGBs = []
-for a in dctAllTJ.keys():
-    i = np.where(np.all(arrAxes == dctAllGB[a].GetAxis(), axis=1))[0][0]
-    arrTJ, arrGB = dctAllTJ[a].GetExcessEnergies()
-    arrPositions = dctAllTJ[a].GetMinimumTJForEachDMin()
-    lstTJs.append(arrTJ)
-    lstGBs.append(arrGB)
-    plt.scatter(arrGB[arrPositions], dctAllTJ[a].GetTJExcessPerLength()[
-                arrPositions], c=lstColours[i], marker=lstMarkers[i], label='Small')
-plt.axhline(y=0, c='black', linestyle='--')
-plt.legend(lstMarkers, lstLegendAxes)
-plt.ylabel(strCSLAxis)
-plt.xlabel(strSigmaAxis)
-plt.tight_layout()
-plt.show()
-arrTJs = np.concatenate(lstTJs, axis=0)
-arrGBs = np.concatenate(lstGBs, axis=0)
-print(np.corrcoef(arrGBs, arrTJs), arrGBs)
-
-
-# %%
-lstTJ = []
-lstGB = []
-for a in dctAllTJ.keys():
-    i = np.where(np.all(arrAxes == dctAllGB[a].GetAxis(), axis=1))[0][0]
-    arrPositions = dctAllTJ[a].GetMinimumTJForEachDMin()
-    lstGB.append(dctAllTJ[a].GetMeanGB(dctAllGB[a])[arrPositions])
-    lstTJ.append(dctAllTJ[a].GetTJExcessPerLength()[arrPositions])
-    plt.scatter(lstGB[-1], lstTJ[-1], c=lstColours[i],
-                marker=lstMarkers[i], label='Small')
-    plt.annotate(str(dctAllTJ[a].GetSigma()), (lstGB[-1], lstTJ[-1]))
-print(np.corrcoef(lstGB, lstTJ))
-pop, popt = optimize.curve_fit(FitLine, lstGB, lstTJ)
-xrange = np.linspace(min(lstGB), max(lstGB), 100)
-print(pop)
-plt.plot(xrange, FitLine(xrange, pop[0], pop[1]), c='black')
-plt.axhline(y=0, c='black', linestyle='--')
-# plt.legend(lstMarkers,lstLegendAxes)
-plt.ylabel(strCSLAxis)
-plt.xlabel(strGBAxis)
-# plt.xticks(list(range(len(lstAllSigma))),lstAllSigma)
-plt.tight_layout()
-plt.show()
-
-# %%
-lstTJ = []
-lstGB = []
-for a in dctAllTJ.keys():
-    i = np.where(np.all(arrAxes == dctAllGB[a].GetAxis(), axis=1))[0][0]
-    arrTJs = dctAllTJ[a].GetTJExcessPerLength()
-    intPos = np.argmin(np.abs(arrTJs-np.mean(arrTJs)))
-    lstGB.append(dctAllTJ[a].GetMeanGB(dctAllGB[a])[intPos])
-    lstTJ.append(arrTJs[intPos])
-    plt.scatter(lstGB[-1], lstTJ[-1], c=lstColours[i],
-                marker=lstMarkers[i], label='Small')
-    #plt.scatter(dctAllTJ[a].GetExcessEnergy()[arrPositions], dctAllTJ[a].GetTJExcessPerLength()[arrPositions], c=lstColours[i],marker =lstMarkers[i],label='Small')
-    plt.annotate(str(dctAllTJ[a].GetSigma()), (lstGB[-1], lstTJ[-1]))
-# print(np.corrcoef(lstGB,lstTJ))
-plt.axhline(y=0, c='black', linestyle='--')
-# plt.legend(lstMarkers,lstLegendAxes)
-plt.ylabel(strTJAxis)
-plt.xlabel(strNWGBAxis)
-# plt.xticks(list(range(len(lstAllSigma))),lstAllSigma)
-# plt.tight_layout()
-plt.show()
-
-
-# %%
-lstAllTJ = []
-lstAllGB = []
-for a in dctAllTJ.keys():
-    i = np.where(np.all(arrAxes == dctAllGB[a].GetAxis(), axis=1))[0][0]
-    #arrPositions = np.argmin(dctAllTJ[a].GetTJExcessPerLength())
-    arrPositions = dctAllTJ[a].GetMinimumTJForEachDMin()
-    lstAllTJ.append(gf.FindMediod(
-        dctAllTJ[a].GetTJExcessPerLength()[arrPositions]))
-    #arrPositions = np.argmin(dctAllTJ[a].GetExcessEnergy())
-    lstAllGB.append(gf.FindMediod(
-        dctAllTJ[a].GetMeanGB(dctAllGB[a])[arrPositions]))
-    plt.scatter(lstAllGB[-1], lstAllTJ[-1], c=lstColours[i],
-                marker=lstMarkers[i], label='Small')
-    plt.annotate(str(dctAllTJ[a].GetSigma()), (lstAllGB[-1], lstAllTJ[-1]))
-#lstAllTJ = np.concatenate(lstAllTJ)
-#lstAllGB = np.concatenate(lstAllGB)
-print(np.corrcoef(lstAllTJ, lstAllGB))
-print(np.mean(lstAllTJ), np.std(lstAllTJ))
-pop, popt = optimize.curve_fit(FitLine, lstAllGB, lstAllTJ)
-xrange = np.linspace(min(lstAllGB), max(lstAllGB), 100)
-print(pop)
-plt.plot(xrange, FitLine(xrange, pop[0], pop[1]), c='black')
-# plt.axhline(y=0,c='black',linestyle='--')
-# plt.legend(lstMarkers,lstLegendAxes)
-plt.ylabel(strTJAxis)
-plt.xlabel(strGBAxis)
-# plt.xticks(list(range(len(lstAllSigma))),lstAllSigma)
-plt.tight_layout()
-plt.show()
-
-
-
-# %%
-for a in dctAllTJ:
-    arrValues = dctAllTJ[a].GetTranslationAndOrientationData()
-    arrHeights = dctAllTJ[a].GetDisplacements()[:,2]+arrValues[0,-1]/2
-    lstDMins = np.unique(arrValues[:,1]).tolist()
-    for j in lstDMins:
-        arrRows = np.where(arrValues[:,1] == j)[0]
-        arrCurrentValues = arrValues[arrRows]
-        arrHeightRows = np.unique(arrCurrentValues[:,0]).astype('int')
-        plt.scatter(arrHeights[arrHeightRows],arrCurrentValues[:,7])
-    plt.legend(lstDMins)
-    xpoints = ypoints = plt.xlim()
-    plt.axis('equal')
-    plt.title(str(dctAllTJ[a].GetAxis()) + ' ' + str(dctAllTJ[a].GetSigma()))
-    plt.plot(xpoints, ypoints, linestyle='--', color='k', lw=3, scalex=False, scaley=False)
-    plt.show()
-#%%
-for a in dctAllTJ:
-    arrValues = dctAllTJ[a].GetTranslationAndOrientationData()
-    lstDMins = np.unique(arrValues[:,1]).tolist()
-    for j in lstDMins:
-        arrRows = np.where(arrValues[:,1] == j)[0]
-        arrCurrentValues = arrValues[arrRows]
-        plt.scatter(arrCurrentValues[:,2],arrCurrentValues[:,3])
-    plt.legend(lstDMins)
-    xpoints = ypoints = plt.xlim()
-    plt.axis('equal')
-    plt.title(str(dctAllTJ[a].GetAxis()) + ' ' + str(dctAllTJ[a].GetSigma()))
-    plt.plot(xpoints, ypoints, linestyle='--', color='k', lw=3, scalex=False, scaley=False)
-    plt.show()
-# %%
-arrV = dctAllTJ['Axis111,7'].GetTranslationAndOrientationData()
-plt.scatter(arrV[:,2],arrV[:,3])
-xpoints = ypoints = plt.xlim()
-plt.plot(xpoints, ypoints, linestyle='--', color='k', lw=3, scalex=False, scaley=False)
-plt.show()
-intMin = np.argmin(arrV[:,2])
-print(arrV[intMin])
-print(dctAllTJ['Axis111,7'].GetTJExcessPerLength()[intMin])
-# %%
-for a in dctAllGB:
-    print(dctAllGB[a].GetSigmaValue(),dctAllGB[a].GetAxis(),dctAllGB[a].GetCSLExcessByDMin(dctDMin[a])[1])
-
-# %%
-##check how many positive values
-for a in dctAllTJ:
-    arrTJ = dctAllTJ[a].GetTJExcessPerLength()
-    rows = np.where(arrTJ > 0)[0]
-    if len(rows) > 0:
-        arrTJ2= arrTJ[rows]
-        print(dctAllTJ[a].GetAxis(),dctAllTJ[a].GetSigma(),np.mean(arrTJ2),len(arrTJ2))
-# %%
-arrOut = dctAllTJ['Axis111,7'].GetTJForEachDMin()
-for i in arrOut:
-    print(np.std(i))
-
-# %%
-for a in dctAllTJ:
-    pts = dctAllTJ[a].GetDisplacements()[:,1:]
-    arrDistances = np.linalg.norm(pts)
-    print(np.max(arrDistances))
-    plt.title(str(dctAllTJ[a].GetAxis())+str(dctAllTJ[a].GetSigma()))
-    plt.scatter(*tuple(zip(*pts)))
-    plt.show()
-# %%
