@@ -1,7 +1,6 @@
 from cmath import pi
-#from socket import EAI_PROTOCOL
-#from statistics import Normal
 import numpy as np
+import math as mt
 import GeometryFunctions as gf
 import LatticeDefinitions as ld
 import scipy as sc
@@ -133,13 +132,13 @@ class PureLattice(PureCell):
     def GetLatticePoints(self):
         return self.__LatticePoints
     def MakeLatticePoints(self, inCellPoints):
-        arrLatticePoints = np.zeros([self.GetNumberOfNodesPerCell()*len(inCellPoints), self.Dimensions()])
-        intCounter = 0
+        #arrLatticePoints = np.zeros([self.GetNumberOfNodesPerCell()*len(inCellPoints), self.Dimensions()])
         arrNodes = self.GetMinimalNodeMotif()
-        for position in inCellPoints:
-            for cell in arrNodes:
-                arrLatticePoints[intCounter] = np.add(position,cell)
-                intCounter +=1
+        arrLatticePoints = np.concatenate((list(map(lambda x: x+ arrNodes, inCellPoints))))
+       # for position in inCellPoints:
+       #     for cell in arrNodes:
+       #         arrLatticePoints[intCounter] = np.add(position,cell)
+       #         intCounter +=1
         return np.unique(arrLatticePoints, axis = 0)
     def CheckLatticeConstraints(self,inPoints: np.array, fltTolerance=1e-5)-> np.array: #returns indices to delete   
         lstIndices = []
@@ -150,13 +149,14 @@ class PureLattice(PureCell):
         return np.unique(np.concatenate(lstIndices))
     #FindBoxConstraint only works for linear constraints. 
     #Searches for all the vertices where three constraints #simultaneously apply and then finds the points furthest from the origin.        
-    def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 1e-5)->np.array:
+    def FindBoxConstraints(self,inConstraints: np.array, fltTolerance = 1e-10)->np.array:
         intLength = len(inConstraints)
-        intCombinations = int(np.math.factorial(intLength)/(np.math.factorial(3)*np.math.factorial(intLength-3)))
+        intCombinations = int(mt.factorial(intLength)/(mt.factorial(3)*mt.factorial(intLength-3)))
         arrMatrix = np.zeros([3,4])
-        arrPoints = np.zeros([intCombinations, 3])
+        #arrPoints = np.zeros([intCombinations, 3])
         arrRanges = np.zeros([3,2])
         counter = 0
+        lst_points = []
         for i in range(intLength):
             for j in range(i+1,intLength):
                 for k in range(j+1,intLength):
@@ -164,14 +164,31 @@ class PureLattice(PureCell):
                     arrMatrix[1] = inConstraints[j]
                     arrMatrix[2] = inConstraints[k]
                     if abs(np.linalg.det(arrMatrix[:,:-1])) > fltTolerance:
-                        arrPoints[counter] = np.matmul(np.linalg.inv(arrMatrix[:,:-1]),arrMatrix[:,-1])
-                        counter += 1
-                    else:
-                        arrPoints = np.delete(arrPoints, counter, axis=0)
+                        arrPoints = np.matmul(np.linalg.inv(arrMatrix[:,:-1]),arrMatrix[:,-1])
+                        lst_points.append(arrPoints)
+        arr_all_points = np.vstack(lst_points)
+        # arr_vector_lengths = np.linalg.norm(arr_all_points,axis=1)
+        # arr_max_length_vector = arr_all_points[np.argmax(arr_vector_lengths)]
+        # flt_angle, arr_vector = gf.FindRotationVectorAndAngle(gf.NormaliseVector(arr_max_length_vector), np.array([1,0,0]))
+        # arr_rotation_matrix = gf.GetMatrixFromAxisAngle(arr_vector, flt_angle)
+        # arr_rotated_points = np.matmul(arr_all_points,arr_rotation_matrix)
+        # lst_points_box = []
+        # for i in range(3):
+        #     arr_vector_min = np.zeros(3)
+        #     arr_vector_max = np.zeros(3)
+        #     arr_vector_min[i] = np.min(arr_rotated_points[:,i])
+        #     arr_vector_max[i] = np.max(arr_rotated_points[:,i])
+        #     lst_points_box.append(arr_vector_min)
+        #     lst_points_box.append(arr_vector_max)
+        # arr_vectors = np.vstack(lst_points_box)
+        # arr_vectors_original_frame = np.matmul(arr_vectors, np.linalg.inv(arr_rotation_matrix))
+    #    for j in range(len(arrRanges)):
+    #        arrRanges[j,0] = np.min(arr_vectors_original_frame[:,j]) #np.min(arr_all_points[:,j])
+    #        arrRanges[j,1] = np.max(arr_vectors_original_frame[:,j]) #np.max(arr_all_points[:,j])
         for j in range(len(arrRanges)):
-            arrRanges[j,0] = np.min(arrPoints[:,j])
-            arrRanges[j,1] = np.max(arrPoints[:,j])
-        return(arrRanges)
+            arrRanges[j,0] = np.min(arr_all_points[:,j])
+            arrRanges[j,1] = np.max(arr_all_points[:,j])  
+        return arrRanges
     def SetLatticeConstraints(self, inLatticeConstraints):
         self.__LatticeConstraints = inLatticeConstraints
     def GetLatticeConstraints(self):
@@ -250,10 +267,15 @@ class GeneralLattice(PureLattice,RealCell):
         self.__LinearConstraints = inClosedConstraints
         self.GenerateLatticeConstraints(inClosedConstraints)
         arrBounds = self.FindBoxConstraints(self.GetLatticeConstraints())
-        arrBounds[:,0] = np.floor(arrBounds[:,0]) -np.ones(self.Dimensions())
-        arrBounds[:,1] = np.ceil(arrBounds[:,1]) +np.ones(self.Dimensions()) #add one extra lattice points in each 
+        arrBounds[:,0] = np.floor(arrBounds[:,0])-np.ones(self.Dimensions())
+        arrBounds[:,1] = np.ceil(arrBounds[:,1])+np.ones(self.Dimensions()) #add one extra lattice points in each 
         #abstract direction as using the minimal node motif
         arrCellPoints = np.array(gf.CreateCuboidPoints(arrBounds))
+       # arrCheckedCellPoints = np.delete(arrCellPoints, self.CheckLatticeConstraints(arrCellPoints), axis = 0)
+       # arr_extended = np.append(np.identity(3), -np.identity(3) ,axis=0)
+       # lst_points_with_wrapper = np.concatenate(list(map(lambda x: x + arr_extended, arrCheckedCellPoints)))
+        #arrCheckedCellPoints = np.unique(lst_points_with_wrapper, axis=0)
+        #arrCheckedCellPoints = np.delete(arrCellPoints, self.CheckLatticeConstraints(arrCellPoints), axis = 0)
         arrLatticePoints = self.MakeLatticePoints(arrCellPoints)
         arrLatticePoints = np.delete(arrLatticePoints, self.CheckLatticeConstraints(arrLatticePoints), axis = 0)
         self.GenerateRealPoints(arrLatticePoints)
@@ -318,7 +340,7 @@ class GeneralLattice(PureLattice,RealCell):
         return self.__BoundaryPointIndices
     def FoundBoundaries(self):
         return self.__blnFoundBoundaryPoints
-    def SetOpenConstraints(self, inRealConstraints: np.array, fltTolerance=1e-3):
+    def SetOpenConstraints(self, inRealConstraints: np.array, fltTolerance=1e-5):
         lstIndices = []
         lstConstraints = []
         intCounter = 0
@@ -357,7 +379,7 @@ class GeneralLattice(PureLattice,RealCell):
             tmpArray[k] = np.dot(arrConstraint, self.GetUnitCellVectors()[k])
         fltLength = np.linalg.norm(rtnArray[:3])
         rtnArray[:3] = rtnArray[:3]/fltLength 
-        rtnArray[3] = np.round(gf.InnerProduct(rtnArray[:3], tmpArray,np.linalg.inv(self.GetUnitCellVectors())),10)
+        rtnArray[3] = gf.InnerProduct(rtnArray[:3], tmpArray,np.linalg.inv(self.GetUnitCellVectors()))
         return rtnArray
        
         
@@ -684,7 +706,7 @@ class SimulationCell(object):
             fdata.write('Atoms\n\n')
             for i in range(len(self.__AllAtomPositions)):
                 fdata.write('{} {} {} {} {}\n'.format(i+1,self.__AllAtomTypes[i].astype('int'), *self.__AllAtomPositions[i]))          
-              
+        fdata.close()     
     def SetOrigin(self,inOrigin: np.array):
         self.__Origin = inOrigin
         self.__xlo = inOrigin[0]

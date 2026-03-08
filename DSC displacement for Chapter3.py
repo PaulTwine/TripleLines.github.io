@@ -179,7 +179,7 @@ lstEmpty, arrExactCoincide3 = GetBicrystalAtomicLayer([],arrExactTJ,arrEdgeVecto
 
 
 #arrCoincide3 = gf.MergeTooCloseAtoms(arrCoincide3,arrEdgeVectors,0.15)
-blnTJ = T
+blnTJ = True
 bln12 = True
 bln13 = True
 intS = 5

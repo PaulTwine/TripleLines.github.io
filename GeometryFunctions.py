@@ -7,7 +7,6 @@ Created on Fri May 31 10:38:14 2019
 
 import numpy as np
 import itertools as it
-from numpy.linalg.linalg import det
 import scipy as sc
 from scipy import spatial
 import sympy as sy
@@ -63,9 +62,10 @@ def CreateCuboidLatticePoints(inBoxDimensions:np.array)->np.array:
                 arrDimensions[j][1] = inBoxDimensions[j]
         return CreateCuboidPoints(arrDimensions)
 def CreateCuboidPoints(inBoxDimensions: np.array)->np.array:
-    lstPoints = []
-    for j in inBoxDimensions:
-        lstPoints.append(list(Frange(j[0],j[1])))
+    #lstTestPoints = []
+    lstPoints = list(map(lambda x: list(range(int(np.floor(x[0])),int(np.ceil(x[1])+1))),inBoxDimensions))
+    #for j in inBoxDimensions:
+    #    lstTestPoints.append(list(Frange(j[0],j[1])))
     return CartesianProduct(lstPoints)
 def FindBoundingBox(inVectors: np.array)->np.array:
         intDimensions = len(inVectors[0])
@@ -1462,6 +1462,7 @@ def recover_integer_vector(u, denom=200):
     # multiply the scaled u by LCM(denominators)
         #lcm = lambda a, b: (a * b)/np.gcd.reduce(a, b)
         #return u*reduce(np.lcm.reduce, list(denoms))
+
 class SigmaRotationMatrix():
     def __init__(self,inSigma: int):
         self.__intSigma = inSigma
@@ -1513,6 +1514,7 @@ class SigmaRotationMatrix():
                                 arrReturn[8*a+b,2] = arrTows[np.mod(b+1,2)]
                         blnStop = True
                         lstQuadruples.append(np.unique(arrReturn,axis=0))
+                        lstQuadruples = np.unique(np.vstack(lstQuadruples),axis=0).tolist()
                     elif intSum < intTest:
                         k +=1
                     else:
@@ -1575,16 +1577,16 @@ class CSLSubLatticeBases(object):
             for i in range(len(arrRows3)):
                 arrMatrix = np.zeros([3, 3])
                 if arrRows3[i] < arrCols3[i]:  # check no double counting
-                    arrMatrix[0] = arrUnitVectors[n]
-                    arrMatrix[1] = arrVectors2[arrRows3][i]
-                    arrMatrix[2] = arrVectors2[arrCols3][i]
-                    if np.max(np.abs(np.transpose(arrMatrix)-np.linalg.inv(arrMatrix)))<1e-5:
-                   # if np.all(np.round(np.matmul(arrMatrix, np.transpose(arrMatrix)), 10) == np.identity(3)):
-                        fltDet = np.round(np.linalg.det(arrMatrix),10)
-                        if blnDirectOnly and fltDet ==1:
-                            lstTransforms.append(arrMatrix)
-                        else:
-                            lstTransforms.append(arrMatrix)
+                        arrMatrix[0] = arrUnitVectors[n]
+                        arrMatrix[1] = arrVectors2[arrRows3][i]
+                        arrMatrix[2] = arrVectors2[arrCols3][i]
+                #if np.max(np.abs(np.transpose(arrMatrix)-np.linalg.inv(arrMatrix)))<1e-5:
+                if np.all(np.round(np.matmul(arrMatrix, np.transpose(arrMatrix)), 10) == np.identity(3)):
+                        fltDet = float(np.round(np.linalg.det(arrMatrix),10))
+                        if fltDet ==1:
+                                lstTransforms.append(arrMatrix)
+                        elif fltDet==-1 and not(blnDirectOnly):
+                                lstTransforms.append(arrMatrix)
         return lstTransforms
 
 #%%

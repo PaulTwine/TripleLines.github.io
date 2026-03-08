@@ -12,7 +12,7 @@ from scipy import stats
 from sklearn.neighbors import NearestNeighbors
 import GeometryFunctions as gf
 import GeneralLattice as gl
-import LAMMPSTool as LT
+#import LAMMPSTool as LT
 import LatticeDefinitions as ld
 import re
 import sys

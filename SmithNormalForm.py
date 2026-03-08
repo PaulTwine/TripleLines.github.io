@@ -122,7 +122,19 @@ class IntegerMatrix(object):
         if np.all(np.unique(arrZeros) == 0):
             blnReturn = True
         return blnReturn
-
+    def SubtractColumn(self, col_alter: int, col_subtract: int, n: int):
+        self.__TransformedMatrix[:, col_alter] = self.__TransformedMatrix[:, col_alter] - n*self.__TransformedMatrix[:, col_subtract]
+    def ScaleColumn(self, col_scale: int, n: int):
+        self.__TransformedMatrix[:, col_scale] = n*self.__TransformedMatrix[:, col_scale] 
+    def GetColumn(self, n):
+        return self.__TransformedMatrix[:,n]
+    def get_projection(self, i: int, j: int):
+        return np.dot(self.GetColumn(i), self.GetColumn(j))/np.dot(self.GetColumn(j),self.GetColumn(j))
+    def get_gram_schmidt(self):
+        for j in range(self.GetNumberOfColumns()):
+            for k in range(j):
+                self.SubtractColumn(j, k, np.round(self.get_projection(j,k)))
+        return self.GetTransformedMatrix()
 class HermiteNormalForm(IntegerMatrix):
     def __init__(self,inMatrix: np.array):
         IntegerMatrix.__init__(self,inMatrix)
@@ -167,6 +179,51 @@ class HermiteNormalForm(IntegerMatrix):
         for j in range(1,self.GetNumberOfColumns()):
             self.ReduceByFirstCol(j)
         return self.GetTransformedMatrix()
+    def FindLLLForm(self, int_mat_iter=1000):
+        k = 1
+        arr_gram, lst_u = GramSchmidtInteger(self.GetTransformedMatrix()) 
+        while k < self.GetNumberOfColumns()-1:
+            lst_max_u = list(map(lambda x: max(abs(np.array(x))), lst_u[1:]))
+            for j in range(k-1,0,-1):
+                self.SubtractColumn(k,j,np.round(lst_u[k][j]))
+                arr_gram, lst_u = GramSchmidtInteger(self.GetTransformedMatrix())
+            if np.linalg.norm(arr_gram[:,k]+ lst_u[k-1][k])**2 < 0.75*np.linalg.norm(arr_gram[:,k-1])**2:
+                self.SwapColumns(k,k-1)
+                arr_gram, lst_u = GramSchmidtInteger(self.GetTransformedMatrix())
+                k = max(k-1,1)
+            else:
+                k +=1
+        return self.GetTransformedMatrix()                
+    def FindOrthogonalForm(self, intMaxIter=100):
+        self.FindHermiteNormalForm(intMaxIter)
+        arr_swap = self.GetTransformedMatrix()[2,[1,2]] 
+        self.SubtractColumn(2,1,int(np.round(arr_swap[1]/arr_swap[0],0)))       
+        #arr_shape = np.shape(self.GetTransformedMatrix())
+        #arr_lengths = np.linalg.norm(self.GetTransformedMatrix(), axis=1)
+        
+        return self.GetTransformedMatrix()
+    def ReduceCoefficentMagnitude(self, intMaxIter=100):
+        self.FindHermiteNormalForm(intMaxIter)        
+        arr_shape = np.shape(self.GetTransformedMatrix())
+        arr_max_rows = np.argmax(np.abs(self.GetTransformedMatrix()), axis=1)[::-1]
+        for i in arr_max_rows:
+            bln_stop = False
+            n=0
+            while not(bln_stop) and n < 100:
+                int_max_col = np.where(abs(self.GetTransformedMatrix()[i]) == np.max(abs(self.GetTransformedMatrix()[i])))[0][0]
+                arr_max_arg = np.unravel_index(np.argmax(np.abs(self.GetTransformedMatrix())),np.shape(self.GetTransformedMatrix()))
+                flt_max_signed = self.GetTransformedMatrix()[arr_max_arg]
+                int_min_col = np.min(np.where(abs(self.GetTransformedMatrix()[i]) == np.min(abs(self.GetTransformedMatrix()[i])))[0])
+                flt_min_value = self.GetTransformedMatrix()[i, int_min_col]
+                if np.round(flt_min_value) != 0:
+                    self.SubtractColumn(int_max_col, int_min_col, np.sign(flt_max_signed/flt_min_value))
+                flt_new_max = np.max(np.abs(self.GetTransformedMatrix()))
+                if flt_new_max > abs(flt_max_signed):
+                    self.SubtractColumn(int_max_col, int_min_col, np.sign(flt_max_signed/flt_min_value))
+                    bln_stop = True
+                n +=1
+        return self.GetTransformedMatrix()
+
 
 
 class SmithNormalForm(HermiteNormalForm):
@@ -238,7 +295,8 @@ class GenericCSLandDSC(SmithNormalForm):
         self.__LeftScaling = np.diag(lstLeftFactors)
         self.__RightScaling = np.diag(lstRightFactors)
         self.__Sigma = np.prod(np.array(lstLeftFactors))
-        return np.matmul(self.__Transformation,np.matmul(self.__Basis, np.matmul(self.GetRightMatrix(),self.GetRightScaling())))
+        arr_return =  np.matmul(self.__Transformation,np.matmul(self.__Basis, np.matmul(self.GetRightMatrix(),self.GetRightScaling())))
+        return arr_return
     def GetLeftScaling(self):
         return self.__LeftScaling
     def GetRightScaling(self):
@@ -250,3 +308,14 @@ class GenericCSLandDSC(SmithNormalForm):
     def GetRightCoordinates(self):
         return np.round(self.GetRightMatrix())
 
+def GramSchmidtInteger(in_array: np.array):
+    out_array = np.copy(in_array)
+    lst_u = []
+    for i in range(1,in_array.shape[1]):
+        lst_j = []
+        for j in range(i,0,-1):
+            lst_j.append(np.dot(out_array[:, j], out_array[:, i])/np.linalg.norm(out_array[:,i]**2))
+            out_array[:, i] -= np.round(lst_u[-1])* out_array[:, j]
+        lst_u.append(lst_j)  
+        #out_array[:, i] = out_array[:, i] / np.linalg.norm(out_array[:, i])
+    return out_array, lst_u

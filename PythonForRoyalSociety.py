@@ -37,7 +37,8 @@ lstAxis101 = [3, 9, 11, 19, 27]
 lstAxis111 = [3, 7, 13, 21, 31]
 lstSigmas = [lstAxis001, lstAxis101, lstAxis111]
 lstAllSigma = []
-
+fltWidth = 6
+fltHeight = 3
 #%%
 ##This handles the values of dmin which were excluded in the paper
 dctAllTJ = dict()
@@ -504,7 +505,11 @@ for i in range(3):
      axs[i].set_xticklabels(lstSigmas[i])
      axs[i].set_xlabel(strSigmaAxis)
      axs[i].legend([lstLegendAxes[i]])
+#     axs[i].set_box_aspect(1.5)
 axs[0].set_ylabel(strCSLAxis)
+fig.set_figwidth(fltWidth)
+fig.set_figheight(fltHeight)
+plt.tight_layout()
 plt.show()
 # %%
 ## Data collections for figures 6 and 7
@@ -556,6 +561,8 @@ plt.xlabel(strTJAxis)
 plt.xlim([-0.4, -0.2])
 plt.xticks([-0.4, -0.3, -0.2, -0.1, 0, 0.1, 0.2,0.3,0.4])
 plt.tight_layout()
+#plt.set_figwidth(fltWidth)
+#plt.set_figheight(fltHeight)
 plt.show()
 
 #%%
@@ -568,6 +575,8 @@ for i in range(3):
     axs[i].set_xlabel(strTJAxis)
     axs[i].set_xlim([-0.4, 0.2])
     axs[i].set_xticks([-0.4, -0.2, 0, 0.2])
+fig.set_figwidth(fltWidth)
+fig.set_figheight(fltHeight)
 fig.tight_layout()
 plt.show()
 lstAllValues = []
@@ -597,7 +606,9 @@ for i in range(3):
     axs[i].axhline(y=0, c='black', linestyle='--')
     axs[i].set_ylim([-0.42,0.525])
 axs[0].set_ylabel(strTJAxis)
-fig.tight_layout()
+fig.set_figwidth(fltWidth)
+fig.set_figheight(fltHeight)
+plt.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
@@ -644,6 +655,8 @@ for a in dctAllTJ.keys():
 arrTJ = np.concatenate(lstTJ, axis=0)
 #plt.legend([lstAxes[i]],loc = 'upper left')
 axs[0].set_ylabel(strTJAxis)
+fig.set_figwidth(fltWidth)
+fig.set_figheight(fltHeight)
 plt.tight_layout()
 plt.show()
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
@@ -654,7 +667,7 @@ print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
 lstTJ = []
 axsI = 0
 lstWidths = []
-intAxis = 0
+intAxis = 2
 for a in dctAllTJ.keys():
     i = np.where(np.all(dctAllTJ[a].GetAxis() == arrAxes, axis=1))[0][0]
 lstWidths = [10, 10, 10, 10, 10]
@@ -681,9 +694,13 @@ for a in dctAllTJ.keys():
         #axs[axsI].annotate('$\Sigma$' +str(dctAllTJ[a].GetSigma()), ((dCount-1)/2,0.1))
         axs[axsI].set_title('$\Sigma$' + str(dctAllTJ[a].GetSigma()))
         axs[axsI].set_xlabel(strDeltaAxis)
+        
         axsI += 1
 axs[0].set_ylabel(strTJAxis)
 #plt.ylim([np.min(arrTJ)-0.06,np.max(arrTJ) +0.06])
+fig.tight_layout()
+fig.set_figwidth(fltWidth)
+fig.set_figheight(fltHeight)
 plt.tight_layout()
 plt.show()
 #print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
@@ -731,7 +748,9 @@ for i in range(3):
     axs[i].legend([lstLegendAxes[i]], loc='lower left')
     axs[i].set_xlabel(strSigmaAxis)
 axs[0].set_ylabel(strCurved)
-fig.tight_layout()
+fig.set_figwidth(fltWidth)
+fig.set_figheight(fltHeight)
+plt.tight_layout()
 plt.show()
 arrTJ = np.concatenate(lstTJ, axis=0)
 print(len(np.where(arrTJ > 0)[0]), len(arrTJ))
@@ -821,7 +840,10 @@ for i in range(3):
     axs[i].set_xlabel(strSigmaAxis)
     axs[i].set_xlabel(strSigmaAxis)
     axs[i].legend([lstLegendAxes[i]],loc='upper center')
+fig.set_figwidth(fltWidth)
+fig.set_figheight(fltHeight)
 axs[0].set_ylabel(strFAxis)
+plt.tight_layout()
 plt.show()
 #plt.scatter(lstNumberOfValues,lstLargerThanFL)
 #plt.show()
