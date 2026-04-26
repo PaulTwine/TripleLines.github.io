@@ -179,29 +179,23 @@ class HermiteNormalForm(IntegerMatrix):
         for j in range(1,self.GetNumberOfColumns()):
             self.ReduceByFirstCol(j)
         return self.GetTransformedMatrix()
-    def FindLLLForm(self, int_mat_iter=1000):
-        k = 1
-        arr_gram, lst_u = GramSchmidtInteger(self.GetTransformedMatrix()) 
-        while k < self.GetNumberOfColumns()-1:
-            lst_max_u = list(map(lambda x: max(abs(np.array(x))), lst_u[1:]))
-            for j in range(k-1,0,-1):
-                self.SubtractColumn(k,j,np.round(lst_u[k][j]))
-                arr_gram, lst_u = GramSchmidtInteger(self.GetTransformedMatrix())
-            if np.linalg.norm(arr_gram[:,k]+ lst_u[k-1][k])**2 < 0.75*np.linalg.norm(arr_gram[:,k-1])**2:
-                self.SwapColumns(k,k-1)
-                arr_gram, lst_u = GramSchmidtInteger(self.GetTransformedMatrix())
-                k = max(k-1,1)
+    def FindLLLForm(self, d=0.5):
+        self.ReduceCoefficentMagnitude()
+        self.get_gram_schmidt()
+        i = 1
+        bln_stop = False
+        while i < self.GetNumberOfColumns() and not(bln_stop):
+            j = i-1
+            while j >= 0:
+                self.SubtractColumn(i,j,np.round(self.get_projection(i,j)))
+                j -= 1 
+            if (d-self.get_projection(i,i-1)**2)*np.linalg.norm(self.GetColumn(i-1))**2 <= np.linalg.norm(self.GetColumn(i))**2:                 
+                i +=1
             else:
-                k +=1
-        return self.GetTransformedMatrix()                
-    def FindOrthogonalForm(self, intMaxIter=100):
-        self.FindHermiteNormalForm(intMaxIter)
-        arr_swap = self.GetTransformedMatrix()[2,[1,2]] 
-        self.SubtractColumn(2,1,int(np.round(arr_swap[1]/arr_swap[0],0)))       
-        #arr_shape = np.shape(self.GetTransformedMatrix())
-        #arr_lengths = np.linalg.norm(self.GetTransformedMatrix(), axis=1)
-        
+                self.SwapColumns(i,i-1)
+                i = np.max([1,i-1]) 
         return self.GetTransformedMatrix()
+    
     def ReduceCoefficentMagnitude(self, intMaxIter=100):
         self.FindHermiteNormalForm(intMaxIter)        
         arr_shape = np.shape(self.GetTransformedMatrix())
@@ -263,8 +257,7 @@ class SmithNormalForm(HermiteNormalForm):
             i +=1 
         return self.GetTransformedMatrix()
   
-
-class GenericCSLandDSC(SmithNormalForm):
+class GenericCSL(SmithNormalForm):
     def __init__(self, inTransformation,inBasis):
         arrConjugate = np.matmul(np.linalg.inv(inBasis), np.matmul(inTransformation,inBasis))
         blnInt = False
@@ -272,7 +265,8 @@ class GenericCSLandDSC(SmithNormalForm):
         while not(blnInt) and n <50000:
             n +=1
             arrTest = n*arrConjugate
-            if np.all(np.around(arrTest,0) == np.around(arrTest,10)):
+            if np.all(np.isclose(np.round(arrTest,0), np.round(arrTest,10), rtol = 1e-5, atol=1e-10)):
+            #if np.all(np.around(arrTest,0) == np.around(arrTest,10)):
                 blnInt=True
         self.__RationalDenominator = n
         intMatrix = np.round(n*arrConjugate)
@@ -283,18 +277,18 @@ class GenericCSLandDSC(SmithNormalForm):
         self.__Transformation = inTransformation
     def GetConjugateTransitionMatrix(self):
         return self.__ConjugateTransition
-    def GetCSLPrimtiveCell(self):
+    def GetCSLPrimitiveCell(self):
         if not(self.IsDiagonal()):
             self.FindSmithNormal()
-        lstLeftFactors = []
-        lstRightFactors = []
+        lstCSLLeftFactors = []
+        lstCSLRightFactors = []
         for j in range(3):
             intDiagonal = int(self.GetTransformedMatrix()[j,j])
-            lstLeftFactors.append(intDiagonal/np.gcd(intDiagonal,int(self.__RationalDenominator)))
-            lstRightFactors.append(self.__RationalDenominator/np.gcd(intDiagonal,int(self.__RationalDenominator)))
-        self.__LeftScaling = np.diag(lstLeftFactors)
-        self.__RightScaling = np.diag(lstRightFactors)
-        self.__Sigma = np.prod(np.array(lstLeftFactors))
+            lstCSLLeftFactors.append(intDiagonal/np.gcd(intDiagonal,int(self.__RationalDenominator)))
+            lstCSLRightFactors.append(self.__RationalDenominator/np.gcd(intDiagonal,int(self.__RationalDenominator)))
+        self.__LeftScaling = np.diag(lstCSLLeftFactors)
+        self.__RightScaling = np.diag(lstCSLRightFactors)
+        self.__Sigma = np.prod(np.array(lstCSLLeftFactors))
         arr_return =  np.matmul(self.__Transformation,np.matmul(self.__Basis, np.matmul(self.GetRightMatrix(),self.GetRightScaling())))
         return arr_return
     def GetLeftScaling(self):
@@ -307,15 +301,14 @@ class GenericCSLandDSC(SmithNormalForm):
         return np.round(np.linalg.inv(self.GetLeftMatrix()))
     def GetRightCoordinates(self):
         return np.round(self.GetRightMatrix())
+    def GetBasis(self):
+        return self.__Basis
 
-def GramSchmidtInteger(in_array: np.array):
-    out_array = np.copy(in_array)
-    lst_u = []
-    for i in range(1,in_array.shape[1]):
-        lst_j = []
-        for j in range(i,0,-1):
-            lst_j.append(np.dot(out_array[:, j], out_array[:, i])/np.linalg.norm(out_array[:,i]**2))
-            out_array[:, i] -= np.round(lst_u[-1])* out_array[:, j]
-        lst_u.append(lst_j)  
-        #out_array[:, i] = out_array[:, i] / np.linalg.norm(out_array[:, i])
-    return out_array, lst_u
+class GenericCSLandDSC(GenericCSL):
+    def __int__(self, inTransformation,inBasis):
+        GenericCSL.__init__(self,inTransformation, inBasis)
+    def GetDSCPrimitiveCell(self):
+        if not(self.IsDiagonal()):
+            self.FindSmithNormal()
+        arr_return =np.matmul(self.GetBasis(),self.GetRightMatrix(), np.linalg.inv(self.GetLeftScaling()))
+        return arr_return

@@ -1406,7 +1406,7 @@ class CSLTripleLine(object):
         intGCD = np.gcd.reduce(np.gcd.reduce(arrProduct))
     def GetTJSigmaValue(self, arrSigmaArray: np.array):
         #intSigma = np.sqrt(arrSigmaArray[2,0]**2*intGCD)
-        intSigma = np.sqrt(np.product(arrSigmaArray[:,0]))
+        intSigma = np.sqrt(np.prod(arrSigmaArray[:,0]))
         return intSigma
     def FindCoincidentLattice(self, lstThreeBases: list, fltL: float):
         objFirstLattice = ExtrudedRectangle(fltL,fltL,fltL,lstThreeBases[0], self.__CellType, np.ones(3),np.zeros(3))

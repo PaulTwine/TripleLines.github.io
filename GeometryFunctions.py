@@ -21,6 +21,7 @@ import MiscFunctions as mf
 import cmath as cm
 from fractions import Fraction
 from functools import reduce
+from itertools import permutations
 
 #import shapely as sp
 #import geopandas as gpd
@@ -1545,8 +1546,8 @@ class CSLSubLatticeBases(object):
         lstLimits = [intL1,intL2,intL3]
         arrSort = np.argsort(lstLimits)
         y = arrR[:,arrSort[2]]
-        for a in range(-lstLimits[arrSort[0]],lstLimits[arrSort[0]]+1):
-            for b in range(-lstLimits[arrSort[1]],lstLimits[arrSort[1]]+1):
+        for a in range(-lstLimits[arrSort[0]]-1,lstLimits[arrSort[0]]+1):
+            for b in range(-lstLimits[arrSort[1]]-1,lstLimits[arrSort[1]]+1):
                 x = a*arrR[:,arrSort[0]]+b*arrR[:,arrSort[1]]
                         #quadratic discriminant with factor 4 removed (when square rooted this becomes 2)       
                 fltD = np.dot(x,y)**2 -np.dot(y,y)*(np.dot(x,x) -1) 
@@ -1584,12 +1585,12 @@ class CSLSubLatticeBases(object):
                 if np.all(np.round(np.matmul(arrMatrix, np.transpose(arrMatrix)), 10) == np.identity(3)):
                         fltDet = float(np.round(np.linalg.det(arrMatrix),10))
                         if fltDet ==1:
-                                lstTransforms.append(arrMatrix)
+                                for p in permutations([0,1,2]):
+                                        lstTransforms.append(arrMatrix[list(p)])
                         elif fltDet==-1 and not(blnDirectOnly):
-                                lstTransforms.append(arrMatrix)
+                                for p in permutations([0,1,2]):
+                                        lstTransforms.append(arrMatrix[list(p)])
         return lstTransforms
-
-#%%
               
      
 
