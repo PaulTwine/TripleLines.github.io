@@ -1578,18 +1578,18 @@ class CSLSubLatticeBases(object):
             for i in range(len(arrRows3)):
                 arrMatrix = np.zeros([3, 3])
                 if arrRows3[i] < arrCols3[i]:  # check no double counting
-                        arrMatrix[0] = arrUnitVectors[n]
-                        arrMatrix[1] = arrVectors2[arrRows3][i]
-                        arrMatrix[2] = arrVectors2[arrCols3][i]
+                        arrMatrix[:,0] = arrUnitVectors[n]
+                        arrMatrix[:,1] = arrVectors2[arrRows3][i]
+                        arrMatrix[:,2] = arrVectors2[arrCols3][i]
                 #if np.max(np.abs(np.transpose(arrMatrix)-np.linalg.inv(arrMatrix)))<1e-5:
                 if np.all(np.round(np.matmul(arrMatrix, np.transpose(arrMatrix)), 10) == np.identity(3)):
                         fltDet = float(np.round(np.linalg.det(arrMatrix),10))
                         if fltDet ==1:
                                 for p in permutations([0,1,2]):
-                                        lstTransforms.append(arrMatrix[list(p)])
+                                        lstTransforms.append(arrMatrix[:,list(p)])
                         elif fltDet==-1 and not(blnDirectOnly):
                                 for p in permutations([0,1,2]):
-                                        lstTransforms.append(arrMatrix[list(p)])
+                                        lstTransforms.append(arrMatrix[:,list(p)])
         return lstTransforms
               
      

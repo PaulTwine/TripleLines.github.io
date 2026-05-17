@@ -5,27 +5,28 @@ import MiscFunctions as mf
 import GeneralLattice as gl
 import LatticeDefinitions as ld
 import matplotlib.pyplot as plt 
+from matplotlib.markers import MarkerStyle
 from mpl_toolkits.mplot3d import Axes3D
 import SmithNormalForm as sn
 import scipy as sc
 #
 #%%
-int_sigma = 27
+int_sigma = 147
 #objMatrix = gf.SigmaRotationMatrix(int_sigma)
 #lstMatrix = objMatrix.FindSigmaMatrices()
 #arrMatrix = lstMatrix[0]
-arrAxis = np.array([5,1,1])
-arrSigmas = np.array([9,9,9])
+arrAxis = np.array([1,1,1])
+arrSigmas = np.array([21,21,49])
 arrCell = gf.CubicCSLGenerator(arrAxis, 100)
 objCSL = gl.CSLTripleLine(arrAxis, ld.FCCCell) 
 arrCell = objCSL.FindTripleLineSigmaValues(75)
-intIndex = np.where(np.all(arrCell[:,:,0].astype('int')== np.array([9,9,9]),axis=1))[0][0]
+intIndex = np.where(np.all(arrCell[:,:,0].astype('int')== np.array([21,21,49]),axis=1))[0][0]
 arrCSL = arrCell[intIndex]
 objCSL.GetTJSigmaValue(arrCSL)
 arrEdgeVectors =objCSL.GetTJBasisVectors(intIndex,False)
-arr_TJ_511_cell = np.transpose(2*arrEdgeVectors)
+arr_TJ_111_Cell = np.transpose(2*arrEdgeVectors)
 #arr_sigma_3 = np.array([[2,-2,1],[2,1,-2],[1,2,2]])/3
-#arr_TJ_511_cell = np.round(np.matmul(arr_sigma_3, arr_TJ_511_cell),5)
+#arr_TJ_111_Cell = np.round(np.matmul(arr_sigma_3, arr_TJ_111_Cell),5)
 arr_fcc_basis = np.transpose(2*ld.FCCPrimitive)
 objBasis = sn.HermiteNormalForm(arr_fcc_basis)
 arr_fcc_basis = objBasis.FindHermiteNormalForm()
@@ -38,30 +39,10 @@ lstAllTransforms = objCSLSub.FindTransformationsByReciprocalLattice(True)
 len(lstAllTransforms)
 
 #%%
-arr_scaling_511_cell = np.matmul(arr_fcc_basis,np.matmul(np.linalg.inv(obj_edge_csl.GetRowOperations()), obj_edge_csl.FindSmithNormal()))
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.quiver(*np.zeros(3), *arr_scaling_511_cell[:,0], arrow_length_ratio=0.01)
-ax.quiver(*np.zeros(3), *arr_scaling_511_cell[:,1], arrow_length_ratio=0.01)
-ax.quiver(*np.zeros(3), *arr_scaling_511_cell[:,2], arrow_length_ratio=0.01)
-ax.quiver(*arr_scaling_511_cell[:,0], *arr_scaling_511_cell[:,1], arrow_length_ratio=0.01)
-ax.quiver(*arr_scaling_511_cell[:,0], *arr_scaling_511_cell[:,2], arrow_length_ratio=0.01)
-ax.quiver(*arr_scaling_511_cell[:,1], *arr_scaling_511_cell[:,0], arrow_length_ratio=0.01)
-ax.quiver(*arr_scaling_511_cell[:,1], *arr_scaling_511_cell[:,2], arrow_length_ratio=0.01)
-ax.quiver(*arr_scaling_511_cell[:,2], *arr_scaling_511_cell[:,0], arrow_length_ratio=0.01)
-ax.quiver(*arr_scaling_511_cell[:,2], *arr_scaling_511_cell[:,1], arrow_length_ratio=0.01)
-ax.quiver(*(arr_scaling_511_cell[:,0]+arr_scaling_511_cell[:,1]), *arr_scaling_511_cell[:,2], arrow_length_ratio=0.01)
-ax.quiver(*(arr_scaling_511_cell[:,0]+arr_scaling_511_cell[:,2]), *arr_scaling_511_cell[:,1], arrow_length_ratio=0.01)
-ax.quiver(*(arr_scaling_511_cell[:,1]+arr_scaling_511_cell[:,2]), *arr_scaling_511_cell[:,0], arrow_length_ratio=0.01)
 #gf.EqualAxis3D(ax)
-ax.set_xlabel("x")
-ax.set_ylabel("y")
-ax.set_zlabel("z")
-
-#gf.EqualAxis3D(ax)
-#ax.set_xlim([np.min(arr_TJ_511_cell[0,:]),np.max(arr_TJ_511_cell[0,:])])
-#ax.set_ylim([np.min(arr_TJ_511_cell[1,:]),np.max(arr_TJ_511_cell[1,:])])
-#ax.set_zlim([np.min(arr_TJ_511_cell[2,:]),np.max(arr_TJ_511_cell[2,:])])
+#ax.set_xlim([np.min(arr_TJ_111_Cell[0,:]),np.max(arr_TJ_111_Cell[0,:])])
+#ax.set_ylim([np.min(arr_TJ_111_Cell[1,:]),np.max(arr_TJ_111_Cell[1,:])])
+#ax.set_zlim([np.min(arr_TJ_111_Cell[2,:]),np.max(arr_TJ_111_Cell[2,:])])
 plt.show()
 # %%
 dctValues = dict()
@@ -96,6 +77,7 @@ arrOut = np.array(lstAllTransforms)
 
 # %%
 arrCellBasis = arrEdgeVectors/2
+arrEdgeVectors[[1,2],:] = arrEdgeVectors[[2,1],:] 
 arrEdgeVectors, arrTransform = gf.ConvertToLAMMPSBasis(arrEdgeVectors)
 arrEdgeVectors = np.abs(np.round(arrEdgeVectors, 10))
 objSimulationCell = gl.SimulationCell(arrEdgeVectors)
@@ -138,53 +120,57 @@ arr_sigma_9 = gf.GetMatrixFromAxisAngle(arrAxis, arrCSL[0,1])
 
 
 # %%
-def get_rotation_matrix_axis(in_matrix):
-    arr_vals, arr_vectors = np.linalg.eig(in_matrix)
-    arr_rows = np.where(np.round(arr_vals.real,5) ==float(1))[0]
-    arr_axis = np.round(arr_vectors[:,arr_rows].real,5)
-    flt_min = np.min(np.abs(arr_axis[np.abs(arr_axis) > 1e-5]))
-    return arr_axis/flt_min
-    
-#%%
-lst_new_t = []
-arr_sigma_3 = lstTransforms[3]
-i = 0
-for t in lstTransforms:
-    x= np.round(np.matmul(np.transpose(arr_sigma_3),t),10)
-    obj_sn = sn.GenericCSL(t,arr_fcc_basis)
-    print(i)
-    print(obj_sn.FindSmithNormal(), np.round(np.linalg.inv(obj_sn.GetColumnOperations()),0))
-    if np.linalg.det(x) > 0:
-        print(get_rotation_matrix_axis(x))
-        print(x*27)
-        print(t*9)
-    lst_new_t.append(np.round(x,10))
-    i +=1
-#%%
-for t in lstTransforms:
-    arr_coords = np.round(np.matmul(np.linalg.inv(np.matmul(t,arr_fcc_basis)),arr_TJ_511_cell),5)
-    obj_sn = sn.SmithNormalForm(arr_coords)
-    print("diagonal form",obj_sn.FindSmithNormal())
-#%%
+arr_sigmas = np.array([1,3,49,7,21,147])
+lst_markers = [".","1","2","3","4", "o"]
 
-arr_TJ_cell_new = np.round(np.matmul(arr_sigma_3, arr_TJ_511_cell),5)
-obj_csl_new = gf.CSLSubLatticeBases(arr_TJ_cell_new, arr_fcc_basis)
-lst_transformations_new = obj_csl_new.FindTransformationsByReciprocalLattice()
+lst_fill = ["top","bottom","left", "right", "none", "none"]
+lst_colours = ['black',"blue","green","red","purple","gray"]
+arr_rows = np.argsort(arr_sigmas)[::-1]
+lst_legend = list(map(lambda x: '$\\Sigma$' + str(x), arr_sigmas[arr_rows]))
 #%%
-dctValues = dict()
-lstGCDs = []
-lstS = []
-lstValues = []
-for j in lst_transformations_new:
-    n = int_sigma/np.gcd.reduce(np.round(np.unique(j*int_sigma)).astype('int'))
-    if n not in lstGCDs:
-        dctValues[n] = [j]
-        lstGCDs.append(n)
-        lstS.append(j)
+x = 5 
+for r in arr_rows:
+    i = lstPoints[r]
+    i = i[i[:,2]< 0.5]
+    if x ==0 :
+        plt.scatter(i[:,0],i[:,1],s=100, marker=lst_markers[x], c=lst_colours[x])
+    elif x ==5:
+        plt.scatter(i[:,0],i[:,1],s=250, linewidths=2,c=lst_colours[x],marker=MarkerStyle(lst_markers[x],fillstyle="none"))
     else:
-        lstValues = dctValues[n]
-        lstValues.append(j)
-        dctValues[n] = list(np.unique(lstValues,axis=0))
-print(np.unique(lstGCDs), len(lstS))
+        plt.scatter(i[:,0],i[:,1],s=250,linewidths=2,c=lst_colours[x], marker =MarkerStyle(lst_markers[x],fillstyle="none"))
+    x -= 1
+plt.legend(lst_legend)
+plt.axis('off') 
+plt.show()
+#%%
+x = 5 
+for r in arr_rows:
+    i = lstPoints[r]
+    i = i[(i[:,2] > 0.5) & (i[:,2] < 1.0)]
+    if x ==0 :
+        plt.scatter(i[:,0],i[:,1],s=100, marker=lst_markers[x], c=lst_colours[x])
+    elif x ==5:
+        plt.scatter(i[:,0],i[:,1],s=250, linewidths=2,c=lst_colours[x],marker=MarkerStyle(lst_markers[x],fillstyle="none"))
+    else:
+        plt.scatter(i[:,0],i[:,1],s=250,linewidths=2,c=lst_colours[x], marker =MarkerStyle(lst_markers[x],fillstyle="none"))
+    x -= 1
+plt.legend(arr_sigmas[arr_rows].tolist())
+plt.axis('off') 
+plt.show()
+#%%
+x = 5 
+for r in arr_rows:
+    i = lstPoints[r]
+    i = i[(i[:,2] > 1.0)]
+    if x ==0 :
+        plt.scatter(i[:,0],i[:,1],s=100, marker=lst_markers[x], c=lst_colours[x])
+    elif x ==5:
+        plt.scatter(i[:,0],i[:,1],s=250, linewidths=2,c=lst_colours[x],marker=MarkerStyle(lst_markers[x],fillstyle="none"))
+    else:
+        plt.scatter(i[:,0],i[:,1],s=250,linewidths=2,c=lst_colours[x], marker =MarkerStyle(lst_markers[x],fillstyle="none"))
+    x -= 1
+plt.legend(arr_sigmas[arr_rows].tolist())
+plt.axis('off') 
+plt.show()
 
 

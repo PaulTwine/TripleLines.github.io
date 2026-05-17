@@ -11,8 +11,8 @@ class IntegerMatrix(object):
         self.__TransformedMatrix = np.round(self.__OriginalMatrix)
         self.__MaxSize = np.max(np.shape(self.__OriginalMatrix))
         self.__Identity = np.round(np.identity(max([self.__intColumns,self.__intRows])))
-        self.__LeftMatrix = np.round(np.copy(self.__Identity))
-        self.__RightMatrix = np.round(np.copy(self.__Identity))
+        self.__RowOperations = np.round(np.copy(self.__Identity))
+        self.__ColumnOperations = np.round(np.copy(self.__Identity))
     def PackWithZeros(self):
         arrZeros = np.zeros([self.__MaxSize, self.__MaxSize])
         arrZeros[:self.__intRows,:self.__intColumns] = np.round(self.__TransformedMatrix)
@@ -39,21 +39,21 @@ class IntegerMatrix(object):
     def SwapColumns(self, i,j):
         arrSwap = self.SwapMatrix(i,j)
         self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,arrSwap))
-        self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,arrSwap))
+        self.__ColumnOperations = np.round(np.matmul(self.__ColumnOperations,arrSwap))
     def SwapRows(self, i,j):
         arrSwap = self.SwapMatrix(i,j)
         self.__TransformedMatrix = np.round(np.matmul(arrSwap,self.__TransformedMatrix))
-        self.__LeftMatrix =np.round(np.matmul(arrSwap,self.__LeftMatrix))    
+        self.__RowOperations =np.round(np.matmul(arrSwap,self.__RowOperations))    
     def InvertRow(self,i):
         arrInvert = np.copy(self.__Identity)
         arrInvert[i,i] = -1
         self.__TransformedMatrix = np.round(np.matmul(arrInvert,self.__TransformedMatrix))
-        self.__LeftMatrix = np.round(np.matmul(arrInvert,self.__LeftMatrix))
+        self.__RowOperations = np.round(np.matmul(arrInvert,self.__RowOperations))
     def InvertColumn(self,i):
         arrInvert = np.copy(self.__Identity)
         arrInvert[i,i] = -1
         self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,arrInvert))
-        self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,arrInvert))    
+        self.__ColumnOperations = np.round(np.matmul(self.__ColumnOperations,arrInvert))    
     def ReduceByFirstRow(self,intStep):
         arrOriginalRow = np.round(np.copy(self.__TransformedMatrix[:,intStep]))
         arrRow = np.zeros(len(arrOriginalRow))
@@ -66,7 +66,7 @@ class IntegerMatrix(object):
             arrReduce = np.copy(self.__Identity)
             arrReduce[:,intStep] = arrRow
             self.__TransformedMatrix = np.round(np.matmul(np.round(arrReduce),self.__TransformedMatrix))
-            self.__LeftMatrix = np.round(np.matmul(np.round(arrReduce),self.__LeftMatrix))
+            self.__RowOperations = np.round(np.matmul(np.round(arrReduce),self.__RowOperations))
     def ReduceByFirstCol(self,intStep):
         arrOriginalCol = np.round(np.copy(self.__TransformedMatrix[intStep,:]))
         arrCol = np.zeros(len(arrOriginalCol))
@@ -79,17 +79,17 @@ class IntegerMatrix(object):
             arrReduce = np.copy(self.__Identity)
             arrReduce[intStep,:] = arrCol
             self.__TransformedMatrix = np.round(np.matmul(self.__TransformedMatrix,np.round(arrReduce)))
-            self.__RightMatrix = np.round(np.matmul(self.__RightMatrix,np.round(arrReduce)))
+            self.__ColumnOperations = np.round(np.matmul(self.__ColumnOperations,np.round(arrReduce)))
     def SwapMatrix(self,i,j):
         arrMatrix = np.copy(self.__Identity)
         if i !=j:
             arrMatrix[i] = self.__Identity[j]
             arrMatrix[j] = self.__Identity[i]
         return arrMatrix
-    def GetLeftMatrix(self):
-        return self.__LeftMatrix
-    def GetRightMatrix(self):
-        return self.__RightMatrix
+    def GetRowOperations(self):
+        return self.__RowOperations
+    def GetColumnOperations(self):
+        return self.__ColumnOperations
     def IsDiagonal(self):
         blnReturn = False
         arrMatrix = np.copy(self.__TransformedMatrix)
@@ -289,7 +289,7 @@ class GenericCSL(SmithNormalForm):
         self.__LeftScaling = np.diag(lstCSLLeftFactors)
         self.__RightScaling = np.diag(lstCSLRightFactors)
         self.__Sigma = np.prod(np.array(lstCSLLeftFactors))
-        arr_return =  np.matmul(self.__Transformation,np.matmul(self.__Basis, np.matmul(self.GetRightMatrix(),self.GetRightScaling())))
+        arr_return =  np.matmul(self.__Transformation,np.matmul(self.__Basis, np.matmul(self.GetColumnOperations(),self.GetRightScaling())))
         return arr_return
     def GetLeftScaling(self):
         return self.__LeftScaling
@@ -298,9 +298,9 @@ class GenericCSL(SmithNormalForm):
     def GetSigma(self):
         return self.__Sigma
     def GetLeftCoordinates(self):
-        return np.round(np.linalg.inv(self.GetLeftMatrix()))
+        return np.round(np.linalg.inv(self.GetRowOperations()))
     def GetRightCoordinates(self):
-        return np.round(self.GetRightMatrix())
+        return np.round(self.GetColumnOperations())
     def GetBasis(self):
         return self.__Basis
 
@@ -310,5 +310,5 @@ class GenericCSLandDSC(GenericCSL):
     def GetDSCPrimitiveCell(self):
         if not(self.IsDiagonal()):
             self.FindSmithNormal()
-        arr_return =np.matmul(self.GetBasis(),self.GetRightMatrix(), np.linalg.inv(self.GetLeftScaling()))
+        arr_return =np.matmul(self.GetBasis(),self.GetColumnOperations(), np.linalg.inv(self.GetLeftScaling()))
         return arr_return
