@@ -30,7 +30,7 @@ arr_TJ_111_Cell = np.transpose(2*arrEdgeVectors)
 arr_fcc_basis = np.transpose(2*ld.FCCPrimitive)
 objBasis = sn.HermiteNormalForm(arr_fcc_basis)
 arr_fcc_basis = objBasis.FindHermiteNormalForm()
-arr_edge_coordinates = np.matmul(np.linalg.inv(arr_fcc_basis),2*arrEdgeVectors)
+arr_edge_coordinates = np.matmul(np.linalg.inv(arr_fcc_basis),2*np.transpose(arrEdgeVectors))
 obj_edge_csl = sn.SmithNormalForm(arr_edge_coordinates)
 print(obj_edge_csl.FindSmithNormal(), np.round(np.linalg.inv(obj_edge_csl.GetRowOperations(),),0))
 objCSLSub = gf.CSLSubLatticeBases(2*np.transpose(arrEdgeVectors), arr_fcc_basis)
@@ -39,10 +39,38 @@ lstAllTransforms = objCSLSub.FindTransformationsByReciprocalLattice(True)
 len(lstAllTransforms)
 
 #%%
-#gf.EqualAxis3D(ax)
-#ax.set_xlim([np.min(arr_TJ_111_Cell[0,:]),np.max(arr_TJ_111_Cell[0,:])])
-#ax.set_ylim([np.min(arr_TJ_111_Cell[1,:]),np.max(arr_TJ_111_Cell[1,:])])
-#ax.set_zlim([np.min(arr_TJ_111_Cell[2,:]),np.max(arr_TJ_111_Cell[2,:])])
+arr_scaling_111_cell = np.matmul(arr_fcc_basis,np.matmul(np.linalg.inv(obj_edge_csl.GetRowOperations()), obj_edge_csl.FindSmithNormal()))
+x = 5 
+fig = plt.figure()
+lst_colours = ['black',"blue","green","red","purple","gray"]
+ax = fig.add_subplot()
+arr_xy = arr_scaling_111_cell[1:,1:]
+ax.set_xlim(arr_xy[0].min(),arr_xy[0].max())
+ax.set_ylim([arr_xy[1].min(),arr_xy[1].max()])
+for r in [1,3,7,21,49,147]:
+    arr_reduced_cell = arr_xy
+    arr_reduced_cell[:,1] = arr_reduced_cell[:,1]/r
+    #plt.plot(np.zeros(2), arr_reduced_cell[1,0])
+    #plt.plot(arr_reduced_cell[1,0], arr_reduced_cell[1,1])
+    #plt.plot([0,0, *arr_reduced_cell[0]])
+    ax.quiver(*np.zeros(2),*arr_reduced_cell[:,1],color=lst_colours[x], scale=1,scale_units='xy', angles='xy', width =0.002)
+    ax.quiver(*arr_xy,*arr_reduced_cell[:,1],color=lst_colours[x], scale=1,scale_units='xy', angles='xy', width=0.002)
+    #ax.quiver(*arr_xy,*arr_reduced_cell[:,0],color=lst_colours[x], angles='xy',scale_units='xy', scale=1)
+    #
+    # ax.quiver(*np.zeros(2),*arr_reduced_cell[:,1],color=lst_colours[x], angles='xy',scale_units='xy', scale=1)
+    
+    #ax.quiver(*np.zeros(2),*arr_scaling_111_cell[1:,2]/r,color=lst_colours[x], angles='xy',scale_units='xy', scale=1)
+    #ax.quiver(*arr_scaling_111_cell[1:,2]/r,*arr_scaling_111_cell[1:,1],color=lst_colours[x], angles='xy',scale_units='xy', scale=1)
+   #plt.quiver(arr_scaling_111_cell[1:,2],arr_scaling_111_cell[1:,1],  scale=1,scale_units = "xy",color=lst_colours[x], label="_no_legend_")
+    #ax.annotate(str(r), xytext=(0, 0),xycoords='data', xy=tuple(arr_scaling_111_cell[1:,2]), arrowprops=dict(arrowstyle="->",facecolor=lst_colours[x]))
+    #ax.annotate(str(r), xytext=(0, 0),xycoords='data', xy=tuple(arr_scaling_111_cell[1:,1]),arrowprops=dict(arrowstyle="->",facecolor=lst_colours[x]))
+    # plt.quiver(arr_scaling_111_cell[1:,1],arr_scaling_111_cell[1:,2]/int_sigma*r,  scale=1,scale_units = "xy", color=lst_colours[x],label="_no_legend_")
+   # plt.quiver(arr_scaling_111_cell[1:,2],arr_scaling_111_cell[1:,1],  scale=1,scale_units = "xy",color=lst_colours[x], label="_no_legend_")
+    x -= 1
+#plt.legend([1,3,7,21,49,147])
+#plt.xlim([arr_xy[0].min(),arr_xy[0].max()])
+#plt.ylim([arr_xy[1].min(),arr_xy[1].max()])
+#plt.axis('off') 
 plt.show()
 # %%
 dctValues = dict()
@@ -154,7 +182,7 @@ for r in arr_rows:
     else:
         plt.scatter(i[:,0],i[:,1],s=250,linewidths=2,c=lst_colours[x], marker =MarkerStyle(lst_markers[x],fillstyle="none"))
     x -= 1
-plt.legend(arr_sigmas[arr_rows].tolist())
+plt.legend(lst_legend)
 plt.axis('off') 
 plt.show()
 #%%
@@ -169,8 +197,10 @@ for r in arr_rows:
     else:
         plt.scatter(i[:,0],i[:,1],s=250,linewidths=2,c=lst_colours[x], marker =MarkerStyle(lst_markers[x],fillstyle="none"))
     x -= 1
-plt.legend(arr_sigmas[arr_rows].tolist())
+plt.legend(lst_legend)
 plt.axis('off') 
 plt.show()
+#%%
+
 
 
